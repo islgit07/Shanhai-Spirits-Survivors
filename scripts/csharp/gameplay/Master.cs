@@ -11,6 +11,8 @@ public partial class Master : CharacterBody2D
 {
     private float _invuln;
     private Sprite2D _sprite = null!;
+    // 移动内核与白箱共用（见 PlatformMover）：白箱里调出的数值写回 GameDefs 即生效
+    private readonly PlatformMover _mover = new(MoveTuning.GameDefaults());
     private static readonly StringName Left = new("move_left");
     private static readonly StringName Right = new("move_right");
     private static readonly StringName Jump = new("jump");
@@ -30,18 +32,7 @@ public partial class Master : CharacterBody2D
     {
         float dt = (float)delta;
         float dir = Input.GetAxis(Left, Right);
-        Velocity = new Vector2(dir * GameDefs.MasterMoveSpeed, Velocity.Y);
-        if (IsOnFloor())
-        {
-            Velocity = new Vector2(Velocity.X, 0.0f);
-            if (Input.IsActionJustPressed(Jump))
-                Velocity = new Vector2(Velocity.X, -GameDefs.MasterJumpSpeed);
-        }
-        else
-        {
-            Velocity = new Vector2(Velocity.X, Velocity.Y + GameDefs.Gravity * dt);
-        }
-        MoveAndSlide();
+        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), dt);
 
         // @trace GND-001 水平活动域锁在第一层全覆盖地板之内
         float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
@@ -52,6 +43,7 @@ public partial class Master : CharacterBody2D
             GlobalPosition = new Vector2(GlobalPosition.X,
                 GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
             Velocity = Vector2.Zero;
+            _mover.ResetWindows();
         }
         if (_invuln > 0.0f)
         {

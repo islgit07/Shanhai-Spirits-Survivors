@@ -3,8 +3,8 @@
   "version": "0.003",
   "engine": "Godot 4.7.2.stable.mono",
   "language": "C# (full, zero GDScript, zero autoload)",
-  "total": 101,
-  "passed": 101,
+  "total": 103,
+  "passed": 103,
   "failed": 0,
   "traceIds": [
     "AREA-001",
@@ -41,7 +41,7 @@
     "WPN-001"
   ],
   "scriptCount": {
-    "csharp": 19,
+    "csharp": 21,
     "gdscript": 0
   },
   "artCount": 16,
@@ -127,14 +127,24 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 19",
+      "name": "C# 脚本数量 = 21",
       "ok": true,
-      "detail": "19 个"
+      "detail": "21 个"
     },
     {
       "name": "GDScript 数量 = 0",
       "ok": true,
       "detail": "0 个"
+    },
+    {
+      "name": "跳跃白箱场景存在（调参工具）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "移动内核 PlatformMover 存在且与 Master 共用",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "每个 .cs 都有配对 .cs.uid",
@@ -147,7 +157,7 @@
       "detail": ""
     },
     {
-      "name": "旧平铺 C# 地形层已删除",
+      "name": "正式地形层 PlatformField 存在（白箱与主游戏共用）",
       "ok": true,
       "detail": ""
     },

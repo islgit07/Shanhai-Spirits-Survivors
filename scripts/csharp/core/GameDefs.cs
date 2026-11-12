@@ -98,6 +98,10 @@ public static class GameDefs
     public const float MasterMoveSpeed = 6.0f;
     public const float Gravity = 26.0f;
     public const float MasterJumpSpeed = 14.2f;
+    // 以下三项默认值 = 「与旧行为完全一致」；由跳跃白箱（scenes/Whitebox.tscn）调出后写回这里。
+    public const float MasterAirControl = 1.0f;   // 空中水平控制 1=与地面同样灵活
+    public const float MasterCoyoteTime = 0.0f;   // 土狼时间（0=关闭）
+    public const float MasterJumpBuffer = 0.0f;   // 跳跃缓冲（0=关闭）
     public const int MasterMaxHp = 100;
     public const float MasterInvuln = 0.55f;
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);

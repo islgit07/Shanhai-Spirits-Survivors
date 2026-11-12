@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.003"
-EXPECTED_CS = 19
+EXPECTED_CS = 21
 EXPECTED_ITEMS = 32
 checks = []
 
@@ -60,9 +60,16 @@ gd_files = sorted((ROOT / "scripts").rglob("*.gd"))
 check(f"C# 脚本数量 = {EXPECTED_CS}", len(cs_files) == EXPECTED_CS, f"{len(cs_files)} 个")
 check("GDScript 数量 = 0", len(gd_files) == 0, f"{len(gd_files)} 个")
 missing_uid = [f.name for f in cs_files if not Path(str(f) + ".uid").exists()]
+check("跳跃白箱场景存在（调参工具）", (ROOT / "scenes" / "Whitebox.tscn").exists()
+      and "WhiteboxRoot.cs" in (ROOT / "scenes" / "Whitebox.tscn").read_text(encoding="utf-8"))
+check("移动内核 PlatformMover 存在且与 Master 共用",
+      "PlatformMover" in (ROOT / "scripts" / "csharp" / "gameplay" / "PlatformMover.cs").read_text(encoding="utf-8")
+      and "_mover = new(MoveTuning.GameDefaults())" in (ROOT / "scripts" / "csharp" / "gameplay" / "Master.cs").read_text(encoding="utf-8"))
 check("每个 .cs 都有配对 .cs.uid", not missing_uid, "缺失: " + ", ".join(missing_uid))
 check("无 .gd.uid 残留", not list((ROOT / "scripts").rglob("*.gd.uid")))
-check("旧平铺 C# 地形层已删除", not (ROOT / "scripts" / "csharp" / "PlatformField.cs").exists())
+check("正式地形层 PlatformField 存在（白箱与主游戏共用）",
+      (ROOT / "scripts" / "csharp" / "gameplay" / "PlatformField.cs").exists()
+      and "GND-001" in (ROOT / "scripts" / "csharp" / "gameplay" / "PlatformField.cs").read_text(encoding="utf-8"))
 check("旧 GDScript 目录已清空", not (ROOT / "scripts" / "core" / "GameManager.gd").exists()
       and not (ROOT / "scripts" / "gameplay" / "WeaponSystem.gd").exists())
 

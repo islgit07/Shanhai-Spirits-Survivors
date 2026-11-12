@@ -35,7 +35,7 @@ SMOKE_JSON_BEGIN
   "result": "PASS",
   "days_reached": 4,
   "kills": 6,
-  "spirit_radius_spread": 1.59,
+  "spirit_radius_spread": 1.61,
   "ally_hits": 6,
   "ally_melee_hits": 3,
   "ally_bolt_hits": 3,
