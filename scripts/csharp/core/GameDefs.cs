@@ -97,24 +97,25 @@ public static class GameDefs
     // ---------------------------------------------------------------- 幻灵师（主角不直接攻击）
     // 跳跃手感目标 = 复刻《终焉之莉莉》：轻盈可控、顶点悬停、短按矮跳、长按照高。
     // 数值为本作调参（非原作提取），由跳跃白箱（scenes/Whitebox.tscn）继续微调后写回这里。
-    public const float MasterMoveSpeed = 6.5f;     // 略快于旧 6.0，空中更易修正落点
-    public const float Gravity = 22.0f;            // 低于旧 26，整体更飘
-    public const float MasterJumpSpeed = 13.5f;    // 满跳高度 ≈ 4.26 > 层高 3.2 → 单跳可跨一层
-    // 以下三项默认值 = 「与旧行为完全一致」；由跳跃白箱（scenes/Whitebox.tscn）调出后写回这里。
-    public const float MasterAirControl = 0.9f;    // 空中水平控制（略低于地面，保留惯性）
-    public const float MasterCoyoteTime = 0.10f;   // 土狼时间（离台沿后仍可起跳的宽限）
-    public const float MasterJumpBuffer = 0.12f;   // 跳跃缓冲（落地前预按自动起跳）
+    // 以下数值 = 跳跃白箱（scenes/Whitebox.tscn）按《终焉之莉莉》手感实机调出后写回（terrain_seed 20261112）。
+    public const float MasterMoveSpeed = 6.5f;     // 空中更易修正落点
+    public const float Gravity = 36.0f;            // 偏重 → 整体更沉稳（原默认 22）
+    public const float MasterJumpSpeed = 14.6f;    // 满跳高度 ≈ 3.03 < 层高 3.2 → 单跳约 0.95 层（见下注）
+    public const float MasterAirControl = 0.6f;    // 空中水平控制（明显低于地面，保留惯性）
+    public const float MasterCoyoteTime = 0.11f;   // 土狼时间（离台沿后仍可起跳的宽限）
+    public const float MasterJumpBuffer = 0.11f;   // 跳跃缓冲（落地前预按自动起跳）
     // 《终焉之莉莉》式跳跃细节
-    public const float MasterJumpCutMul = 0.45f;   // 变高跳：上升松键截断系数（短按≈0.9 单位矮跳）
-    public const float MasterFallGravityMul = 1.5f;// 下落比上升更重 → 落得利落
-    public const float MasterApexGravityMul = 0.55f;// 顶点滞空：穿过顶点附近降低重力
-    public const float MasterApexThreshold = 2.5f; // 顶点区速度阈值（单位/秒）
-    public const float MasterMaxFallSpeed = 28.0f; // 终端下落速度封顶
+    public const float MasterJumpCutMul = 0.36f;   // 变高跳：上升松键截断系数（短按≈0.39 单位矮跳）
+    public const float MasterFallGravityMul = 2.5f;// 下落比上升重 2.5 倍 → 落得利落
+    public const float MasterApexGravityMul = 0.2f;// 顶点滞空：穿过顶点附近重力降到 0.2 倍
+    public const float MasterApexThreshold = 1.1f; // 顶点区速度阈值（单位/秒）
+    public const float MasterMaxFallSpeed = 40.0f; // 终端下落速度封顶
     public const int MasterMaxHp = 100;
     public const float MasterInvuln = 0.55f;
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);
-    // 验算：满跳高度 = (13.5²-2.5²)/(2×22) + 2.5²/(2×22×0.55) ≈ 4.26 > 层高 3.2 → 单跳可跨一层
-    //        短按高度 ≈ 4.26 × 0.45² ≈ 0.86（矮跳）
+    // 验算：满跳高度 = (14.6²-1.1²)/(2×36) + 1.1²/(2×36×0.2) ≈ 3.03
+    //        短按高度 ≈ 3.03 × 0.36² ≈ 0.39（矮跳）
+    //        ⚠ 3.03 < 层高 3.2 → 单跳跨不上纯一层；关卡竖向间距须 ≤ 约 3.0 才保证可达。
 
     // ---------------------------------------------------------------- @trace FOLLOW-001 幻灵跟随
     // A 级依据（BM data.win VARI 变量真名）：minion_slot / minion_vx_base / minion_vy_base /
