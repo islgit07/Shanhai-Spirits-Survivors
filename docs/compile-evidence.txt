@@ -7,7 +7,7 @@
     0 个警告
     0 个错误
 
-已用时间 00:00:02.52
+已用时间 00:00:00.92
 === GODOT_IMPORT (headless editor) ===
 Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
 
@@ -19,12 +19,6 @@ Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
 [  66% ] [90m[1mfirst_scan_filesystem[22m | 正在初始化插件……[39m[0m
 [  83% ] [90m[1mfirst_scan_filesystem[22m | 正在启动文件扫描……[39m[0m
 [92m[ DONE ][39m [1mfirst_scan_filesystem[22m
-[0m
-[   0% ] [90m[1mupdate_scripts_classes[22m | Started 正在注册全局类…… (3 steps)[39m[0m
-[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
-[  25% ] [90m[1mupdate_scripts_classes[22m | PlatformField[39m[0m
-[  50% ] [90m[1mupdate_scripts_classes[22m | World[39m[0m
-[92m[ DONE ][39m [1mupdate_scripts_classes[22m
 [0m
 [   0% ] [90m[1mloading_editor_layout[22m | Started 正在加载编辑器 (5 steps)[39m[0m
 [   0% ] [90m[1mloading_editor_layout[22m | 正在加载编辑器布局……[39m[0m

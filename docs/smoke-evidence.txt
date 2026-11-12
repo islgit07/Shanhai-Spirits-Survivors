@@ -1,67 +1,104 @@
 Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
 
-[BOOT] 山海幻灵 v0.001 自举完成 ｜ args=[] ｜ user=["--smoke"]
+[BOOT] 山海幻灵 v0.003 · 山海谷幻灵师 · Godot 4 2D / C# 全量重构
 [GROUND] segments=55 ground_continuous=True
 [SMOKE] start_run day=1
 [SMOKE] day_started day=1
-[SMOKE] night_started day=1
-[SMOKE] upgrade_offered day=1
+[SMOKE] offers_presented day=1
 [SMOKE] card_chosen day=1
+[SMOKE] offers_presented day=1
+[SMOKE] card_chosen day=1
+[SMOKE] offers_presented day=1
+[SMOKE] card_chosen day=1
+[SMOKE] offers_presented day=1
+[SMOKE] card_chosen day=1
+[SMOKE] offers_presented day=1
+[SMOKE] card_chosen day=1
+[SMOKE] night_started day=1
+[SMOKE] dawn day=2
 [SMOKE] day_started day=2
 [SMOKE] night_started day=2
-[SMOKE] upgrade_offered day=2
-[SMOKE] card_chosen day=2
+[SMOKE] dawn day=3
 [SMOKE] day_started day=3
 [SMOKE] night_started day=3
-[SMOKE] upgrade_offered day=3
-[SMOKE] run_ended day=3
-[SMOKE] return_to_menu day=3
+[SMOKE] dawn day=4
+[SMOKE] run_ended day=4
+[SMOKE] return_to_menu day=4
 SMOKE_JSON_BEGIN
 {
-	"assertions": {
-		"coins_dropped": true,
-		"enemies_spawned": true,
-		"events_ordered": true,
-		"ground_continuous": true,
-		"kills_recorded": true,
-		"platforms_built": true,
-		"player_grounded": true,
-		"projectiles_fired": true,
-		"reached_target_day": true,
-		"returned_to_menu": true,
-		"run_ended": true,
-		"save_file_written": true
-	},
-	"cards_taken": 2,
-	"coins_spawned": 6,
-	"days_reached": 3,
-	"enemies_spawned": 39,
-	"engine": "4.7.2-stable (official)",
-	"events": [
-		"start_run",
-		"day_started",
-		"night_started",
-		"upgrade_offered",
-		"card_chosen",
-		"day_started",
-		"night_started",
-		"upgrade_offered",
-		"card_chosen",
-		"day_started",
-		"night_started",
-		"upgrade_offered",
-		"run_ended",
-		"return_to_menu"
-	],
-	"ground_continuous": true,
-	"kills": 6,
-	"mode": "headless-smoke",
-	"platforms": 55,
-	"player_grounded": true,
-	"project": "山海幻灵",
-	"projectiles_fired": 6,
-	"result": "PASS",
-	"smoke_injection": "damage_bonus +200；敌人近场 0.9~1.6 单位；阶段 0.8 秒（三项均仅 --smoke 模式）",
-	"version": "0.002"
+  "project": "\u5C71\u6D77\u5E7B\u7075",
+  "version": "0.003",
+  "setting": "\u5C71\u6D77\u8C37\u5E7B\u7075\u5E08 \u00B7 \u57F9\u517B\u5E7B\u7075 \u00B7 \u964D\u4F0F\u91CE\u751F\u5E7B\u517D\uFF08\u654C\u6211\u540C\u6E90\uFF09\u00B7 \u6A2A\u677F\u8DF3\u8DC3",
+  "engine": "4.7.2-stable (official)",
+  "language": "C# (full)",
+  "mode": "headless-smoke",
+  "result": "PASS",
+  "days_reached": 4,
+  "kills": 7,
+  "cards_taken": 5,
+  "legion_size": 2,
+  "platforms": 55,
+  "ground_continuous": true,
+  "player_grounded": true,
+  "wilds_spawned": 39,
+  "projectiles_fired": 15,
+  "pickups_spawned": 7,
+  "pickups_collected": 7,
+  "essence_total": 114,
+  "level": 6,
+  "smoke_fused": true,
+  "smoke_bolstered": true,
+  "smoke_raised": true,
+  "smoke_injection": "\u56FA\u5B9A\u79CD\u5B50 20261112\uFF1B\u989D\u5916 2 \u53EA\u51E1\u9636\u5951\u7075\uFF1B1 \u679A\u7075\u9B44\uFF1B100 \u7075\u97F5\uFF085 \u6B21\u5524\u7075\uFF09\uFF1B\u6362\u7B7E\u76F4\u5230\u4E09\u7C7B\u51FA\u53E3\u5747\u88AB\u5B9E\u9645\u6267\u884C\uFF1B\u654C\u4EBA\u8FD1\u573A 0.9~1.6\uFF1B\u5E7B\u7075\u4F24\u5BB3 \u002B200\uFF1B\u9636\u6BB5 0.8 \u79D2\uFF08\u5168\u90E8\u4EC5 --smoke\uFF09",
+  "events": [
+    "start_run",
+    "day_started",
+    "offers_presented",
+    "card_chosen",
+    "offers_presented",
+    "card_chosen",
+    "offers_presented",
+    "card_chosen",
+    "offers_presented",
+    "card_chosen",
+    "offers_presented",
+    "card_chosen",
+    "night_started",
+    "dawn",
+    "day_started",
+    "night_started",
+    "dawn",
+    "day_started",
+    "night_started",
+    "dawn",
+    "run_ended",
+    "return_to_menu"
+  ],
+  "assertions": {
+    "reached_target_day": true,
+    "run_ended": true,
+    "platforms_built": true,
+    "ground_continuous": true,
+    "player_grounded": true,
+    "wilds_spawned": true,
+    "projectiles_fired": true,
+    "kills_recorded": true,
+    "pickups_collected": true,
+    "essence_gained": true,
+    "level_advanced": true,
+    "offers_presented": true,
+    "cards_taken": true,
+    "branches_complete": true,
+    "fuse_applied": true,
+    "bolster_applied": true,
+    "raise_applied": true,
+    "shared_species_table": true,
+    "cap_respected": true,
+    "lore_changes_pool": true,
+    "soul_jump_configured": true,
+    "save_file_written": true,
+    "returned_to_menu": true,
+    "events_ordered": true
+  }
 }
 SMOKE_JSON_END

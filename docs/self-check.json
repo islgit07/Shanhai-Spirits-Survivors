@@ -1,46 +1,47 @@
 {
   "project": "山海幻灵",
-  "version": "0.002",
+  "version": "0.003",
   "engine": "Godot 4.7.2.stable.mono",
-  "language": "GDScript + C# (mixed, migrating)",
-  "total": 61,
-  "passed": 61,
+  "language": "C# (full, zero GDScript, zero autoload)",
+  "total": 90,
+  "passed": 90,
   "failed": 0,
-  "warnings": 0,
   "traceIds": [
     "AREA-001",
     "ART-001",
     "AXIS-001",
-    "BLD-001",
     "BOOT-001",
     "CFG-001",
     "COIN-001",
     "CSHARP-001",
+    "DEF-001",
     "ECO-001",
-    "ECO-002",
+    "ESSN-001",
     "EVT-001",
     "GAME-001",
     "GND-001",
     "HUD-001",
     "JUMP-001",
+    "LEGN-001",
+    "LORE-001",
     "MAP-001",
+    "MASTER-001",
     "MENU-001",
     "META-001",
+    "OFFR-001",
     "PLAT-001",
-    "ROGUE-001",
-    "ROGUE-002",
-    "ROGUE-003",
     "SEED-001",
+    "SOUL-001",
+    "SPEC-001",
     "TEST-001",
     "UIS-001",
     "WAVE-001",
     "WORLD-001",
-    "WPN-001",
-    "WPN-002"
+    "WPN-001"
   ],
   "scriptCount": {
-    "gdscript": 20,
-    "csharp": 1
+    "csharp": 19,
+    "gdscript": 0
   },
   "artCount": 16,
   "checks": [
@@ -60,27 +61,32 @@
       "detail": ""
     },
     {
-      "name": "4 个 autoload 齐备",
+      "name": "已删除全部 autoload",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "2D 渲染方法 gl_compatibility",
+      "name": "Main.tscn 挂 GameRoot.cs",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "config/version = 0.002",
+      "name": "2D 渲染 gl_compatibility",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "Main.tscn 引用 Bootstrap.gd",
+      "name": "features 含 C#",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "Main.tscn 头部为 format=3 且无注释",
+      "name": "config/version = 0.003",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "设定写入 config/description",
       "ok": true,
       "detail": ""
     },
@@ -90,22 +96,22 @@
       "detail": ""
     },
     {
-      "name": "C# 使用 Godot.NET.Sdk/4.7.2",
+      "name": "使用 Godot.NET.Sdk/4.7.2",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "C# 目标框架 net8.0",
+      "name": "目标框架 net8.0",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "C# 程序集名为 ASCII",
+      "name": "程序集名 ASCII",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "project.godot 程序集名与 csproj 一致",
+      "name": "project.godot 程序集名对齐",
       "ok": true,
       "detail": ""
     },
@@ -115,42 +121,47 @@
       "detail": ""
     },
     {
-      "name": "C# 迁移路线文档存在",
+      "name": "C# 迁移收口文档存在",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "GDScript 数量 >= 20",
+      "name": "C# 脚本数量 = 19",
       "ok": true,
-      "detail": "20 个"
+      "detail": "19 个"
     },
     {
-      "name": "C# 玩法组件数量 >= 1",
+      "name": "GDScript 数量 = 0",
       "ok": true,
-      "detail": "1 个"
+      "detail": "0 个"
     },
     {
-      "name": "每个 .gd 都有配对的 .gd.uid",
+      "name": "每个 .cs 都有配对 .cs.uid",
       "ok": true,
       "detail": "缺失: "
     },
     {
-      "name": "每个 .cs 都有配对的 .cs.uid",
-      "ok": true,
-      "detail": "缺失: "
-    },
-    {
-      "name": "旧 GDScript 地形层已删除",
+      "name": "无 .gd.uid 残留",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冻结清单可被解析",
+      "name": "旧平铺 C# 地形层已删除",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "@trace 覆盖率 100%（清单条目都有代码标记）",
+      "name": "旧 GDScript 目录已清空",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冻结清单可解析",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "@trace 覆盖率 100%",
       "ok": true,
       "detail": "未覆盖: "
     },
@@ -160,17 +171,107 @@
       "detail": "未登记: "
     },
     {
-      "name": "冻结清单条目数 = 29",
+      "name": "冻结清单 = 31 条",
       "ok": true,
-      "detail": "29 条"
+      "detail": "31 条"
     },
     {
-      "name": "C# 地形层为 [GlobalClass]",
+      "name": "代码 @trace 编号数与清单一致",
+      "ok": true,
+      "detail": "31 个"
+    },
+    {
+      "name": "Spirit 用 Faction 区分敌我",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "第一层是唯一一段、覆盖 [-W,+W]、非单向",
+      "name": "敌我共用一张 SpeciesDef",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "敌我共用一张贴图、只改色调",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "野生刷怪池来自 Species 表",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "唤灵候选池来自同一 Species 表",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "投射物也是敌我共用一个类",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "幻灵师完全不攻击（无开火/索敌）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "敌我结构对称（都可受击死亡）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "三类唤灵出口 Raise/Bolster/Fuse",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "单一资源阀门：灵韵跨阈值排队唤灵",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Lv3 是融合材料而非终点",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "按物种分类 cap",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "献祭成本显式写入候选",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "灵魄跃迁窗口（权重 ×20）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Lore 解锁候选分支",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Lore 改候选数而非数值",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "融合后回调 Legion.Fuse",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "唤灵由灵韵即时触发、不必等天亮",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "第一层唯一一段 / 全覆盖 / 非单向",
       "ok": true,
       "detail": ""
     },
@@ -180,72 +281,42 @@
       "detail": ""
     },
     {
-      "name": "存在 IsGroundContinuous() 运行时不变量",
+      "name": "IsGroundContinuous 运行时不变量",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "存在 typed signal（PascalCase + EventHandler）",
+      "name": "typed signal 保留",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "节点清理用 QueueFree 而非 free",
+      "name": "地形常量从 GameDefs 单点读取",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "GameConfig 声明 GROUND_CONTINUOUS 口径",
+      "name": "y-down：层号越大 y 越小",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "World 经 C# 组件读取全覆盖状态",
+      "name": "y-down：坠落阈值语义",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟暴露 ground_continuous 字段",
+      "name": "出生点在地板上方",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "layer_y 已翻转为 y-down（高层 y 更小）",
+      "name": "相机 minf 跟随",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "坠落阈值改为 y 增大语义",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "坠落判定为 y > 阈值",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "玩家水平边界锁在地板覆盖域内",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "出生点在地板上方（y 更小）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "相机 y-down 跟随用 minf",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "敌人 y 夹取上下界已互换",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "冒烟暴露 player_grounded 字段",
+      "name": "水平活动域锁在地板覆盖域",
       "ok": true,
       "detail": ""
     },
@@ -265,12 +336,7 @@
       "detail": ""
     },
     {
-      "name": ".gitignore 不忽略 .gd.uid / .cs.uid",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": ".gitignore 忽略 *.log",
+      "name": ".gitignore 不忽略 .cs.uid",
       "ok": true,
       "detail": ""
     },
@@ -280,37 +346,77 @@
       "detail": ""
     },
     {
-      "name": "design-freeze version = 0.002",
+      "name": "design-freeze version = 0.003",
       "ok": true,
-      "detail": "0.002"
+      "detail": "0.003"
     },
     {
-      "name": "README 标题为 v0.002",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "GameManager 冒烟报告版本一致",
+      "name": "README 标题 v0.003",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "roadmap 标题为 v0.002",
+      "name": "GameRoot 冒烟报告版本一致",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据文件 compile-evidence.txt 存在",
+      "name": "roadmap 标题 v0.003",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据文件 smoke-evidence.txt 存在",
+      "name": "冻结清单语言口径为全量 C#",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据文件 smoke-report.json 存在",
+      "name": "设定字段进入冻结清单",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refactor-v0.003.md 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "边界四类齐备",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "★助手提案 7 项逐条登记",
+      "ok": true,
+      "detail": "7"
+    },
+    {
+      "name": "未做清单非空",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Q6 已标注由 v0.003 关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "诚实边界写明 Play Mode 0 次",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据 compile-evidence.txt 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据 smoke-evidence.txt 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据 smoke-report.json 存在",
       "ok": true,
       "detail": ""
     },
@@ -325,29 +431,69 @@
       "detail": ""
     },
     {
+      "name": "编译证据含 C# 运行时探针",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "冒烟结果 PASS",
       "ok": true,
       "detail": "PASS"
     },
     {
-      "name": "冒烟 12 项断言全过",
+      "name": "冒烟 24 项断言全过",
       "ok": true,
-      "detail": "12/12"
+      "detail": "24/24"
     },
     {
-      "name": "冒烟证实第一层全覆盖",
+      "name": "冒烟断言 ground_continuous",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟证实玩家站在地板上",
+      "name": "冒烟断言 player_grounded",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 fuse_applied",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 bolster_applied",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 raise_applied",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 shared_species_table",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 cap_respected",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 branches_complete",
       "ok": true,
       "detail": ""
     },
     {
       "name": "冒烟报告版本一致",
       "ok": true,
-      "detail": "0.002"
+      "detail": "0.003"
+    },
+    {
+      "name": "冒烟报告语言口径",
+      "ok": true,
+      "detail": ""
     }
   ]
 }
