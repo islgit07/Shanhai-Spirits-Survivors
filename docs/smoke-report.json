@@ -3,8 +3,10 @@
     "coins_dropped": true,
     "enemies_spawned": true,
     "events_ordered": true,
+    "ground_continuous": true,
     "kills_recorded": true,
     "platforms_built": true,
+    "player_grounded": true,
     "projectiles_fired": true,
     "reached_target_day": true,
     "returned_to_menu": true,
@@ -12,7 +14,7 @@
     "save_file_written": true
   },
   "cards_taken": 2,
-  "coins_spawned": 7,
+  "coins_spawned": 6,
   "days_reached": 3,
   "enemies_spawned": 39,
   "engine": "4.7.2-stable (official)",
@@ -32,12 +34,14 @@
     "run_ended",
     "return_to_menu"
   ],
-  "kills": 7,
+  "ground_continuous": true,
+  "kills": 6,
   "mode": "headless-smoke",
   "platforms": 55,
+  "player_grounded": true,
   "project": "山海幻灵",
-  "projectiles_fired": 7,
+  "projectiles_fired": 6,
   "result": "PASS",
   "smoke_injection": "damage_bonus +200；敌人近场 0.9~1.6 单位；阶段 0.8 秒（三项均仅 --smoke 模式）",
-  "version": "0.001"
+  "version": "0.002"
 }

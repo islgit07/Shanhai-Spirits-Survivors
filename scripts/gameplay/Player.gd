@@ -33,9 +33,12 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y += GameConfig.GRAVITY * delta
 	move_and_slide()
-	# 掉出世界兜底：送回底层，防止相机跟到虚空
-	if global_position.y < GameConfig.DROP_KILL_Y:
-		global_position = Vector2(clampf(global_position.x, -GameConfig.WORLD_HALF_WIDTH, GameConfig.WORLD_HALF_WIDTH), GameConfig.layer_y(0) + 1.0)
+	# @trace GND-001 水平活动域锁在第一层全覆盖地板之内，杜绝跑出边缘后无限下坠。
+	var edge := GameConfig.WORLD_HALF_WIDTH - GameConfig.PLAYER_SIZE.x * 0.5
+	global_position.x = clampf(global_position.x, -edge, edge)
+	# y-down：坠落是 y 增大；出界兜底送回第一层上方。
+	if global_position.y > GameConfig.FALL_KILL_Y:
+		global_position = Vector2(global_position.x, GameConfig.layer_y(0) - GameConfig.SPAWN_ABOVE_GROUND)
 		velocity = Vector2.ZERO
 	if invuln > 0.0:
 		invuln -= delta

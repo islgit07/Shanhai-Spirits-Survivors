@@ -1,6 +1,6 @@
-# 山海幻灵 · v0.001
+# 山海幻灵 · v0.002
 
-> **横板昼夜幸存者 2D** ｜ Godot **4.7.2.stable.mono** ｜ GDScript ｜ 纯代码自举、零场景拖拽、零第三方插件
+> **横板昼夜幸存者 2D** ｜ Godot **4.7.2.stable.mono** ｜ **GDScript 主体 + C# 地形层（迁移期混合，目标以 C# 为主）** ｜ 纯代码自举、零场景拖拽、零第三方插件
 > 工程路径：`D:\GameProjects\山海幻灵` ｜ 迁移自 `D:\UnityProjects\DayNightSurvivorDemo`（Unity 6000.3.26f1 · v0.0003）
 > **版本口径**：Godot 新工程独立起线，自 **v0.001** 开始；每次有意义变更 +0.001（v0.001 → v0.002 → …），不再整档大跳，里程碑才跳更大档位。Unity 侧的 v0.0001~v0.0003 属另一条版本线，不并入本仓库历史。
 
@@ -10,14 +10,25 @@
 
 | 项 | 状态 |
 |---|---|
-| 版本 | **v0.001** ｜ 设计冻结清单 26 条 ｜ `@trace` 覆盖率 100% ｜ 21 个 GDScript |
+| 版本 | **v0.002** ｜ 设计冻结清单 29 条 ｜ `@trace` 覆盖率 100% ｜ 20 个 GDScript + **1 个 C# 玩法组件** |
 | 引擎 | Godot 4.7.2.stable.mono.official（本机 `D:\Program Files (x86)\Godot_v4.7.2-stable_mono_win64`） |
+| C# 工具链 | `Godot.NET.Sdk/4.7.2` / `net8.0` / .NET SDK 10.0.402；`dotnet build` **0 警告 0 错误**，MainLoop 探针证实引擎加载 C# 程序集 |
 | 真实导入验证 | `--headless --editor --quit` **退出码 0**，16 张 PNG 全部导入，**0 个解析错误** |
-| 无头 Play 冒烟 | **PASS 10/10 断言**：3 昼夜 / 39 只怪 / 2 发子弹 / 1 次击杀 / 掉金币 / 选牌 / 结算 / 存档 / 返回主页面（报告 `docs/smoke-report.json`） |
+| 无头 Play 冒烟 | **PASS 12/12 断言**：3 昼夜 / 39 只怪 / 6 发子弹 / 6 次击杀 / 掉金币 / 选牌 / 结算 / 存档 / 返回主页面，**外加 `ground_continuous=true` 与 `player_grounded=true`**（报告 `docs/smoke-report.json`） |
 | 静态自检 | 见 `docs/self-check.json` |
 | 美术 | 16 张（12 精灵 + 4 背景），从 Unity 工程直接复用 PNG；Godot 不需要 `.meta` |
-| 2D 实现 | `CharacterBody2D` 玩家 + `StaticBody2D` 单向平台 + `Camera2D` 跟随；**补上了源工程遗留的「手写距离判定」缺口** |
+| 2D 实现 | `CharacterBody2D` 玩家 + `StaticBody2D` 单向平台 + `Camera2D` 跟随；**第一层恒为单段全覆盖实体地板**（C# 硬约束） |
 | **真人 Play Mode** | **仍未做**。冒烟只证明状态机与对象链路在快进下走通，**不等于能玩、更不等于好玩**：跳跃落点、相机跟随是否晕、6 把武器手感、48 宽跑图节奏、HUD 中文显示、布局比例都需真人试玩 |
+
+### v0.002 变更（用户两点要求 + 一项必要修复）
+
+| # | 来源 | 内容 | 验证 |
+|---|---|---|---|
+| 1 | **用户明确要求** | **第一层一定是全覆盖的**：`scripts/csharp/PlatformField.cs` 把 Layer 0 写成「唯一一段 / 覆盖 `[-24,+24]` / 非单向 / 不参与随机」的实体地板；`IsGroundContinuous()` 是运行时不变量；玩家水平活动域锁在该覆盖范围内 | 冒烟 `ground_continuous=true` |
+| 2 | **用户明确要求** | **改用 C#**：建立 `ShanHaiHuanLing.csproj`（Godot.NET.Sdk 4.7.2 / net8.0）、对齐 `project.godot` 的 ASCII 程序集名，地形层成为首个 C# `[GlobalClass]` 玩法组件（静态类型 + `GroundBuiltEventHandler` typed signal），`World.gd` 经方法桥接调用 | `dotnet build` 0 错误 + C# 运行时探针 + 冒烟 PASS |
+| 3 | **迁移缺陷修复**（非新增功能） | Unity→Godot **y 轴方向**：源工程 y-up 数值原样搬来，导致玩家出生在地板下方、重力继续下坠、永远 `is_on_floor()=false`、跳跃完全失效、L1..L9 全在地板下方够不到。已翻转 `layer_y`、坠落判定、出生点、相机跟随、敌人 y 夹取、金币落地与建造物高度 | 冒烟 `player_grounded=true`（玩家真被地板接住） |
+
+> **C# 迁移尚未完成**：其余 20 个脚本仍是 GDScript（含 4 个 Autoload、全部 UI、除地形外的全部玩法）。按依赖顺序分批的路线、过渡期互操作约定与未落地清单见 **`docs/csharp-migration.md`**，待确认项记在 `design-freeze.json` 的 Q6。
 
 ### 本轮是「可运行 2D 垂直切片」，不是 43 个 C# 的全量移植
 
@@ -93,19 +104,25 @@
 GODOT="/d/Program Files (x86)/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe"
 ROOT="D:/GameProjects/山海幻灵"
 
+# ⓪ 先编译 C# 程序集（v0.002 起必需；期望 0 警告 0 错误）
+dotnet build "$ROOT/ShanHaiHuanLing.csproj" -v minimal --nologo
+
 # ① 资源导入 + 全脚本解析
 "$GODOT" --headless --path "$ROOT" --editor --quit
 
 # ② 无头 Play 冒烟（自动 3 昼夜，打印 SMOKE_JSON，PASS 退出 0 / FAIL 退出 1）
 "$GODOT" --headless --path "$ROOT" -- --smoke
 
-# ③ 静态自检（文件配对 / @trace 覆盖 / 版本一致 / 证据齐备）
+# ③ C# 运行时探针（证实引擎真的加载并执行了 C# 代码）
+"$GODOT" --headless --path "$ROOT" --script res://tools/CSharpToolchainProbe.cs
+
+# ④ 静态自检（文件配对 / @trace 覆盖 / 版本一致 / 证据齐备）
 python "$ROOT/tools/check_project.py"
 ```
 
-证据归档：`docs/compile-evidence.txt`、`docs/smoke-evidence.txt`、`docs/smoke-report.json`、`docs/self-check.json`。
+证据归档：`docs/compile-evidence.txt`（含 dotnet build 段）、`docs/smoke-evidence.txt`、`docs/smoke-report.json`、`docs/self-check.json`。
 
-> **关于 mono 版**：本机只有 mono 版 Godot，启动时打印 `.NET: Failed to load project assembly` 属正常（本工程纯 GDScript，无 C# 程序集），不影响运行，已在日志中确认。
+> **关于 mono 版与 C#**：v0.001 工程纯 GDScript 时会打印 `.NET: Failed to load project assembly`，属正常；**v0.002 起已有真实 C# 程序集**，该提示不再出现。改代码后必须先 `dotnet build ShanHaiHuanLing.csproj` 再启动 Godot，否则引擎仍加载旧 dll。程序集名必须是 ASCII `ShanHaiHuanLing`（与 `project.godot` 一致）。
 
 ---
 
@@ -124,6 +141,7 @@ python "$ROOT/tools/check_project.py"
 
 ## 6. 本轮产出 / 未完成 / 建议下一步
 
-- **产出**：Godot 4 2D 工程骨架、21 个 GDScript、16 张复用美术、v0.001 设计冻结清单、迁移映射、自检脚本、真实导入 + 无头冒烟双验证证据、git 初始提交与 `v0.001` 标签。
-- **未完成**：上面第 5 节全部；源工程 73 条冻结项中未迁移的部分逐条列在迁移清单。
-- **建议下一步**（按性价比）：① **先真人按一次 Play**，确认能玩、中文正常、跳跃落点合理；② 再决定补哪一块（手柄 / 音频 / Boss / 对象池 / 导出预设）。**不建议在没试玩前继续堆系统**。
+- **v0.001 产出**：Godot 4 2D 工程骨架、21 个 GDScript、16 张复用美术、设计冻结清单、迁移映射、自检脚本、真实导入 + 无头冒烟双验证证据、git 初始提交与 `v0.001` 标签。
+- **v0.002 产出**：C# 工程骨架与工具链、C# 地形层（取代原 GDScript 版）、第一层全覆盖硬约束、y 轴方向修复、冒烟 12 项断言、`docs/csharp-migration.md` 分批路线、`v0.002` 标签。
+- **未完成**：上面第 5 节全部；**C# 全量迁移（Phase 2/3/4，共 20 个脚本）**；源工程 73 条冻结项中未迁移部分逐条列在迁移清单。
+- **建议下一步**（按性价比）：① **先真人按一次 Play**，确认能玩、中文正常、第一层地板与跳跃落点合理；② 确认 `design-freeze.json` 的 Q6，决定是否启动 C# Phase 2（数据/核心层）。**不建议在没试玩前继续堆系统**。

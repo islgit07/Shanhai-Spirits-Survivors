@@ -20,10 +20,16 @@ const PLATFORM_MIN_WIDTH := 3.4
 const PLATFORM_MAX_WIDTH := 7.0
 const PLATFORM_MIN_GAP := 1.8
 const PLATFORM_THICKNESS := 0.24
-const DROP_KILL_Y := -6.0
+# @trace GND-001 第一层恒为「唯一一段 / 覆盖 [-W,+W] / 非单向」的实体地板。
+# 实现在 scripts/csharp/PlatformField.cs（C# 迁移 Phase 1），此处只留口径常量与自检修缮。
+const GROUND_CONTINUOUS := true
+const SPAWN_ABOVE_GROUND := 1.0
+# Godot 2D 为 y-down：向下坠落是 y 增大，越过 GROUND_Y + 10 单位即判定出界。
+const FALL_KILL_Y := 8.0
 
 static func layer_y(i: int) -> float:
-	return GROUND_Y + float(clampi(i, 0, LAYER_COUNT - 1)) * LAYER_SPACING
+	# y-down：层号越大 y 越小（屏幕越高），跳跃 -y 才能逐层向上。
+	return GROUND_Y - float(clampi(i, 0, LAYER_COUNT - 1)) * LAYER_SPACING
 
 static func clamp_layer(i: int) -> int:
 	return clampi(i, 0, LAYER_COUNT - 1)

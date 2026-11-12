@@ -7,6 +7,9 @@ mono_crash.*.json
 # ===== 导出 / 构建产物 =====
 export/
 builds/
+bin/
+obj/
+*.csproj.user
 *.pck
 *.zip
 *.apk

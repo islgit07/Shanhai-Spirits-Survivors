@@ -5,12 +5,15 @@ extends Node2D
 ## 相机用 zoom 把 720px 视口映射为 13 个世界单位高（对应源工程 orthoSize 6.5）。
 
 var platform_count: int = 0
+var ground_continuous: bool = false
+var player_grounded: bool = false
 var enemies_spawned: int = 0
 var projectiles_fired: int = 0
 var coins_spawned: int = 0
 var player: Node2D = null
 
-var _platforms: PlatformField
+# C# [GlobalClass] 组件（scripts/csharp/PlatformField.cs）；GDScript 侧以 Node2D 静态类型持有。
+var _platforms: Node2D
 var _spawner: EnemySpawner
 var _camera: Camera2D
 var _backdrop: Sprite2D
@@ -35,6 +38,8 @@ func view_size_world() -> Vector2:
 func begin_run() -> void:
 	_clear_all()
 	platform_count = 0
+	ground_continuous = false
+	player_grounded = false
 	enemies_spawned = 0
 	projectiles_fired = 0
 	coins_spawned = 0
@@ -51,8 +56,9 @@ func begin_run() -> void:
 
 	_platforms = PlatformField.new()
 	add_child(_platforms)
-	_platforms.build(RunState.seed_value)
-	platform_count = _platforms.segments.size()
+	_platforms.call("Build", RunState.seed_value)
+	platform_count = int(_platforms.call("GetSegmentCount"))
+	ground_continuous = bool(_platforms.call("IsGroundContinuous"))
 
 	_structures = Node2D.new()
 	add_child(_structures)
@@ -65,7 +71,8 @@ func begin_run() -> void:
 
 	player = Player.new()
 	add_child(player)
-	player.global_position = Vector2(0.0, GameConfig.layer_y(0) + 1.0)
+	# y-down：地板上方 1 单位 = y 更小。出生点必须落在第一层之上才能被实体地板接住。
+	player.global_position = Vector2(0.0, GameConfig.layer_y(0) - GameConfig.SPAWN_ABOVE_GROUND)
 
 	_spawner = EnemySpawner.new()
 	add_child(_spawner)
@@ -91,9 +98,14 @@ func _clear_all() -> void:
 func _process(delta: float) -> void:
 	if player == null or _camera == null or not is_instance_valid(player):
 		return
+	# @trace GND-001 运行时证据：玩家必须真的被第一层实体地板接住（验证 y-down 修正生效）。
+	var body := player as CharacterBody2D
+	if body != null and body.is_on_floor():
+		player_grounded = true
 	var half := view_size_world() * 0.5
 	var cx := clampf(player.global_position.x, -GameConfig.WORLD_HALF_WIDTH + half.x, GameConfig.WORLD_HALF_WIDTH - half.x)
-	var cy := maxf(GameConfig.layer_y(0) + half.y * 0.4, player.global_position.y + 1.0)
+	# y-down：向上跳是 y 减小，故相机用 minf 跟随，且不允许沉到地面以下。
+	var cy := minf(GameConfig.layer_y(0) - half.y * 0.4, player.global_position.y - 1.0)
 	_camera.global_position = _camera.global_position.lerp(Vector2(cx, cy), clampf(delta * GameConfig.CAMERA_SMOOTH, 0.0, 1.0))
 
 ## @trace AREA-001 四套区域每 3 夜轮换 + 昼夜 tint
@@ -138,7 +150,7 @@ func add_structure(kind: String) -> void:
 	}
 	var holder := Node2D.new()
 	var n := _structures.get_child_count()
-	holder.position = Vector2(-3.0 + fmod(float(n) * 1.4, 6.0), GameConfig.layer_y(0) + 0.45)
+	holder.position = Vector2(-3.0 + fmod(float(n) * 1.4, 6.0), GameConfig.layer_y(0) - 0.45)
 	holder.add_child(ArtBank.make_block(Vector2(0.7, 0.7), colors.get(kind, Color.WHITE)))
 	_structures.add_child(holder)
 
@@ -151,8 +163,11 @@ func spawn_enemy(def: Dictionary, day: int) -> void:
 		dist = _rng.randf_range(0.9, 1.6)
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
 	var x := clampf(player.global_position.x + side * dist, -GameConfig.WORLD_HALF_WIDTH, GameConfig.WORLD_HALF_WIDTH)
+	# y-down：最高层 y 最小，故 clamp 的下界是最顶层、上界是底层地面之上。
+	var top_y := GameConfig.layer_y(GameConfig.LAYER_COUNT - 1)
+	var bottom_y := GameConfig.layer_y(0) - 0.6
 	var y := clampf(player.global_position.y + _rng.randf_range(-1.0, 1.0) * GameConfig.LAYER_SPACING,
-		GameConfig.layer_y(0) + 0.6, GameConfig.layer_y(GameConfig.LAYER_COUNT - 1))
+		top_y, bottom_y)
 	var e := Enemy.new()
 	_enemies.add_child(e)
 	e.setup(def, day, Vector2(x, y))
@@ -187,5 +202,5 @@ func on_enemy_killed(id: String, at: Vector2) -> void:
 	for i in range(n):
 		var c := CoinPickup.new()
 		_coins.add_child(c)
-		c.setup(at + Vector2(_rng.randf_range(-0.3, 0.3), 0.0), GameConfig.layer_y(0) + 0.25, RunState.coin_value)
+		c.setup(at + Vector2(_rng.randf_range(-0.3, 0.3), 0.0), GameConfig.layer_y(0) - 0.25, RunState.coin_value)
 		coins_spawned += 1

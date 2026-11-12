@@ -239,7 +239,7 @@ func restart_run() -> void:
 	start_run(RunState.weapon_id)
 
 # ---------------------------------------------------------------- 无头冒烟
-## @trace TEST-001 无头冒烟测试：自动跑完 3 昼夜并校验 10 项断言
+## @trace TEST-001 无头冒烟测试：自动跑完 3 昼夜并校验 12 项断言
 func begin_smoke() -> void:
 	smoke_mode = true
 	_smoke_events = []
@@ -267,15 +267,21 @@ func _finish_smoke() -> void:
 	var spawned := -1
 	var fired := -1
 	var coins := -1
+	var ground_continuous := false
+	var player_grounded := false
 	if _world != null:
 		var v1: Variant = _world.get("platform_count")
 		var v2: Variant = _world.get("enemies_spawned")
 		var v3: Variant = _world.get("projectiles_fired")
 		var v4: Variant = _world.get("coins_spawned")
+		var v5: Variant = _world.get("ground_continuous")
+		var v6: Variant = _world.get("player_grounded")
 		if v1 != null: platforms = int(v1)
 		if v2 != null: spawned = int(v2)
 		if v3 != null: fired = int(v3)
 		if v4 != null: coins = int(v4)
+		if v5 != null: ground_continuous = bool(v5)
+		if v6 != null: player_grounded = bool(v6)
 	var kills_recorded := RunState.kills > 0
 	var coins_dropped := coins > 0
 	return_to_menu()
@@ -283,6 +289,8 @@ func _finish_smoke() -> void:
 		"reached_target_day": day >= SMOKE_TARGET_DAY,
 		"run_ended": _run_end_emitted,
 		"platforms_built": platforms > 0,
+		"ground_continuous": ground_continuous,
+		"player_grounded": player_grounded,
 		"enemies_spawned": spawned > 0,
 		"projectiles_fired": fired > 0,
 		"kills_recorded": kills_recorded,
@@ -296,12 +304,14 @@ func _finish_smoke() -> void:
 		if not bool(assertions[k]):
 			ok = false
 	var report := {
-		"project": "山海幻灵", "version": "0.001",
+		"project": "山海幻灵", "version": "0.002",
 		"engine": str(Engine.get_version_info().get("string", "")),
 		"mode": "headless-smoke", "result": "PASS" if ok else "FAIL",
 		"days_reached": day, "kills": RunState.kills,
 		"cards_taken": RunState.cards.size(),
-		"platforms": platforms, "enemies_spawned": spawned,
+		"platforms": platforms, "ground_continuous": ground_continuous,
+		"player_grounded": player_grounded,
+		"enemies_spawned": spawned,
 		"projectiles_fired": fired, "coins_spawned": coins,
 		"smoke_injection": "damage_bonus +200；敌人近场 0.9~1.6 单位；阶段 0.8 秒（三项均仅 --smoke 模式）",
 		"events": _smoke_events.duplicate(), "assertions": assertions,

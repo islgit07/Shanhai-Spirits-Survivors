@@ -1,22 +1,26 @@
 {
   "project": "山海幻灵",
-  "version": "0.001",
+  "version": "0.002",
   "engine": "Godot 4.7.2.stable.mono",
-  "total": 25,
-  "passed": 25,
+  "language": "GDScript + C# (mixed, migrating)",
+  "total": 61,
+  "passed": 61,
   "failed": 0,
   "warnings": 0,
   "traceIds": [
     "AREA-001",
     "ART-001",
+    "AXIS-001",
     "BLD-001",
     "BOOT-001",
     "CFG-001",
     "COIN-001",
+    "CSHARP-001",
     "ECO-001",
     "ECO-002",
     "EVT-001",
     "GAME-001",
+    "GND-001",
     "HUD-001",
     "JUMP-001",
     "MAP-001",
@@ -34,7 +38,10 @@
     "WPN-001",
     "WPN-002"
   ],
-  "scriptCount": 21,
+  "scriptCount": {
+    "gdscript": 20,
+    "csharp": 1
+  },
   "artCount": 16,
   "checks": [
     {
@@ -63,7 +70,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.001",
+      "name": "config/version = 0.002",
       "ok": true,
       "detail": ""
     },
@@ -73,14 +80,69 @@
       "detail": ""
     },
     {
+      "name": "Main.tscn 头部为 format=3 且无注释",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ShanHaiHuanLing.csproj 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C# 使用 Godot.NET.Sdk/4.7.2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C# 目标框架 net8.0",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C# 程序集名为 ASCII",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "project.godot 程序集名与 csproj 一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C# 运行时探针存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C# 迁移路线文档存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "GDScript 数量 >= 20",
       "ok": true,
-      "detail": "21 个"
+      "detail": "20 个"
+    },
+    {
+      "name": "C# 玩法组件数量 >= 1",
+      "ok": true,
+      "detail": "1 个"
     },
     {
       "name": "每个 .gd 都有配对的 .gd.uid",
       "ok": true,
       "detail": "缺失: "
+    },
+    {
+      "name": "每个 .cs 都有配对的 .cs.uid",
+      "ok": true,
+      "detail": "缺失: "
+    },
+    {
+      "name": "旧 GDScript 地形层已删除",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "冻结清单可被解析",
@@ -98,9 +160,94 @@
       "detail": "未登记: "
     },
     {
-      "name": "冻结清单条目数 = 26",
+      "name": "冻结清单条目数 = 29",
       "ok": true,
-      "detail": "26 条"
+      "detail": "29 条"
+    },
+    {
+      "name": "C# 地形层为 [GlobalClass]",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "第一层是唯一一段、覆盖 [-W,+W]、非单向",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "第一层刻意不走随机分支",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "存在 IsGroundContinuous() 运行时不变量",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "存在 typed signal（PascalCase + EventHandler）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "节点清理用 QueueFree 而非 free",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GameConfig 声明 GROUND_CONTINUOUS 口径",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "World 经 C# 组件读取全覆盖状态",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟暴露 ground_continuous 字段",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "layer_y 已翻转为 y-down（高层 y 更小）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "坠落阈值改为 y 增大语义",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "坠落判定为 y > 阈值",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "玩家水平边界锁在地板覆盖域内",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "出生点在地板上方（y 更小）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "相机 y-down 跟随用 minf",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "敌人 y 夹取上下界已互换",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟暴露 player_grounded 字段",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "16 张美术 PNG",
@@ -110,7 +257,7 @@
     {
       "name": "无 Unity .meta 残留",
       "ok": true,
-      "detail": "0 个"
+      "detail": ""
     },
     {
       "name": ".gitignore 忽略 .godot/",
@@ -118,7 +265,7 @@
       "detail": ""
     },
     {
-      "name": ".gitignore 不忽略 .gd.uid",
+      "name": ".gitignore 不忽略 .gd.uid / .cs.uid",
       "ok": true,
       "detail": ""
     },
@@ -128,12 +275,27 @@
       "detail": ""
     },
     {
-      "name": "design-freeze version = 0.001",
+      "name": ".gitignore 忽略 MSBuild 产物",
       "ok": true,
-      "detail": "0.001"
+      "detail": ""
     },
     {
-      "name": "README 标题为 v0.001",
+      "name": "design-freeze version = 0.002",
+      "ok": true,
+      "detail": "0.002"
+    },
+    {
+      "name": "README 标题为 v0.002",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GameManager 冒烟报告版本一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "roadmap 标题为 v0.002",
       "ok": true,
       "detail": ""
     },
@@ -153,14 +315,39 @@
       "detail": ""
     },
     {
+      "name": "编译证据含 dotnet build 成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "编译证据含 Godot 导入",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "冒烟结果 PASS",
       "ok": true,
       "detail": "PASS"
     },
     {
-      "name": "冒烟 10 项断言全过",
+      "name": "冒烟 12 项断言全过",
       "ok": true,
-      "detail": "10/10"
+      "detail": "12/12"
+    },
+    {
+      "name": "冒烟证实第一层全覆盖",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟证实玩家站在地板上",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟报告版本一致",
+      "ok": true,
+      "detail": "0.002"
     }
   ]
 }
