@@ -6,7 +6,7 @@
   "frozenDate": "2026-11-12",
   "engine": "Godot 4.7.2.stable.mono.official",
   "engineSource": "本机安装目录 D:/Program Files (x86)/Godot_v4.7.2-stable_mono_win64/，--version 实测",
-  "language": "C# (net8.0, Godot.NET.Sdk/4.7.2)，19 个 .cs，0 个 .gd，0 个 autoload",
+  "language": "C# (net8.0, Godot.NET.Sdk/4.7.2)，21 个 .cs，0 个 .gd，0 个 autoload",
   "renderMode": "2D / gl_compatibility / 1280x720",
   "migrationSource": {
     "unity": "D:/UnityProjects/DayNightSurvivorDemo (Unity 6000.3.26f1, v0.0003)",
@@ -282,6 +282,13 @@
       "status": "implemented",
       "file": "scripts/csharp/gameplay/Master.cs",
       "origin": "retained"
+    },
+    {
+      "id": "JUMP-002",
+      "title": "《终焉之莉莉》式跳跃手感（用户明确要求复刻）：变高跳（上升松键截断一次）/ 顶点滞空（apex 区降低重力）/ 下落加重（fall>1）/ 终端速度封顶；土狼时间+跳跃缓冲+空中控制兜底。游戏与白箱共用 PlatformMover 同一内核",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/PlatformMover.cs",
+      "origin": "replaced"
     },
     {
       "id": "AXIS-001",

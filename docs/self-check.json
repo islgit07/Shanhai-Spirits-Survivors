@@ -23,6 +23,7 @@
     "GND-001",
     "HUD-001",
     "JUMP-001",
+    "JUMP-002",
     "LEGN-001",
     "LORE-001",
     "MAP-001",
@@ -182,14 +183,14 @@
       "detail": "未登记: "
     },
     {
-      "name": "冻结清单 = 32 条",
+      "name": "冻结清单 = 33 条",
       "ok": true,
-      "detail": "32 条"
+      "detail": "33 条"
     },
     {
       "name": "代码 @trace 编号数与清单一致",
       "ok": true,
-      "detail": "32 个"
+      "detail": "33 个"
     },
     {
       "name": "Spirit 用 Faction 区分敌我",

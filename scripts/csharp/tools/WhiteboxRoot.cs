@@ -28,6 +28,9 @@ public partial class WhiteboxRoot : Node2D
     private CanvasLayer _ui = null!;
     private Control _panel = null!;
     private readonly List<Label> _values = new();
+    private readonly List<HSlider> _sliders = new();
+    private readonly List<float> _sliderDefaults = new();
+    private VBoxContainer _vbox = null!;
     private Label _metrics = null!;
     private Label _state = null!;
     private int _seed = DefaultSeed;
@@ -138,108 +141,114 @@ public partial class WhiteboxRoot : Node2D
         {
             Color = new Color(0.07f, 0.08f, 0.13f, 0.93f),
             Position = new Vector2(852f, 16f),
-            Size = new Vector2(412f, 688f),
+            Size = new Vector2(420f, 688f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _panel.AddChild(back);
 
-        _panel.AddChild(Place(UiSkin.MakeLabel("跳跃白箱 · 参数调节", 22, UiSkin.Gold), 868, 26));
-        _panel.AddChild(Place(UiSkin.MakeLabel("白箱与游戏共用同一移动内核，调好即生效", 13, UiSkin.Jade), 868, 56));
+        // 滚动容器：参数较多，保证在 1280×720 下不溢出
+        var scroll = new ScrollContainer
+        {
+            Position = new Vector2(860f, 24f),
+            Size = new Vector2(404f, 672f),
+        };
+        _panel.AddChild(scroll);
 
-        int y = 88;
-        y = AddSlider("移动速度", 2.0f, 16.0f, 0.1f, _tuning.MoveSpeed, v => _tuning.MoveSpeed = v, y);
-        y = AddSlider("跳跃初速", 6.0f, 26.0f, 0.1f, _tuning.JumpSpeed, v => _tuning.JumpSpeed = v, y);
-        y = AddSlider("重力", 8.0f, 60.0f, 0.5f, _tuning.Gravity, v => _tuning.Gravity = v, y);
-        y = AddSlider("空中控制", 0.0f, 1.0f, 0.05f, _tuning.AirControl, v => _tuning.AirControl = v, y);
-        y = AddSlider("土狼时间(秒)", 0.0f, 0.30f, 0.01f, _tuning.CoyoteTime, v => _tuning.CoyoteTime = v, y);
-        y = AddSlider("跳跃缓冲(秒)", 0.0f, 0.30f, 0.01f, _tuning.JumpBuffer, v => _tuning.JumpBuffer = v, y);
+        _vbox = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        _vbox.AddThemeConstantOverride("separation", 10);
+        scroll.AddChild(_vbox);
 
-        _metrics = Place(UiSkin.MakeLabel("", 14, UiSkin.Text), 868, y + 6);
-        _panel.AddChild(_metrics);
+        _vbox.AddChild(UiSkin.MakeLabel("跳跃白箱 · 参数调节", 22, UiSkin.Gold));
+        _vbox.AddChild(UiSkin.MakeLabel("白箱与游戏共用同一移动内核，调好即生效", 13, UiSkin.Jade));
+        _vbox.AddChild(UiSkin.MakeLabel("手感目标：复刻《终焉之莉莉》——轻盈可控、顶点悬停、短按矮跳",
+            12, new Color(0.62f, 0.66f, 0.78f)));
 
-        _state = Place(UiSkin.MakeLabel("", 13, UiSkin.Blue), 868, y + 132);
-        _panel.AddChild(_state);
+        AddSlider("移动速度", 2.0f, 16.0f, 0.1f, _tuning.MoveSpeed, v => _tuning.MoveSpeed = v);
+        AddSlider("跳跃初速", 6.0f, 26.0f, 0.1f, _tuning.JumpSpeed, v => _tuning.JumpSpeed = v);
+        AddSlider("重力", 8.0f, 60.0f, 0.5f, _tuning.Gravity, v => _tuning.Gravity = v);
+        AddSlider("空中控制", 0.0f, 1.0f, 0.05f, _tuning.AirControl, v => _tuning.AirControl = v);
+        AddSlider("土狼时间(秒)", 0.0f, 0.30f, 0.01f, _tuning.CoyoteTime, v => _tuning.CoyoteTime = v);
+        AddSlider("跳跃缓冲(秒)", 0.0f, 0.30f, 0.01f, _tuning.JumpBuffer, v => _tuning.JumpBuffer = v);
+        AddSlider("变高跳截断", 0.10f, 1.00f, 0.01f, _tuning.JumpCutMul, v => _tuning.JumpCutMul = v);
+        AddSlider("下落重力倍率", 1.0f, 2.5f, 0.05f, _tuning.FallGravityMul, v => _tuning.FallGravityMul = v);
+        AddSlider("顶点滞空倍率", 0.20f, 1.00f, 0.05f, _tuning.ApexGravityMul, v => _tuning.ApexGravityMul = v);
+        AddSlider("顶点阈值", 0.0f, 6.0f, 0.1f, _tuning.ApexThreshold, v => _tuning.ApexThreshold = v);
+        AddSlider("最大下落速度", 12.0f, 40.0f, 0.5f, _tuning.MaxFallSpeed, v => _tuning.MaxFallSpeed = v);
 
-        var copy = UiSkin.MakeButton("复制参数到剪贴板", 15);
-        copy.Position = new Vector2(868f, y + 166f);
-        copy.Size = new Vector2(188f, 38f);
+        _metrics = UiSkin.MakeLabel("", 14, UiSkin.Text);
+        _vbox.AddChild(_metrics);
+
+        _state = UiSkin.MakeLabel("", 13, UiSkin.Blue);
+        _vbox.AddChild(_state);
+
+        var btnRow = new HBoxContainer();
+        btnRow.AddThemeConstantOverride("separation", 8);
+        var copy = UiSkin.MakeButton("复制参数", 14);
         copy.Pressed += () =>
         {
             DisplayServer.ClipboardSet(SnapshotJson());
             Signals.EmitHint("参数已复制");
             GD.Print("[WHITEBOX] copied: " + SnapshotJson());
         };
-        _panel.AddChild(copy);
-
-        var reset = UiSkin.MakeButton("恢复默认", 15);
-        reset.Position = new Vector2(1064f, y + 166f);
-        reset.Size = new Vector2(184f, 38f);
+        var reset = UiSkin.MakeButton("恢复默认", 14);
         reset.Pressed += ResetDefaults;
-        _panel.AddChild(reset);
-
-        var respawn = UiSkin.MakeButton("复位位置 (R)", 15);
-        respawn.Position = new Vector2(868f, y + 210f);
-        respawn.Size = new Vector2(188f, 38f);
+        var respawn = UiSkin.MakeButton("复位(R)", 14);
         respawn.Pressed += () => _player.Respawn();
-        _panel.AddChild(respawn);
-
-        var terrain = UiSkin.MakeButton("换一张地形 (T)", 15);
-        terrain.Position = new Vector2(1064f, y + 210f);
-        terrain.Size = new Vector2(184f, 38f);
+        var terrain = UiSkin.MakeButton("换地形(T)", 14);
         terrain.Pressed += () =>
         {
             _seed = (int)((ulong)Time.GetUnixTimeFromSystem() & 0x7FFFFFFFu);
             RebuildPlatforms();
         };
-        _panel.AddChild(terrain);
+        btnRow.AddChild(copy); btnRow.AddChild(reset);
+        btnRow.AddChild(respawn); btnRow.AddChild(terrain);
+        _vbox.AddChild(btnRow);
 
-        var tip = Place(UiSkin.MakeLabel(
-            "A/D 走 · Space 跳 · R 复位 · T 换地形 · Tab 隐藏面板\n" +
-            "调好后把 user://whitebox_tuning.json 发给助手，或直接念数值。", 13, UiSkin.Jade),
-            868, y + 258);
-        _panel.AddChild(tip);
-
-        var saved = Place(UiSkin.MakeLabel("参数每次改动都会自动写入 " + SavePath, 12,
-            new Color(0.62f, 0.66f, 0.78f)), 868, y + 306);
-        _panel.AddChild(saved);
+        _vbox.AddChild(UiSkin.MakeLabel(
+            "A/D 走 · Space 跳(短按矮/长按高) · R 复位 · T 换地形 · Tab 隐藏面板\n" +
+            "调好后把 user://whitebox_tuning.json 发给助手，或直接念数值。", 12, UiSkin.Jade));
+        _vbox.AddChild(UiSkin.MakeLabel("参数每次改动都会自动写入 " + SavePath, 12,
+            new Color(0.62f, 0.66f, 0.78f)));
     }
 
-    private static Label Place(Label l, float x, float y)
+    /// <summary>一行：标题 + 滑条 + 读数，加入 VBox。滑条值变化时即时写回调参对象。</summary>
+    private void AddSlider(string title, float min, float max, float step, float value,
+        Action<float> apply)
     {
-        l.Position = new Vector2(x, y);
-        return l;
-    }
-
-    /// <summary>一行：标题 + 数值 + 滑条。返回下一行的 y。</summary>
-    private int AddSlider(string title, float min, float max, float step, float value,
-        Action<float> apply, int y)
-    {
-        var label = UiSkin.MakeLabel(title, 15, UiSkin.Text);
-        label.Position = new Vector2(868f, y);
-        _panel.AddChild(label);
-
-        var readout = UiSkin.MakeLabel("", 15, UiSkin.Gold);
-        readout.Position = new Vector2(1150f, y);
-        _panel.AddChild(readout);
-        _values.Add(readout);
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        var label = UiSkin.MakeLabel(title, 14, UiSkin.Text);
+        label.CustomMinimumSize = new Vector2(118f, 0f);
+        var readout = UiSkin.MakeLabel("", 14, UiSkin.Gold);
+        readout.CustomMinimumSize = new Vector2(96f, 0f);
+        readout.HorizontalAlignment = HorizontalAlignment.Right;
 
         var slider = new HSlider
         {
             MinValue = min, MaxValue = max, Step = step, Value = value,
-            Position = new Vector2(868f, y + 22f),
-            Size = new Vector2(380f, 18f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };
+        int idx = _values.Count;
         slider.ValueChanged += v =>
         {
             apply((float)v);
-            int i = _values.IndexOf(readout);
-            readout.Text = FormatValue(i, (float)v);
+            readout.Text = FormatValue(idx, (float)v);
             RefreshMetrics();
             SaveTuning();
         };
-        readout.Text = FormatValue(_values.Count - 1, value);
-        _panel.AddChild(slider);
-        return y + 54;
+        readout.Text = FormatValue(idx, value);
+
+        row.AddChild(label);
+        row.AddChild(slider);
+        row.AddChild(readout);
+        _vbox.AddChild(row);
+
+        _values.Add(readout);
+        _sliders.Add(slider);
+        _sliderDefaults.Add(value);
     }
 
     private static string FormatValue(int index, float v) => index switch
@@ -249,7 +258,12 @@ public partial class WhiteboxRoot : Node2D
         2 => $"{v:F1} 单位/秒²",
         3 => $"{v:P0}",
         4 => $"{v:F2} 秒",
-        _ => $"{v:F2} 秒",
+        5 => $"{v:F2} 秒",
+        6 => $"{v:P0}",
+        7 => $"{v:F2} ×",
+        8 => $"{v:F2} ×",
+        9 => $"{v:F1} 单位/秒",
+        _ => $"{v:F1} 单位/秒",
     };
 
     private void RefreshMetrics()
@@ -259,10 +273,12 @@ public partial class WhiteboxRoot : Node2D
         float t = _tuning.AirTime;
         float span = _tuning.JumpSpan;
         float layers = h / GameDefs.LayerSpacing;
+        float shortH = _tuning.ShortHopHeight;
         _metrics.Text =
-            $"理论跳跃高度　{h:F2} 单位（层高 {GameDefs.LayerSpacing:F1} → 约 {layers:F2} 层）\n" +
-            $"理论滞空　　　{t:F2} 秒\n" +
-            $"水平跨距　　　{span:F2} 单位（满速起跳）\n" +
+            $"满跳高度　{h:F2} 单位（层高 {GameDefs.LayerSpacing:F1} → 约 {layers:F2} 层）\n" +
+            $"短按高度　{shortH:F2} 单位（变高跳 ×{_tuning.JumpCutMul:F2}²）\n" +
+            $"理论滞空　{t:F2} 秒\n" +
+            $"水平跨距　{span:F2} 单位（满速起跳）\n" +
             $"单跳能否上一层　{(layers >= 1.0f ? "可以" : "不行 —— 需要加大跳跃初速或减小重力")}";
     }
 
@@ -285,18 +301,14 @@ public partial class WhiteboxRoot : Node2D
         _tuning.AirControl = d.AirControl;
         _tuning.CoyoteTime = d.CoyoteTime;
         _tuning.JumpBuffer = d.JumpBuffer;
-        // 重建 UI 读数：直接还原滑条值
-        int i = 0;
-        foreach (Node n in _panel.GetChildren())
-        {
-            if (n is not HSlider s) continue;
-            s.Value = i switch
-            {
-                0 => _tuning.MoveSpeed, 1 => _tuning.JumpSpeed, 2 => _tuning.Gravity,
-                3 => _tuning.AirControl, 4 => _tuning.CoyoteTime, _ => _tuning.JumpBuffer,
-            };
-            i++;
-        }
+        _tuning.JumpCutMul = d.JumpCutMul;
+        _tuning.FallGravityMul = d.FallGravityMul;
+        _tuning.ApexGravityMul = d.ApexGravityMul;
+        _tuning.ApexThreshold = d.ApexThreshold;
+        _tuning.MaxFallSpeed = d.MaxFallSpeed;
+        // 重建 UI 读数：直接还原滑条值（触发 ValueChanged 即同步 _tuning 与读数）
+        for (int i = 0; i < _sliders.Count; i++)
+            _sliders[i].Value = _sliderDefaults[i];
         RefreshMetrics();
         SaveTuning();
     }
@@ -311,9 +323,15 @@ public partial class WhiteboxRoot : Node2D
             ["air_control"] = Math.Round(_tuning.AirControl, 2),
             ["coyote_time"] = Math.Round(_tuning.CoyoteTime, 3),
             ["jump_buffer"] = Math.Round(_tuning.JumpBuffer, 3),
+            ["jump_cut_mul"] = Math.Round(_tuning.JumpCutMul, 3),
+            ["fall_gravity_mul"] = Math.Round(_tuning.FallGravityMul, 3),
+            ["apex_gravity_mul"] = Math.Round(_tuning.ApexGravityMul, 3),
+            ["apex_threshold"] = Math.Round(_tuning.ApexThreshold, 3),
+            ["max_fall_speed"] = Math.Round(_tuning.MaxFallSpeed, 2),
             ["derived"] = new Godot.Collections.Dictionary
             {
                 ["jump_height"] = Math.Round(_tuning.JumpHeight, 2),
+                ["short_hop_height"] = Math.Round(_tuning.ShortHopHeight, 2),
                 ["air_time"] = Math.Round(_tuning.AirTime, 2),
                 ["jump_span"] = Math.Round(_tuning.JumpSpan, 2),
                 ["layers"] = Math.Round(_tuning.JumpHeight / GameDefs.LayerSpacing, 2),
@@ -367,7 +385,7 @@ public partial class WhiteboxPlayer : CharacterBody2D
     {
         float dt = (float)delta;
         float dir = Input.GetAxis("move_left", "move_right");
-        _mover.Step(this, dir, Input.IsActionJustPressed("jump"), dt);
+        _mover.Step(this, dir, Input.IsActionJustPressed("jump"), Input.IsActionPressed("jump"), dt);
 
         if (_mover.JustJumped)
         {

@@ -95,17 +95,26 @@ public static class GameDefs
         Mathf.Clamp(Mathf.RoundToInt(worldWidth / 8.0f), 5, 8);
 
     // ---------------------------------------------------------------- 幻灵师（主角不直接攻击）
-    public const float MasterMoveSpeed = 6.0f;
-    public const float Gravity = 26.0f;
-    public const float MasterJumpSpeed = 14.2f;
+    // 跳跃手感目标 = 复刻《终焉之莉莉》：轻盈可控、顶点悬停、短按矮跳、长按照高。
+    // 数值为本作调参（非原作提取），由跳跃白箱（scenes/Whitebox.tscn）继续微调后写回这里。
+    public const float MasterMoveSpeed = 6.5f;     // 略快于旧 6.0，空中更易修正落点
+    public const float Gravity = 22.0f;            // 低于旧 26，整体更飘
+    public const float MasterJumpSpeed = 13.5f;    // 满跳高度 ≈ 4.26 > 层高 3.2 → 单跳可跨一层
     // 以下三项默认值 = 「与旧行为完全一致」；由跳跃白箱（scenes/Whitebox.tscn）调出后写回这里。
-    public const float MasterAirControl = 1.0f;   // 空中水平控制 1=与地面同样灵活
-    public const float MasterCoyoteTime = 0.0f;   // 土狼时间（0=关闭）
-    public const float MasterJumpBuffer = 0.0f;   // 跳跃缓冲（0=关闭）
+    public const float MasterAirControl = 0.9f;    // 空中水平控制（略低于地面，保留惯性）
+    public const float MasterCoyoteTime = 0.10f;   // 土狼时间（离台沿后仍可起跳的宽限）
+    public const float MasterJumpBuffer = 0.12f;   // 跳跃缓冲（落地前预按自动起跳）
+    // 《终焉之莉莉》式跳跃细节
+    public const float MasterJumpCutMul = 0.45f;   // 变高跳：上升松键截断系数（短按≈0.9 单位矮跳）
+    public const float MasterFallGravityMul = 1.5f;// 下落比上升更重 → 落得利落
+    public const float MasterApexGravityMul = 0.55f;// 顶点滞空：穿过顶点附近降低重力
+    public const float MasterApexThreshold = 2.5f; // 顶点区速度阈值（单位/秒）
+    public const float MasterMaxFallSpeed = 28.0f; // 终端下落速度封顶
     public const int MasterMaxHp = 100;
     public const float MasterInvuln = 0.55f;
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);
-    // 验算：跳跃高度 v²/(2g) = 14.2²/(2×26) ≈ 3.88 > 层高 3.2 → 单跳可跨一层
+    // 验算：满跳高度 = (13.5²-2.5²)/(2×22) + 2.5²/(2×22×0.55) ≈ 4.26 > 层高 3.2 → 单跳可跨一层
+    //        短按高度 ≈ 4.26 × 0.45² ≈ 0.86（矮跳）
 
     // ---------------------------------------------------------------- @trace FOLLOW-001 幻灵跟随
     // A 级依据（BM data.win VARI 变量真名）：minion_slot / minion_vx_base / minion_vy_base /

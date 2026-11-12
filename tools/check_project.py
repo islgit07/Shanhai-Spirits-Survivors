@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.003"
 EXPECTED_CS = 21
-EXPECTED_ITEMS = 32
+EXPECTED_ITEMS = 33
 checks = []
 
 

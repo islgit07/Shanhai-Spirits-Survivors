@@ -32,7 +32,7 @@ public partial class Master : CharacterBody2D
     {
         float dt = (float)delta;
         float dir = Input.GetAxis(Left, Right);
-        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), dt);
+        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump), dt);
 
         // @trace GND-001 水平活动域锁在第一层全覆盖地板之内
         float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
