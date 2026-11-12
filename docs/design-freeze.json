@@ -1,0 +1,125 @@
+{
+  "project": "山海幻灵 / ShanHaiHuanLing",
+  "version": "0.001",
+  "status": "baseline-pending-confirmation",
+  "statusNote": "按 Unity 游戏开发专家工作流，设计冻结清单须经用户确认后方可置 frozen。本清单是 Godot 迁移基线的客观实现记录（每条都有 @trace 可查），未经用户逐条确认，故不冒充 frozen。用户确认后可改为 frozen。",
+  "frozenDate": "2026-11-12",
+  "engine": "Godot 4.7.2.stable.mono.official.ed1daf0bf",
+  "engineSource": "本机可执行文件 D:/Program Files (x86)/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe，--version 实测输出，未凭记忆编造",
+  "language": "GDScript",
+  "renderMode": "2D / gl_compatibility",
+  "migrationSource": {
+    "path": "D:/UnityProjects/DayNightSurvivorDemo",
+    "version": "0.0003",
+    "engine": "Unity 6000.3.26f1",
+    "frozenItems": 73,
+    "csharpFiles": 43,
+    "note": "源工程最新基线为 v0.0003（含 TEST-001 无头冒烟、UIS-001~003 UI 换皮），迁移取该状态而非更旧的 v0.0001。"
+  },
+  "versioning": {
+    "scheme": "v0.{3 位递增计数器}",
+    "baseline": "0.001",
+    "baselineMeaning": "Godot 新工程首个 git 提交 + tag v0.001，独立于 Unity 侧 v0.0001~v0.0003 版本线。",
+    "incrementRule": "每次有意义的代码/设计变更 +0.001（v0.001 → v0.002 → …），不再整档大跳。",
+    "milestones": "里程碑（首个真人 Play 验收 / 首个正式内容版本）才允许跳到 0.010 或 0.100；商业可发布再升 1.000。",
+    "enforcement": "每次提交同步 project.godot 的 config/version、docs/design-freeze.json 的 version、README 标题，并打同名轻量 git tag。"
+  },
+  "scope": {
+    "included": "主页面 → 白天经营 → 夜晚自动战斗幸存 → 天明三选一 → 死亡结算 → 局外成长 → 返回主页面；2D 平台跳跃；6 把武器；6 种敌人；金币；建造物；4 套区域主题。",
+    "excluded": "见 notMigrated 数组；未迁移项均不冒充已实现。",
+    "creativeAdditions": "无。本轮未擅自添加源工程之外的新玩法；所有新增文件均为迁移所需的技术重构（GDScript 分层、程序化自举、SystemFont 中文字体、无头冒烟）。"
+  },
+  "originLegend": {
+    "migrated": "源工程已有需求，逻辑与数值保持一致",
+    "reworked": "源工程已有需求，因引擎差异重写实现（API/节点模型不同）",
+    "new": "本轮为工程可运行/可验证所必需的技术实现，非玩法新功能"
+  },
+  "verification": {
+    "import": {
+      "command": "godot --headless --path <project> --editor --quit",
+      "exitCode": 0,
+      "artImported": 16,
+      "scriptParseErrors": 0,
+      "evidence": "docs/compile-evidence.txt"
+    },
+    "smoke": {
+      "command": "godot --headless --path <project> -- --smoke",
+      "exitCode": 0,
+      "result": "PASS",
+      "assertions": 10,
+      "passed": 10,
+      "daysReached": 3,
+      "platforms": 55,
+      "enemiesSpawned": 39,
+      "projectilesFired": 2,
+      "kills": 1,
+      "coinsSpawned": 1,
+      "smokeInjection": "damage_bonus +200；敌人近场 0.9~1.6 单位；阶段 0.8 秒（三项均仅 --smoke 模式，不触碰正常游戏数值）",
+      "evidence": "docs/smoke-evidence.txt / docs/smoke-report.json"
+    },
+    "staticSelfCheck": "docs/self-check.json",
+    "humanPlayMode": "未验证（连续多轮仅 headless 验证；画面/手感/布局未经真人确认）"
+  },
+  "items": [
+    {"id":"CFG-001","title":"集中数值表：昼夜/世界/玩家/波次/武器/敌人/卡牌/商品/局外/区域全部单点定义","status":"implemented","file":"scripts/core/GameConfig.gd","origin":"migrated"},
+    {"id":"EVT-001","title":"全局信号总线（autoload），跨局不销毁、订阅方自行断开","status":"implemented","file":"scripts/core/GameEvents.gd","origin":"reworked"},
+    {"id":"ART-001","title":"美术资源加载与 Sprite 规格化：按目标世界尺寸设 scale，缺图回退纯白纹理","status":"implemented","file":"scripts/core/ArtBank.gd","origin":"reworked"},
+    {"id":"SEED-001","title":"一局一种子 + FNV-1a 分域随机流隔离 + 无状态确定性查询","status":"implemented","file":"scripts/core/RunSeed.gd","origin":"migrated"},
+    {"id":"ROGUE-002","title":"本局构筑单点（autoload）：金币/HP/倍率/武器/卡牌/建造计数","status":"implemented","file":"scripts/core/RunState.gd","origin":"migrated"},
+    {"id":"ROGUE-003","title":"卡牌效果统一在 RunState.apply_upgrade 结算","status":"implemented","file":"scripts/core/RunState.gd","origin":"migrated"},
+    {"id":"META-001","title":"局外成长：余烬、5 项永久升级、武器解锁、战绩；user:// JSON 存档","status":"implemented","file":"scripts/core/MetaProgress.gd","origin":"reworked"},
+    {"id":"GAME-001","title":"五态状态机 MENU/DAY/NIGHT/UPGRADE/DEAD + 天亮结算 + 死亡入账","status":"implemented","file":"scripts/core/GameManager.gd","origin":"reworked"},
+    {"id":"BOOT-001","title":"程序化自举：运行时注册 InputMap、构建菜单/世界/HUD 三根并绑定状态机","status":"implemented","file":"scripts/core/Bootstrap.gd","origin":"new"},
+    {"id":"TEST-001","title":"无头 Play 冒烟：自动 3 昼夜 + 10 项断言 + JSON 报告 + 退出码判定","status":"implemented","file":"scripts/core/GameManager.gd","origin":"new"},
+    {"id":"UIS-001","title":"统一 UI 调色板 + 系统 CJK 字体（SystemFont，不分发字体文件）","status":"implemented","file":"scripts/ui/UiSkin.gd","origin":"reworked"},
+    {"id":"MENU-001","title":"主页面：标题/出征准备/永夜营地/战绩/二次确认清档","status":"implemented","file":"scripts/ui/MainMenu.gd","origin":"migrated"},
+    {"id":"HUD-001","title":"局内 HUD：昼夜进度/HP/金币/武器/击杀/建造/三选一/结算/键位提示","status":"implemented","file":"scripts/ui/Hud.gd","origin":"reworked"},
+    {"id":"ROGUE-001","title":"天明三选一：14 张卡（源 41 张精简）、种子分域抽取、可重掷可跳过","status":"implemented","file":"scripts/gameplay/UpgradeSystem.gd","origin":"migrated"},
+    {"id":"BLD-001","title":"建造物差异化：金库产金/灯塔减速/医疗帐回血/拒马增伤静态聚合","status":"implemented","file":"scripts/gameplay/BuildSystem.gd","origin":"migrated"},
+    {"id":"PLAT-001","title":"多层断续平台：StaticBody2D + CollisionShape2D 单向平台，补上源工程 L3 物理缺口","status":"implemented","file":"scripts/gameplay/PlatformField.gd","origin":"reworked"},
+    {"id":"MAP-001","title":"大地图：宽 48 / 10 层 / 每层 6 段自适应 / 相机双向跟随","status":"implemented","file":"scripts/gameplay/PlatformField.gd","origin":"migrated"},
+    {"id":"JUMP-001","title":"纯平台跳跃：A/D + Space 重力跳 + 单向平台落地 + 掉出世界兜底","status":"implemented","file":"scripts/gameplay/Player.gd","origin":"reworked"},
+    {"id":"WPN-001","title":"六把武器执行：子弹/扇形/连锁/折返/光环，统一结算入口","status":"implemented","file":"scripts/gameplay/WeaponSystem.gd","origin":"migrated"},
+    {"id":"WPN-002","title":"武器选择：主页面起始武器、F 循环切换、HUD 常驻显示、余烬解锁","status":"implemented","file":"scripts/core/GameManager.gd","origin":"migrated"},
+    {"id":"ECO-001","title":"六种敌人原型数据表 + 按夜解锁 + 独立精灵","status":"implemented","file":"scripts/gameplay/Enemy.gd","origin":"migrated"},
+    {"id":"ECO-002","title":"预算制波次 B(d) + HP/伤害/速度随天缩放 + 近场刷怪","status":"implemented","file":"scripts/gameplay/EnemySpawner.gd","origin":"migrated"},
+    {"id":"WAVE-001","title":"自适应刷怪间隔 clamp(30×0.86/B(d), 0.22, 0.85)","status":"implemented","file":"scripts/core/GameConfig.gd","origin":"migrated"},
+    {"id":"COIN-001","title":"金币掉落：重力落地 + 磁吸拾取 + 天亮统一清除","status":"implemented","file":"scripts/gameplay/CoinPickup.gd","origin":"migrated"},
+    {"id":"WORLD-001","title":"世界组装：程序化构建全部 2D 节点、相机 zoom 映射、天亮清理","status":"implemented","file":"scripts/gameplay/World.gd","origin":"reworked"},
+    {"id":"AREA-001","title":"四套区域主题每 3 夜轮换 + 昼夜 tint + HUD 区域名","status":"implemented","file":"scripts/gameplay/World.gd","origin":"migrated"}
+  ],
+  "notMigrated": [
+    {"sourceId":"EVNT-001","name":"夜晚随机事件（7 种）","reason":"内容系统，优先保核心循环可跑；后续批次"},
+    {"sourceId":"AFFX-001","name":"精英词缀（6 种 + 分裂/护盾）","reason":"内容系统"},
+    {"sourceId":"MAST-001","name":"流派奥义（5 标签里程碑）","reason":"卡池由 41 精简为 14，标签体系未迁"},
+    {"sourceId":"BOS-001","name":"每 5 夜 Boss 与狂暴/弹幕/追加强化","reason":"大型系统，未迁"},
+    {"sourceId":"AUD-001","name":"10 种程序化合成音效","reason":"本版无音频"},
+    {"sourceId":"PAD-001~004","name":"手柄输入门面 / IMGUI 焦点导航 / 全界面接入 / 设备切换提示","reason":"本版仅键盘+鼠标；Godot InputMap 已预留摇杆扩展位"},
+    {"sourceId":"UIS-002/003","name":"HUD 与主页圆角皮肤、渐变进度条、辉光与残影血条","reason":"本版用原生 Control 默认样式"},
+    {"sourceId":"SEED-002","name":"随机商店（9 抽 4 / 折扣 / 刷新）与随机平台宝箱","reason":"本版商品表固定 6 项、无宝箱"},
+    {"sourceId":"CRFT-001","name":"武器熟练度跨局升级与图鉴、营地篝火地标","reason":"助手提案类内容，非核心循环"},
+    {"sourceId":"ALLY-001","name":"独立宠物（独立血条/索敌/复活）与宠物自动开火","reason":"未迁"},
+    {"sourceId":"TURRET-001","name":"炮台自动开火","reason":"本版仅生成视觉色块，明确标注"},
+    {"sourceId":"ENEMY-PROJ","name":"敌人远程弹丸 / 浮空无视地形","reason":"敌人统一近身接触伤害"},
+    {"sourceId":"POOL-001","name":"对象池（子弹/投掷物/视觉）","reason":"本版用短命对象 + queue_free"},
+    {"sourceId":"PHYS-2D","name":"敌人与子弹的 Rigidbody2D/Area2D 物理碰撞","reason":"玩家与平台已换原生物理，敌人仍距离判定"},
+    {"sourceId":"SAVE-ENC","name":"存档加密与账号体系","reason":"JSON 明文，与源工程 PlayerPrefs 同为 demo 级"},
+    {"sourceId":"BUILD-PIPE","name":"CI / 自动化测试 / 导出预设 / 平台构建","reason":"L6 工程化未做，无 export_presets.cfg"}
+  ],
+  "openQuestions": [
+    {"id":"Q1","question":"是否继续把 notMigrated 里的系统全量迁到 Godot，还是先打磨现有核心循环？","status":"unanswered"},
+    {"id":"Q2","question":"目标平台与分辨率（PC 横屏 / 移动 / WebGL）？决定导出预设与输入方案。","status":"unanswered"},
+    {"id":"Q3","question":"是否需要手柄适配？若需要，指定手柄型号与按键方案。","status":"unanswered"},
+    {"id":"Q4","question":"中文字体策略：接受 SystemFont 系统回退，还是随工程分发一套开源 CJK 字体？","status":"unanswered"},
+    {"id":"Q5","question":"真人 Play 试玩结论：跳跃落点、相机跟随、48 宽跑图节奏是否需要调数值？","status":"unanswered"}
+  ],
+  "knownLimits": [
+    "真人 Play Mode 从未验证；所有验证均为 headless",
+    "中文字体依赖系统安装 Microsoft YaHei / Noto Sans CJK SC，否则可能显示方块",
+    "金币落地高度固定为底层，未按平台层做 TryLanding",
+    "敌人/子弹为 Node2D + 距离判定，非 Godot 物理碰撞",
+    "无音频、无 Boss、无手柄、无夜晚事件、无精英词缀",
+    "存档为 user://shanhai_meta.json 明文 JSON",
+    "未配置导出预设，无任何平台构建产物"
+  ]
+}

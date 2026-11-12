@@ -1,0 +1,31 @@
+; 山海幻灵 / ShanHaiHuanLing
+; 横板昼夜幸存者 · Godot 4.7 2D 垂直切片
+; 版本 v0.001 —— 由 Unity 工程 D:\UnityProjects\DayNightSurvivorDemo (v0.0003) 迁移
+
+config_version=5
+
+[application]
+
+config/name="山海幻灵"
+config/description="横板昼夜幸存者 2D：白天经营建造，夜晚自动战斗幸存"
+config/version="0.001"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[autoload]
+
+GameEvents="*res://scripts/core/GameEvents.gd"
+RunState="*res://scripts/core/RunState.gd"
+MetaProgress="*res://scripts/core/MetaProgress.gd"
+GameManager="*res://scripts/core/GameManager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"

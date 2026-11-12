@@ -1,0 +1,166 @@
+{
+  "project": "山海幻灵",
+  "version": "0.001",
+  "engine": "Godot 4.7.2.stable.mono",
+  "total": 25,
+  "passed": 25,
+  "failed": 0,
+  "warnings": 0,
+  "traceIds": [
+    "AREA-001",
+    "ART-001",
+    "BLD-001",
+    "BOOT-001",
+    "CFG-001",
+    "COIN-001",
+    "ECO-001",
+    "ECO-002",
+    "EVT-001",
+    "GAME-001",
+    "HUD-001",
+    "JUMP-001",
+    "MAP-001",
+    "MENU-001",
+    "META-001",
+    "PLAT-001",
+    "ROGUE-001",
+    "ROGUE-002",
+    "ROGUE-003",
+    "SEED-001",
+    "TEST-001",
+    "UIS-001",
+    "WAVE-001",
+    "WORLD-001",
+    "WPN-001",
+    "WPN-002"
+  ],
+  "scriptCount": 21,
+  "artCount": 16,
+  "checks": [
+    {
+      "name": "project.godot 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "主场景指向 Main.tscn",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "工程名为山海幻灵",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4 个 autoload 齐备",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2D 渲染方法 gl_compatibility",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "config/version = 0.001",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Main.tscn 引用 Bootstrap.gd",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GDScript 数量 >= 20",
+      "ok": true,
+      "detail": "21 个"
+    },
+    {
+      "name": "每个 .gd 都有配对的 .gd.uid",
+      "ok": true,
+      "detail": "缺失: "
+    },
+    {
+      "name": "冻结清单可被解析",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "@trace 覆盖率 100%（清单条目都有代码标记）",
+      "ok": true,
+      "detail": "未覆盖: "
+    },
+    {
+      "name": "无未登记的 @trace 编号",
+      "ok": true,
+      "detail": "未登记: "
+    },
+    {
+      "name": "冻结清单条目数 = 26",
+      "ok": true,
+      "detail": "26 条"
+    },
+    {
+      "name": "16 张美术 PNG",
+      "ok": true,
+      "detail": "16 张"
+    },
+    {
+      "name": "无 Unity .meta 残留",
+      "ok": true,
+      "detail": "0 个"
+    },
+    {
+      "name": ".gitignore 忽略 .godot/",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".gitignore 不忽略 .gd.uid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".gitignore 忽略 *.log",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "design-freeze version = 0.001",
+      "ok": true,
+      "detail": "0.001"
+    },
+    {
+      "name": "README 标题为 v0.001",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据文件 compile-evidence.txt 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据文件 smoke-evidence.txt 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "证据文件 smoke-report.json 存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟结果 PASS",
+      "ok": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "冒烟 10 项断言全过",
+      "ok": true,
+      "detail": "10/10"
+    }
+  ]
+}

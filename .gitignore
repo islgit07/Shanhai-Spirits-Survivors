@@ -1,0 +1,29 @@
+# ===== Godot 4 生成 / 缓存（不纳入版本控制） =====
+.godot/
+.godot-shader-cache/
+.mono/
+mono_crash.*.json
+
+# ===== 导出 / 构建产物 =====
+export/
+builds/
+*.pck
+*.zip
+*.apk
+*.aab
+*.exe
+
+# ===== IDE / 编辑器 / 操作系统 =====
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# ===== 运行期日志（验证产物另行决定是否归档） =====
+*.log
+
+# ===== Unity 迁移源残留（Godot 不需要 .meta） =====
+*.meta
