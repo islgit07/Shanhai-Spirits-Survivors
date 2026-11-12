@@ -94,6 +94,8 @@ public partial class SpiritWorld : Node2D
         // @trace AXIS-001 出生点在第一层地板上方（y 更小）
         Player.GlobalPosition = new Vector2(0.0f,
             GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
+        // @trace CLIMB-001 把台沿矩形交给主角，启用自动上攀
+        Player.SetLedges(_platforms.GetLedges());
 
         _spawner = new WildSpawner();
         AddChild(_spawner);

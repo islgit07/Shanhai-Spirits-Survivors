@@ -114,6 +114,7 @@ public partial class WhiteboxRoot : Node2D
         _player = new WhiteboxPlayer { Tuning = _tuning };
         AddChild(_player);
         _player.Respawn();
+        _player.SetLedges(_platforms.GetLedges());
 
         float h = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
         float zoom = h / (2.0f * GameDefs.CameraViewHalfHeight);
@@ -363,6 +364,9 @@ public partial class WhiteboxPlayer : CharacterBody2D
     private bool _tracking;
 
     public bool Grounded => _mover != null && _mover.Grounded;
+
+    /// <summary>把地形层导出的台沿矩形喂给移动内核，启用《终焉之莉莉》式自动上攀。</summary>
+    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.Ledges = ledges;
 
     // 注意：字段初始化顺序，_mover 依赖 Tuning，因此在 _Ready 里构造
     public WhiteboxPlayer()

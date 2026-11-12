@@ -108,6 +108,15 @@ public partial class PlatformField : Node2D
         return _rng.RandfRange(pick.X0 + 0.4f, pick.X1 - 0.4f);
     }
 
+    /// <summary>导出全部台沿矩形（含地面），供移动内核做《终焉之莉莉》式自动上攀的几何探测。</summary>
+    public List<PlatformMover.Ledge> GetLedges()
+    {
+        var list = new List<PlatformMover.Ledge>(_segments.Count);
+        foreach (Segment s in _segments)
+            list.Add(new PlatformMover.Ledge(s.X0, s.X1, s.Y));
+        return list;
+    }
+
     private void AddSegment(Segment s)
     {
         var size = new Vector2(s.X1 - s.X0, PlatformThickness);

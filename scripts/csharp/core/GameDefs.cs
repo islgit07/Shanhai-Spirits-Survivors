@@ -110,6 +110,9 @@ public static class GameDefs
     public const float MasterApexGravityMul = 0.2f;// 顶点滞空：穿过顶点附近重力降到 0.2 倍
     public const float MasterApexThreshold = 1.1f; // 顶点区速度阈值（单位/秒）
     public const float MasterMaxFallSpeed = 40.0f; // 终端下落速度封顶
+    // 《终焉之莉莉》式自动上攀：贴着台沿 / 从侧面够到台面，自动翻上去（几何探测，不依赖碰撞类型）
+    public const float MasterClimbReach = 1.2f;     // 台面高于脚 1.2 内可自动翻上（约角色身高）
+    public const float MasterClimbCooldown = 0.15f; // 上攀后冷却（秒），防抖动
     public const int MasterMaxHp = 100;
     public const float MasterInvuln = 0.55f;
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);

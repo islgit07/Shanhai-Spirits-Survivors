@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace ShanHaiHuanLing;
@@ -27,6 +28,9 @@ public partial class Master : CharacterBody2D
         _sprite = ArtBank.MakeSprite("player", GameDefs.MasterSize);
         AddChild(_sprite);
     }
+
+    /// <summary>把地形层导出的台沿矩形喂给移动内核，启用《终焉之莉莉》式自动上攀。</summary>
+    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.Ledges = ledges;
 
     public override void _PhysicsProcess(double delta)
     {
