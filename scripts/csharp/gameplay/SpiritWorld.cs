@@ -19,6 +19,13 @@ public partial class SpiritWorld : Node2D
     public int PickupsSpawned;
     public int PickupsCollected;
     public int BoundCount;
+    // @trace FOLLOW-001 / WPN-001 幻灵输出统计（冒烟据此判定「不是均分圆环」「攻击真的落地」）
+    public int AllyHits;
+    public int AllyMeleeHits;
+    public int AllyBoltHits;
+    public int AllyAuraHits;
+    public int AllyChainHits;
+    public int AllyDamageDealt;
     public readonly System.Collections.Generic.HashSet<string> WildSpeciesSpawned = new();
     public Master? Player;
 
@@ -58,6 +65,8 @@ public partial class SpiritWorld : Node2D
         PlatformCount = 0; GroundContinuous = false; PlayerGrounded = false;
         WildSpawned = 0; ProjectilesFired = 0;
         PickupsSpawned = 0; PickupsCollected = 0; BoundCount = 0;
+        AllyHits = 0; AllyMeleeHits = 0; AllyBoltHits = 0; AllyAuraHits = 0;
+        AllyChainHits = 0; AllyDamageDealt = 0;
         WildSpeciesSpawned.Clear();
         _rng = Rng.Stream(Run.Seed, "world");
 
@@ -122,12 +131,13 @@ public partial class SpiritWorld : Node2D
         for (int i = 0; i < n; i++)
         {
             LegionUnit u = Run.Legion[i];
-            float a = i * Mathf.Tau / Mathf.Max(1, n);
-            var offset = new Vector2(Mathf.Cos(a), Mathf.Sin(a) * 0.55f) * 1.9f;
+            // @trace FOLLOW-001 出生点只用一个「个人方向」做初始散开，真正的队形由 Spirit 自己算
+            float a = Mathf.PosMod(u.Uid * 2.39996f, Mathf.Tau);
+            var offset = new Vector2(Mathf.Cos(a), Mathf.Sin(a) * GameDefs.FollowVerticalSquash)
+                * (GameDefs.FollowAnchorMin + 0.6f);
             var s = new Spirit();
             _bound.AddChild(s);
-            s.Setup(u.Def, u.Level, Faction.Bound, Run.Day, origin + offset,
-                u.Uid, i, n);
+            s.Setup(u.Def, u.Level, Faction.Bound, Run.Day, origin + offset, u.Uid);
         }
         BoundCount = n;
     }
@@ -215,6 +225,47 @@ public partial class SpiritWorld : Node2D
         p.Setup(pos, dir, speed, dmg, life, color, side, pierce, homing);
         ProjectilesFired++;
         return p;
+    }
+
+    /// <summary>
+    /// @trace WPN-001 幻灵对幻兽的伤害结算单点。伤害来自幻灵自己的攻击（含冷却），
+    /// 不存在「幻灵师身边某个范围内统一结算」。这里同时记录统计供冒烟校验。
+    /// </summary>
+    public void DealDamage(Spirit target, int raw, AttackKind kind)
+    {
+        if (target == null || !IsInstanceValid(target)) return;
+        int dmg = Mathf.Max(1, raw);
+        target.TakeDamage(dmg);
+        AllyDamageDealt += dmg;
+        AllyHits++;
+        switch (kind)
+        {
+            case AttackKind.Melee: AllyMeleeHits++; break;
+            case AttackKind.Bolt: AllyBoltHits++; break;
+            case AttackKind.Aura: AllyAuraHits++; break;
+            default: AllyChainHits++; break;
+        }
+    }
+
+    /// <summary>
+    /// @trace FOLLOW-001 冒烟证据：幻灵到幻灵师的距离极差（max-min）。
+    /// 「均分圆环」会接近 0；松散随从必然有明显离散。
+    /// </summary>
+    public float SpiritRadiusSpread()
+    {
+        if (Player == null || !IsInstanceValid(Player) || _bound == null || !IsInstanceValid(_bound))
+            return 0.0f;
+        float min = float.MaxValue, max = 0.0f;
+        int n = 0;
+        foreach (Node c in _bound.GetChildren())
+        {
+            if (c is not Spirit s || !IsInstanceValid(s)) continue;
+            float d = Player.GlobalPosition.DistanceTo(s.GlobalPosition);
+            min = Mathf.Min(min, d);
+            max = Mathf.Max(max, d);
+            n++;
+        }
+        return n >= 2 ? max - min : 0.0f;
     }
 
     public void SpawnSlash(Vector2 pos, float radius)

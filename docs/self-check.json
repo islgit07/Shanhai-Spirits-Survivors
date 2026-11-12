@@ -3,8 +3,8 @@
   "version": "0.003",
   "engine": "Godot 4.7.2.stable.mono",
   "language": "C# (full, zero GDScript, zero autoload)",
-  "total": 90,
-  "passed": 90,
+  "total": 101,
+  "passed": 101,
   "failed": 0,
   "traceIds": [
     "AREA-001",
@@ -18,6 +18,7 @@
     "ECO-001",
     "ESSN-001",
     "EVT-001",
+    "FOLLOW-001",
     "GAME-001",
     "GND-001",
     "HUD-001",
@@ -171,14 +172,14 @@
       "detail": "未登记: "
     },
     {
-      "name": "冻结清单 = 31 条",
+      "name": "冻结清单 = 32 条",
       "ok": true,
-      "detail": "31 条"
+      "detail": "32 条"
     },
     {
       "name": "代码 @trace 编号数与清单一致",
       "ok": true,
-      "detail": "31 个"
+      "detail": "32 个"
     },
     {
       "name": "Spirit 用 Faction 区分敌我",
@@ -217,6 +218,46 @@
     },
     {
       "name": "敌我结构对称（都可受击死亡）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "跟随 = 个人落点（minion_slot 迁移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "跟随速度随距离增长（sMinion_GetMoveSpeed 迁移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "进入死区即停（move_to_radius 迁移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "互相推开（vPushRadius 迁移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "闲逛 / 呼吸浮动（vIdleSpot / vBob 迁移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "已无均分圆环",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "横板适配：高度夹取",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "伤害来自幻灵自身攻击（无光环结算）",
       "ok": true,
       "detail": ""
     },
@@ -441,9 +482,9 @@
       "detail": "PASS"
     },
     {
-      "name": "冒烟 24 项断言全过",
+      "name": "冒烟 27 项断言全过",
       "ok": true,
-      "detail": "24/24"
+      "detail": "27/27"
     },
     {
       "name": "冒烟断言 ground_continuous",
@@ -482,6 +523,21 @@
     },
     {
       "name": "冒烟断言 branches_complete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 ally_attacks_landed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 ally_damage_dealt",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟断言 spirits_not_a_ring",
       "ok": true,
       "detail": ""
     },

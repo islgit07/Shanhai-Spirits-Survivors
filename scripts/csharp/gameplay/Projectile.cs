@@ -55,7 +55,11 @@ public partial class Projectile : Node2D
             if (_hit.Contains(n) || !IsInstanceValid(n) || n is not Node2D n2) continue;
             if (GlobalPosition.DistanceTo(n2.GlobalPosition) >= 0.6f) continue;
             _hit.Add(n);
-            if (n is Spirit s) s.TakeDamage(Damage);
+            if (n is Spirit s)
+            {
+                if (Side == Faction.Bound) SpiritWorld.Active?.DealDamage(s, Damage, AttackKind.Bolt);
+                else s.TakeDamage(Damage);
+            }
             else if (n is Master m) m.TakeDamage(Damage);
             if (!Pierce) { QueueFree(); return; }
         }

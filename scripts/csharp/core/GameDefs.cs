@@ -103,6 +103,26 @@ public static class GameDefs
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);
     // 验算：跳跃高度 v²/(2g) = 14.2²/(2×26) ≈ 3.88 > 层高 3.2 → 单跳可跨一层
 
+    // ---------------------------------------------------------------- @trace FOLLOW-001 幻灵跟随
+    // A 级依据（BM data.win VARI 变量真名）：minion_slot / minion_vx_base / minion_vy_base /
+    // move_to_radius / sMinion_GetMoveSpeed / vPushRadius / vBob_X|Y / vIdle_X|Y / vIdleSpot。
+    // 含义：每只幻灵有「自己的落点 = 幻灵师位置 + 个人偏移」，离得远加速追、靠近就停、
+    // 彼此按互斥半径推开、静止时在闲逛点附近浮动 —— 所以是松散随从群，不是均分圆环。
+    // 数值为本作调参（迁移是 B 级；原作常量未从字节码取得）。
+    public const float FollowAnchorMin = 0.85f;      // 个人落点最小半径
+    public const float FollowAnchorStep = 0.42f;     // 半径档距（uid % 5 档）
+    public const float FollowAnchorSizeMul = 0.55f;  // 体积越大站得越外
+    public const float FollowVerticalSquash = 0.50f; // 横板适配：垂直椭圆压扁（横向铺开为主）
+    public const float FollowStopRadius = 0.18f;     // move_to_radius：进入死区即停
+    public const float FollowBaseSpeed = 2.2f;       // 落点附近的最低速度
+    public const float FollowCatchUp = 3.2f;         // 每 1 单位距离追加的速度
+    public const float FollowMaxSpeed = 15.0f;       // 追人速度上限（不会瞬移）
+    public const float FollowPushRadius = 0.62f;     // vPushRadius：互相推开
+    public const float FollowMasterClear = 0.95f;    // 与幻灵师的净空
+    public const float FollowWanderRadius = 0.35f;   // vIdleSpot：闲逛半径
+    public const float FollowBobAmount = 0.07f;      // vBob：呼吸浮动幅度
+    public const float FollowHeightBias = 0.26f;    // 个体高低偏置：避免全员一条水平线
+
     // ---------------------------------------------------------------- 波次
     public const int BudgetBase = 14;
     public const int BudgetPerDay = 7;

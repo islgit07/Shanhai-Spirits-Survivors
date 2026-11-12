@@ -115,37 +115,230 @@
     "honestCaveat": "以上全部为 headless 验证。真人 Play Mode 至今 0 次；不证明画面、手感、中文字体或可玩性。"
   },
   "items": [
-    {"id":"CFG-001","title":"集中数值表 GameDefs：世界/玩家/波次/灵韵/相机全部单点定义，C# 与 GDScript 不再各存一份","status":"implemented","file":"scripts/csharp/core/GameDefs.cs","origin":"replaced"},
-    {"id":"DEF-001","title":"三张设计表 SpeciesDef / FuseRecipe / LoreDef（学习 BM 拆包第 7 节最小可复用架构）","status":"implemented","file":"scripts/csharp/core/GameDefs.cs","origin":"bm"},
-    {"id":"SPEC-001","title":"【用户明确要求】幻灵与幻兽同源：一张 SpeciesDef + 一个 Spirit 类，Faction 只切 AI 目标与色调，敌我都可受击/死亡","status":"implemented","file":"scripts/csharp/gameplay/Spirit.cs","origin":"setting"},
-    {"id":"MASTER-001","title":"【用户明确】山海谷幻灵师：完全不攻击，只走位/跳跃/拾取（BM 核心约束）","status":"implemented","file":"scripts/csharp/gameplay/Master.cs","origin":"setting+bm"},
-    {"id":"ESSN-001","title":"【BM 核心】灵韵既是经验又是召唤阀门：跨动态阈值即触发一次唤灵，不存在纯数值升级空转","status":"implemented","file":"scripts/csharp/core/Run.cs","origin":"bm+proposal"},
-    {"id":"LEGN-001","title":"幻灵军团 Add / LevelUp / Fuse 三出口 + 按物种分类 cap；Lv3 是融合材料不是终点","status":"implemented","file":"scripts/csharp/gameplay/Legion.cs","origin":"bm"},
-    {"id":"OFFR-001","title":"唤灵选卡：分支生成 → 前置过滤 → 加权无放回抽样；献祭成本显式写入 Offer 并在卡面展示","status":"implemented","file":"scripts/csharp/gameplay/OfferSystem.cs","origin":"bm"},
-    {"id":"SOUL-001","title":"★助手提案 灵魄稀有资源：持有灵魄时灵魂类融合候选权重 ×20（对应 BM Hero Soul 跃迁窗口）","status":"implemented","file":"scripts/csharp/gameplay/OfferSystem.cs","origin":"proposal"},
-    {"id":"LORE-001","title":"【BM 核心】局外 Lore 改变候选池的可能性空间（解锁魁/圣阶分支、4 选 1、cap、开局灵韵、重掷），不加玩家攻击力","status":"implemented","file":"scripts/csharp/core/Meta.cs","origin":"bm+proposal"},
-    {"id":"META-001","title":"局外存档：System.Text.Json + FileAccess(user://)，余烬/传承/解锁/战绩；可二次确认清档","status":"implemented","file":"scripts/csharp/core/Meta.cs","origin":"replaced"},
-    {"id":"ECO-001","title":"10 种同源物种表（凡/灵/魁/圣四阶），按夜解锁，野生波次与唤灵候选共用同一表","status":"implemented","file":"scripts/csharp/core/GameDefs.cs","origin":"bm+proposal"},
-    {"id":"WAVE-001","title":"预算制波次 B(d)=min(130,14+7(d-1)) + 自适应刷怪间隔 + 按阶权重","status":"implemented","file":"scripts/csharp/gameplay/WildSpawner.cs","origin":"retained"},
-    {"id":"GAME-001","title":"状态机 MENU/DAY/NIGHT/SUMMON/DEAD；唤灵可在任意阶段由灵韵即时触发并冻结世界，选完回到原阶段","status":"implemented","file":"scripts/csharp/core/GameRoot.cs","origin":"replaced"},
-    {"id":"BOOT-001","title":"程序化自举：Main.tscn 只挂 GameRoot.cs；InputMap、菜单/世界/HUD 全部运行时生成；零 autoload","status":"implemented","file":"scripts/csharp/core/GameRoot.cs","origin":"replaced"},
-    {"id":"EVT-001","title":"静态 C# 事件总线：全部 UI 在 _Ready 订阅、_ExitTree 退订，避免静态事件持有已销毁节点","status":"implemented","file":"scripts/csharp/core/Signals.cs","origin":"replaced"},
-    {"id":"SEED-001","title":"一局一种子 + FNV-1a 分域随机流隔离（地形/波次/唤灵/世界互不串扰）","status":"implemented","file":"scripts/csharp/core/Rng.cs","origin":"retained"},
-    {"id":"ART-001","title":"16 张 PNG 从 Unity 工程复用；Sprite2D 按目标世界尺寸规格化，缺图回退纯白纹理","status":"implemented","file":"scripts/csharp/core/ArtBank.cs","origin":"retained"},
-    {"id":"COIN-001","title":"掉落拾取：重力落地 + 磁吸；一次入账灵韵/贝币/灵魄，天亮统一清除残余","status":"implemented","file":"scripts/csharp/gameplay/EssencePickup.cs","origin":"replaced"},
-    {"id":"WORLD-001","title":"世界组装：程序化构建全部 2D 节点、相机 zoom 映射、军团数据变化即重建可视契灵","status":"implemented","file":"scripts/csharp/gameplay/SpiritWorld.cs","origin":"replaced"},
-    {"id":"AREA-001","title":"四套区域主题每 3 夜轮换 + 昼夜 tint","status":"implemented","file":"scripts/csharp/gameplay/SpiritWorld.cs","origin":"retained"},
-    {"id":"PLAT-001","title":"多层断续平台：StaticBody2D + 单向 CollisionShape2D，10 层","status":"implemented","file":"scripts/csharp/gameplay/PlatformField.cs","origin":"retained"},
-    {"id":"MAP-001","title":"大地图宽 48 / 10 层 / 每层 6 段自适应 / 相机双向跟随","status":"implemented","file":"scripts/csharp/gameplay/PlatformField.cs","origin":"retained"},
-    {"id":"GND-001","title":"【用户明确要求，保留硬约束】第一层恒为唯一一段、覆盖 [-24,+24]、非单向、不参与随机的实体地板；IsGroundContinuous() 运行时不变量 + 冒烟断言双校验","status":"implemented","file":"scripts/csharp/gameplay/PlatformField.cs","origin":"retained"},
-    {"id":"JUMP-001","title":"纯平台跳跃：A/D + Space 真实重力跳 + 单向平台落地 + 出界兜底","status":"implemented","file":"scripts/csharp/gameplay/Master.cs","origin":"retained"},
-    {"id":"AXIS-001","title":"【保留缺陷修复】Godot y-down：layer_y 翻转、坠落判定 y>、出生点在地板上方、相机 minf 跟随、敌人 y 夹取","status":"implemented","file":"scripts/csharp/gameplay/SpiritWorld.cs","origin":"defectFix"},
-    {"id":"CSHARP-001","title":"【收口用户上轮 C# 诉求 / Q6】全量 C#：19 个 .cs、0 个 .gd、0 autoload；静态状态类 + 静态事件总线取代 GDScript autoload；中文 SystemFont 保留","status":"implemented","file":"ShanHaiHuanLing.csproj","origin":"replaced"},
-    {"id":"UIS-001","title":"统一 UI 调色板 + SystemFont 请求系统中文字体（不分发字体文件）","status":"implemented","file":"scripts/csharp/ui/UiSkin.cs","origin":"retained"},
-    {"id":"MENU-001","title":"主页面：山海谷设定、起始契灵、灵契藏阁 Lore、战绩、二次确认清档","status":"implemented","file":"scripts/csharp/ui/MainMenu.cs","origin":"replaced"},
-    {"id":"HUD-001","title":"HUD：灵韵进度条 / HP / 军团 / 唤灵候选（含献祭成本）/ 营地 / 结算 / 键位提示","status":"implemented","file":"scripts/csharp/ui/Hud.cs","origin":"replaced"},
-    {"id":"WPN-001","title":"投射物敌我共用：同一 Projectile 类按 Faction 切换命中组；Lv2 穿透 / Lv3 追踪为等级质变","status":"implemented","file":"scripts/csharp/gameplay/Projectile.cs","origin":"replaced"},
-    {"id":"TEST-001","title":"无头冒烟：自动 3 昼夜 + 24 项断言（含三类唤灵出口实际执行、敌我同源交集、cap、全覆盖、玩家落地）","status":"implemented","file":"scripts/csharp/core/GameRoot.cs","origin":"replaced"}
+    {
+      "id": "CFG-001",
+      "title": "集中数值表 GameDefs：世界/玩家/波次/灵韵/相机全部单点定义，C# 与 GDScript 不再各存一份",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameDefs.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "DEF-001",
+      "title": "三张设计表 SpeciesDef / FuseRecipe / LoreDef（学习 BM 拆包第 7 节最小可复用架构）",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameDefs.cs",
+      "origin": "bm"
+    },
+    {
+      "id": "SPEC-001",
+      "title": "【用户明确要求】幻灵与幻兽同源：一张 SpeciesDef + 一个 Spirit 类，Faction 只切 AI 目标与色调，敌我都可受击/死亡",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Spirit.cs",
+      "origin": "setting"
+    },
+    {
+      "id": "MASTER-001",
+      "title": "【用户明确】山海谷幻灵师：完全不攻击，只走位/跳跃/拾取（BM 核心约束）",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Master.cs",
+      "origin": "setting+bm"
+    },
+    {
+      "id": "ESSN-001",
+      "title": "【BM 核心】灵韵既是经验又是召唤阀门：跨动态阈值即触发一次唤灵，不存在纯数值升级空转",
+      "status": "implemented",
+      "file": "scripts/csharp/core/Run.cs",
+      "origin": "bm+proposal"
+    },
+    {
+      "id": "LEGN-001",
+      "title": "幻灵军团 Add / LevelUp / Fuse 三出口 + 按物种分类 cap；Lv3 是融合材料不是终点",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Legion.cs",
+      "origin": "bm"
+    },
+    {
+      "id": "OFFR-001",
+      "title": "唤灵选卡：分支生成 → 前置过滤 → 加权无放回抽样；献祭成本显式写入 Offer 并在卡面展示",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/OfferSystem.cs",
+      "origin": "bm"
+    },
+    {
+      "id": "SOUL-001",
+      "title": "★助手提案 灵魄稀有资源：持有灵魄时灵魂类融合候选权重 ×20（对应 BM Hero Soul 跃迁窗口）",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/OfferSystem.cs",
+      "origin": "proposal"
+    },
+    {
+      "id": "LORE-001",
+      "title": "【BM 核心】局外 Lore 改变候选池的可能性空间（解锁魁/圣阶分支、4 选 1、cap、开局灵韵、重掷），不加玩家攻击力",
+      "status": "implemented",
+      "file": "scripts/csharp/core/Meta.cs",
+      "origin": "bm+proposal"
+    },
+    {
+      "id": "META-001",
+      "title": "局外存档：System.Text.Json + FileAccess(user://)，余烬/传承/解锁/战绩；可二次确认清档",
+      "status": "implemented",
+      "file": "scripts/csharp/core/Meta.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "ECO-001",
+      "title": "10 种同源物种表（凡/灵/魁/圣四阶），按夜解锁，野生波次与唤灵候选共用同一表",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameDefs.cs",
+      "origin": "bm+proposal"
+    },
+    {
+      "id": "WAVE-001",
+      "title": "预算制波次 B(d)=min(130,14+7(d-1)) + 自适应刷怪间隔 + 按阶权重",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/WildSpawner.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "GAME-001",
+      "title": "状态机 MENU/DAY/NIGHT/SUMMON/DEAD；唤灵可在任意阶段由灵韵即时触发并冻结世界，选完回到原阶段",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameRoot.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "BOOT-001",
+      "title": "程序化自举：Main.tscn 只挂 GameRoot.cs；InputMap、菜单/世界/HUD 全部运行时生成；零 autoload",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameRoot.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "EVT-001",
+      "title": "静态 C# 事件总线：全部 UI 在 _Ready 订阅、_ExitTree 退订，避免静态事件持有已销毁节点",
+      "status": "implemented",
+      "file": "scripts/csharp/core/Signals.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "SEED-001",
+      "title": "一局一种子 + FNV-1a 分域随机流隔离（地形/波次/唤灵/世界互不串扰）",
+      "status": "implemented",
+      "file": "scripts/csharp/core/Rng.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "ART-001",
+      "title": "16 张 PNG 从 Unity 工程复用；Sprite2D 按目标世界尺寸规格化，缺图回退纯白纹理",
+      "status": "implemented",
+      "file": "scripts/csharp/core/ArtBank.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "COIN-001",
+      "title": "掉落拾取：重力落地 + 磁吸；一次入账灵韵/贝币/灵魄，天亮统一清除残余",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/EssencePickup.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "WORLD-001",
+      "title": "世界组装：程序化构建全部 2D 节点、相机 zoom 映射、军团数据变化即重建可视契灵",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/SpiritWorld.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "AREA-001",
+      "title": "四套区域主题每 3 夜轮换 + 昼夜 tint",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/SpiritWorld.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "PLAT-001",
+      "title": "多层断续平台：StaticBody2D + 单向 CollisionShape2D，10 层",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/PlatformField.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "MAP-001",
+      "title": "大地图宽 48 / 10 层 / 每层 6 段自适应 / 相机双向跟随",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/PlatformField.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "GND-001",
+      "title": "【用户明确要求，保留硬约束】第一层恒为唯一一段、覆盖 [-24,+24]、非单向、不参与随机的实体地板；IsGroundContinuous() 运行时不变量 + 冒烟断言双校验",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/PlatformField.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "JUMP-001",
+      "title": "纯平台跳跃：A/D + Space 真实重力跳 + 单向平台落地 + 出界兜底",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Master.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "AXIS-001",
+      "title": "【保留缺陷修复】Godot y-down：layer_y 翻转、坠落判定 y>、出生点在地板上方、相机 minf 跟随、敌人 y 夹取",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/SpiritWorld.cs",
+      "origin": "defectFix"
+    },
+    {
+      "id": "CSHARP-001",
+      "title": "【收口用户上轮 C# 诉求 / Q6】全量 C#：19 个 .cs、0 个 .gd、0 autoload；静态状态类 + 静态事件总线取代 GDScript autoload；中文 SystemFont 保留",
+      "status": "implemented",
+      "file": "ShanHaiHuanLing.csproj",
+      "origin": "replaced"
+    },
+    {
+      "id": "UIS-001",
+      "title": "统一 UI 调色板 + SystemFont 请求系统中文字体（不分发字体文件）",
+      "status": "implemented",
+      "file": "scripts/csharp/ui/UiSkin.cs",
+      "origin": "retained"
+    },
+    {
+      "id": "MENU-001",
+      "title": "主页面：山海谷设定、起始契灵、灵契藏阁 Lore、战绩、二次确认清档",
+      "status": "implemented",
+      "file": "scripts/csharp/ui/MainMenu.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "HUD-001",
+      "title": "HUD：灵韵进度条 / HP / 军团 / 唤灵候选（含献祭成本）/ 营地 / 结算 / 键位提示",
+      "status": "implemented",
+      "file": "scripts/csharp/ui/Hud.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "WPN-001",
+      "title": "投射物敌我共用：同一 Projectile 类按 Faction 切换命中组；Lv2 穿透 / Lv3 追踪为等级质变",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Projectile.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "FOLLOW-001",
+      "title": "幻灵跟随迁移自 BM 拆包结论：个人落点（slot）/距离加速追/死区停/互斥推开/闲逛浮动，不是均分圆环；横板下垂直压扁并夹在可行走高度内",
+      "status": "implemented",
+      "file": "scripts/csharp/gameplay/Spirit.cs",
+      "origin": "replaced"
+    },
+    {
+      "id": "TEST-001",
+      "title": "无头冒烟：自动 3 昼夜 + 27 项断言（含幻灵跟随离散度与本体输出）（含三类唤灵出口实际执行、敌我同源交集、cap、全覆盖、玩家落地）",
+      "status": "implemented",
+      "file": "scripts/csharp/core/GameRoot.cs",
+      "origin": "replaced"
+    }
   ],
   "notImplemented": [
     "真人 Play Mode 试玩（0 次）",
@@ -160,14 +353,46 @@
     "中文离线内嵌字体（依赖目标机器系统字体）"
   ],
   "openQuestions": [
-    {"id":"Q1","question":"真人 Play 试玩结论：跳跃落点、相机跟随、48 宽跑图节奏、唤灵面板在 1280×720 下是否可读？","status":"unanswered"},
-    {"id":"Q2","question":"★助手提案那 7 项（灵魄 / 灵韵公式 / 物种命名 / 融合配方 / Lore 与营地条目 / 凝神 / 营地语义重定位）是否保留？尤其灵韵阈值 8+6×(Lv-1) 是否太慢或太快？","status":"unanswered"},
-    {"id":"Q3","question":"昼夜是否还要保留为节奏容器？BM 是连续波次；若去掉，白天营地该放到哪里？","status":"unanswered"},
-    {"id":"Q4","question":"「幻灵幻兽同一种」是否还要进一步做成「击败野生幻兽可当场收服」？目前只做到共用定义表（BM 也没有捕捉机制）","status":"unanswered"},
-    {"id":"Q5","question":"幻灵是否应当会受伤/阵亡？本版结构对称（敌我都可受击死亡），但野生 AI 只攻击幻灵师，实际几乎不死","status":"unanswered"},
-    {"id":"Q6","question":"（已由本轮行动回答）C# 分批迁移还是全量重写 → 已选全量 C#；确认后续是否维持纯 C# 不再引入 GDScript","status":"answered-by-v0.003"},
-    {"id":"Q7","question":"物种规模要往 10 种继续扩，还是先把现有 10 种的动作/技能做深？","status":"unanswered"},
-    {"id":"Q8","question":"是否需要把 BM 的「局外 Lore 可出售 respec」也做进来？当前 Lore 买入后不可退","status":"unanswered"}
+    {
+      "id": "Q1",
+      "question": "真人 Play 试玩结论：跳跃落点、相机跟随、48 宽跑图节奏、唤灵面板在 1280×720 下是否可读？",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q2",
+      "question": "★助手提案那 7 项（灵魄 / 灵韵公式 / 物种命名 / 融合配方 / Lore 与营地条目 / 凝神 / 营地语义重定位）是否保留？尤其灵韵阈值 8+6×(Lv-1) 是否太慢或太快？",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q3",
+      "question": "昼夜是否还要保留为节奏容器？BM 是连续波次；若去掉，白天营地该放到哪里？",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q4",
+      "question": "「幻灵幻兽同一种」是否还要进一步做成「击败野生幻兽可当场收服」？目前只做到共用定义表（BM 也没有捕捉机制）",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q5",
+      "question": "幻灵是否应当会受伤/阵亡？本版结构对称（敌我都可受击死亡），但野生 AI 只攻击幻灵师，实际几乎不死",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q6",
+      "question": "（已由本轮行动回答）C# 分批迁移还是全量重写 → 已选全量 C#；确认后续是否维持纯 C# 不再引入 GDScript",
+      "status": "answered-by-v0.003"
+    },
+    {
+      "id": "Q7",
+      "question": "物种规模要往 10 种继续扩，还是先把现有 10 种的动作/技能做深？",
+      "status": "unanswered"
+    },
+    {
+      "id": "Q8",
+      "question": "是否需要把 BM 的「局外 Lore 可出售 respec」也做进来？当前 Lore 买入后不可退",
+      "status": "unanswered"
+    }
   ],
   "knownLimits": [
     "真人 Play Mode 从未验证；所有验证均为 headless（编译 + 状态机 + 冒烟），不证明可玩性",

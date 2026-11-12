@@ -1,6 +1,6 @@
 Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
 
-[BOOT] 山海幻灵 v0.003 · 山海谷幻灵师 · Godot 4 2D / C# 全量重构
+[BOOT] 山海幻灵 v0.003
 [GROUND] segments=55 ground_continuous=True
 [SMOKE] start_run day=1
 [SMOKE] day_started day=1
@@ -34,7 +34,14 @@ SMOKE_JSON_BEGIN
   "mode": "headless-smoke",
   "result": "PASS",
   "days_reached": 4,
-  "kills": 7,
+  "kills": 6,
+  "spirit_radius_spread": 1.59,
+  "ally_hits": 6,
+  "ally_melee_hits": 3,
+  "ally_bolt_hits": 3,
+  "ally_aura_hits": 0,
+  "ally_chain_hits": 0,
+  "ally_damage_dealt": 1290,
   "cards_taken": 5,
   "legion_size": 2,
   "platforms": 55,
@@ -42,9 +49,9 @@ SMOKE_JSON_BEGIN
   "player_grounded": true,
   "wilds_spawned": 39,
   "projectiles_fired": 15,
-  "pickups_spawned": 7,
-  "pickups_collected": 7,
-  "essence_total": 114,
+  "pickups_spawned": 6,
+  "pickups_collected": 6,
+  "essence_total": 112,
   "level": 6,
   "smoke_fused": true,
   "smoke_bolstered": true,
@@ -83,6 +90,9 @@ SMOKE_JSON_BEGIN
     "wilds_spawned": true,
     "projectiles_fired": true,
     "kills_recorded": true,
+    "ally_attacks_landed": true,
+    "ally_damage_dealt": true,
+    "spirits_not_a_ring": true,
     "pickups_collected": true,
     "essence_gained": true,
     "level_advanced": true,

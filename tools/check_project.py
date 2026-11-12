@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.003"
 EXPECTED_CS = 19
-EXPECTED_ITEMS = 31
+EXPECTED_ITEMS = 32
 checks = []
 
 
@@ -99,6 +99,23 @@ check("幻灵师完全不攻击（无开火/索敌）",
       "SpawnProjectile" not in master and "AttackWilds" not in master and "TakeDamage(int amount)" in master)
 check("敌我结构对称（都可受击死亡）", "if (Side == Faction.Wild)" in spirit and "Legion.Remove(Uid);" in spirit)
 
+# ---------------------------------------------------------------- 5b. FOLLOW-001 跟随模型（迁移自 BM 拆包）
+check("跟随 = 个人落点（minion_slot 迁移）",
+      all(k in defs for k in ("FollowAnchorMin", "FollowAnchorStep", "FollowAnchorSizeMul"))
+      and "_slotOffset" in spirit)
+check("跟随速度随距离增长（sMinion_GetMoveSpeed 迁移）",
+      "FollowBaseSpeed + dist * GameDefs.FollowCatchUp" in spirit and "FollowMaxSpeed" in spirit)
+check("进入死区即停（move_to_radius 迁移）", "FollowStopRadius" in defs and "dist > GameDefs.FollowStopRadius" in spirit)
+check("互相推开（vPushRadius 迁移）", "FollowPushRadius" in defs and "private void Separate" in spirit)
+check("闲逛 / 呼吸浮动（vIdleSpot / vBob 迁移）",
+      "FollowWanderRadius" in defs and "FollowBobAmount" in defs and "_wanderGoal" in spirit)
+check("已无均分圆环", "formIndex * Mathf.Tau" not in spirit and "_formCount" not in spirit
+      and "i * Mathf.Tau / Mathf.Max(1, n)" not in world)
+check("横板适配：高度夹取", "ClampToField" in spirit and "LayerY(0)" in spirit)
+check("伤害来自幻灵自身攻击（无光环结算）",
+      "public void DealDamage(Spirit target, int raw, AttackKind kind)" in world
+      and "TakeDamage(_damage)" in spirit)
+
 # ---------------------------------------------------------------- 6. BM 机制
 check("三类唤灵出口 Raise/Bolster/Fuse", all(k in defs for k in ("Raise = 0", "Bolster = 1", "Fuse = 2")))
 check("单一资源阀门：灵韵跨阈值排队唤灵", "PendingOffers++" in run and "GameDefs.EssenceCost(Level)" in run)
@@ -167,10 +184,11 @@ if smoke_path.exists():
     a = smoke.get("assertions", {})
     failed = [k for k, v in a.items() if not v]
     check("冒烟结果 PASS", smoke.get("result") == "PASS", str(smoke.get("result")))
-    check("冒烟 24 项断言全过", len(a) == 24 and not failed,
-          "失败: " + ", ".join(failed) if failed else f"{len(a)}/24")
+    check("冒烟 27 项断言全过", len(a) == 27 and not failed,
+          "失败: " + ", ".join(failed) if failed else f"{len(a)}/27")
     for k in ("ground_continuous", "player_grounded", "fuse_applied", "bolster_applied",
-              "raise_applied", "shared_species_table", "cap_respected", "branches_complete"):
+              "raise_applied", "shared_species_table", "cap_respected", "branches_complete",
+              "ally_attacks_landed", "ally_damage_dealt", "spirits_not_a_ring"):
         check(f"冒烟断言 {k}", a.get(k) is True)
     check("冒烟报告版本一致", smoke.get("version") == VERSION, str(smoke.get("version")))
     check("冒烟报告语言口径", smoke.get("language") == "C# (full)")
