@@ -8,7 +8,7 @@ namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// v0.0001 自举：注册输入 → 拉起最小世界（相机 + 地形生成 + 主角 + 相机跟随）。
-/// 场景结构在 Main.tscn 里摆（节点名即契约：根 WorldRoot/{Camera2D, PlatformField, Player}），
+/// 场景结构在 Main.tscn 里摆（节点名即契约：根 WorldRoot/{Camera2D, BlockField, Player}），
 /// 主角是独立场景 Player.tscn（Node2D → CharacterBody2D[Master] → CollisionShape2D）。
 /// 无战斗、无循环阶段——按 F5 进入开始页，点「开始」进入可跑跳的空世界。
 ///
@@ -24,7 +24,7 @@ public partial class GameRoot : Node2D
 
 	private Camera2D _camera = null!;
 	private Sprite2D _backdrop = null!;
-	private PlatformField _platforms = null!;
+	private BlockField _blocks = null!;
 
 	public Master? Player;
 	public int PlatformCount;
@@ -59,7 +59,7 @@ public partial class GameRoot : Node2D
 
 		// 场景结构在 Main.tscn 摆好（节点名即契约）；背景精灵仍在代码里生成（ArtBank 按纹理像素算缩放）
 		_camera = GetNode<Camera2D>("Camera2D");
-		_platforms = GetNode<PlatformField>("PlatformField");
+		_blocks = GetNode<BlockField>("BlockField");
 		Player = GetNode<Master>("Player/CharacterBody2D");
 
 		_backdrop = ArtBank.MakeSprite(GameDefs.BackdropArt, ViewSizeWorld());
@@ -111,16 +111,16 @@ public partial class GameRoot : Node2D
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
 
-		_platforms.Build(seed);
-		PlatformCount = _platforms.GetSegmentCount();
-		GroundContinuous = _platforms.IsGroundContinuous();
+		_blocks.Build(seed);
+		PlatformCount = _blocks.BlockCount;
+		GroundContinuous = _blocks.IsGroundContinuous();
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
 			GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
-		Player.SetLedges(_platforms.GetLedges());   // CLIMB-001 自动上攀：地形建好后注入台沿
+		Player.SetLedges(_blocks.GetLedges());   // CLIMB-001 自动上攀：地形建好后注入台沿
 		PlayerGrounded = false;
 	}
 
@@ -136,7 +136,7 @@ public partial class GameRoot : Node2D
 	public bool SmokeTeleportToPlatform()
 	{
 		if (Player == null || !IsInstanceValid(Player)) return false;
-		if (!_platforms.GetFirstOneWay(out float x, out float y)) return false;
+		if (!_blocks.GetFirstOneWay(out float x, out float y)) return false;
 		Player.GlobalPosition = new Vector2(x, y - 0.05f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();

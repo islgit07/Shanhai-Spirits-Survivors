@@ -23,7 +23,7 @@ public partial class WhiteboxRoot : Node2D
 
     private readonly MoveTuning _tuning = MoveTuning.GameDefaults();
     private WhiteboxPlayer _player = null!;
-    private PlatformField _platforms = null!;
+    private BlockField _blocks = null!;
     private Camera2D _camera = null!;
     private CanvasLayer _ui = null!;
     private Control _panel = null!;
@@ -129,14 +129,14 @@ public partial class WhiteboxRoot : Node2D
         };
         AddChild(bg);
 
-        _platforms = new PlatformField();
-        AddChild(_platforms);
-        _platforms.Build(_seed);
+        _blocks = new BlockField();
+        AddChild(_blocks);
+        _blocks.Build(_seed);
 
         _player = new WhiteboxPlayer { Tuning = _tuning };
         AddChild(_player);
         _player.Respawn();
-        _player.SetLedges(_platforms.GetLedges());   // CLIMB-001 自动上攀：白箱也能实机体验翻台沿
+        _player.SetLedges(_blocks.GetLedges());   // CLIMB-001 自动上攀：白箱也能实机体验翻台沿
 
 
         float h = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
@@ -147,9 +147,9 @@ public partial class WhiteboxRoot : Node2D
 
     private void RebuildPlatforms()
     {
-        _platforms.Build(_seed);
+        _blocks.Build(_seed);
         _player.Respawn();
-        _player.SetLedges(_platforms.GetLedges());   // CLIMB-001 换地形后刷新台沿
+        _player.SetLedges(_blocks.GetLedges());   // CLIMB-001 换地形后刷新台沿
         RefreshMetrics();
     }
 
@@ -202,6 +202,11 @@ public partial class WhiteboxRoot : Node2D
         AddSlider("顶点滞空倍率", 0.20f, 1.00f, 0.05f, _tuning.ApexGravityMul, v => _tuning.ApexGravityMul = v);
         AddSlider("顶点阈值", 0.0f, 6.0f, 0.1f, _tuning.ApexThreshold, v => _tuning.ApexThreshold = v);
         AddSlider("最大下落速度", 12.0f, 40.0f, 0.5f, _tuning.MaxFallSpeed, v => _tuning.MaxFallSpeed = v);
+        AddSlider("下穿窗口(秒)", 0.0f, 0.50f, 0.01f, _tuning.DropThroughTime, v => _tuning.DropThroughTime = v);
+        AddSlider("上攀探测高度", 0.0f, 1.20f, 0.05f, _tuning.ClimbReachUp, v => _tuning.ClimbReachUp = v);
+        AddSlider("上攀探测带宽", 0.0f, 1.00f, 0.05f, _tuning.ClimbEdgeBand, v => _tuning.ClimbEdgeBand = v);
+        AddSlider("上攀推进距离", 0.05f, 0.80f, 0.05f, _tuning.ClimbStep, v => _tuning.ClimbStep = v);
+        AddSlider("上攀冷却(秒)", 0.0f, 0.50f, 0.01f, _tuning.ClimbCooldown, v => _tuning.ClimbCooldown = v);
 
         _metrics = UiSkin.MakeLabel("", 14, UiSkin.Text);
         _vbox.AddChild(_metrics);
@@ -227,8 +232,16 @@ public partial class WhiteboxRoot : Node2D
             _seed = (int)((ulong)Time.GetUnixTimeFromSystem() & 0x7FFFFFFFu);
             RebuildPlatforms();
         };
+        var climb = UiSkin.MakeButton($"自动上攀:{(_tuning.AutoClimbEnabled ? "开" : "关")}", 14);
+        climb.Pressed += () =>
+        {
+            _tuning.AutoClimbEnabled = !_tuning.AutoClimbEnabled;
+            climb.Text = $"自动上攀:{(_tuning.AutoClimbEnabled ? "开" : "关")}";
+            GD.Print($"[WHITEBOX] 自动上攀 = {_tuning.AutoClimbEnabled}");
+        };
         btnRow.AddChild(copy); btnRow.AddChild(reset);
         btnRow.AddChild(respawn); btnRow.AddChild(terrain);
+        btnRow.AddChild(climb);
         _vbox.AddChild(btnRow);
 
         _vbox.AddChild(UiSkin.MakeLabel(
@@ -277,16 +290,21 @@ public partial class WhiteboxRoot : Node2D
 
     private static string FormatValue(int index, float v) => index switch
     {
-        0 => $"{v:F1} 单位/秒",
-        1 => $"{v:F1} 单位/秒",
-        2 => $"{v:F1} 单位/秒²",
+        0 => $"{v:F1} 格/秒",
+        1 => $"{v:F1} 格/秒",
+        2 => $"{v:F1} 格/秒²",
         3 => $"{v:P0}",
         4 => $"{v:F2} 秒",
         5 => $"{v:F2} 秒",
         6 => $"{v:P0}",
         7 => $"{v:F2} ×",
         8 => $"{v:F2} ×",
-        9 => $"{v:F1} 单位/秒",
+        9 => $"{v:F1} 格/秒",
+        10 => $"{v:F2} 秒",
+        11 => $"{v:F2} 格",
+        12 => $"{v:F2} 格",
+        13 => $"{v:F2} 格",
+        14 => $"{v:F2} 秒",
         _ => $"{v:F1} 单位/秒",
     };
 
@@ -296,14 +314,14 @@ public partial class WhiteboxRoot : Node2D
         float h = _tuning.JumpHeight;
         float t = _tuning.AirTime;
         float span = _tuning.JumpSpan;
-        float layers = h / GameDefs.LayerSpacing;
+        float cells = h;   // 方块地图：1 世界单位 = 1 格，跳高格数 = 跳高数值
         float shortH = _tuning.ShortHopHeight;
         _metrics.Text =
-            $"满跳高度　{h:F2} 单位（层高 {GameDefs.LayerSpacing:F1} → 约 {layers:F2} 层）\n" +
+            $"满跳高度　{h:F2} 格（1 格 = 1 世界单位）\n" +
             $"短按高度　{shortH:F2} 单位（变高跳 ×{_tuning.JumpCutMul:F2}²）\n" +
             $"理论滞空　{t:F2} 秒\n" +
             $"水平跨距　{span:F2} 单位（满速起跳）\n" +
-            $"单跳能否上一层　{(layers >= 1.0f ? "可以" : "不行 —— 需要加大跳跃初速或减小重力")}";
+            $"单跳能否上一格　{(cells >= 1.0f ? "可以" : "不行 —— 需要加大跳跃初速或减小重力")}";
     }
 
     public override void _Process(double delta)
@@ -358,7 +376,7 @@ public partial class WhiteboxRoot : Node2D
                 ["short_hop_height"] = Math.Round(_tuning.ShortHopHeight, 2),
                 ["air_time"] = Math.Round(_tuning.AirTime, 2),
                 ["jump_span"] = Math.Round(_tuning.JumpSpan, 2),
-                ["layers"] = Math.Round(_tuning.JumpHeight / GameDefs.LayerSpacing, 2),
+            ["cells"] = Math.Round(_tuning.JumpHeight, 2),
             },
             ["terrain_seed"] = _seed,
         };
@@ -374,7 +392,7 @@ public partial class WhiteboxRoot : Node2D
 }
 
 /// <summary>白箱角色：只做「跑 + 跳」，移动完全走 PlatformMover（与游戏主角同一份内核）。</summary>
-public partial class WhiteboxPlayer : CharacterBody2D
+public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
 {
     public MoveTuning Tuning = MoveTuning.GameDefaults();
 
@@ -382,7 +400,6 @@ public partial class WhiteboxPlayer : CharacterBody2D
     public float MeasuredApex { get; private set; }
 
     private readonly PlatformMover _mover = null!;
-    private Sprite2D _sprite = null!;
     private float _jumpStartY;
     private bool _tracking;
 
@@ -390,6 +407,11 @@ public partial class WhiteboxPlayer : CharacterBody2D
 
     /// <summary>注入地形台沿（CLIMB-001 自动上攀用），由白箱在地形建好后调用。</summary>
     public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.SetLedges(ledges);
+
+    /// <summary>弹跳标志：由 BlockField 触碰感应置位，Step 之后应用（与游戏主角一致）。</summary>
+    public bool BounceRequested;
+
+    public void Bounce() => BounceRequested = true;
 
 
     // 注意：字段初始化顺序，_mover 依赖 Tuning，因此在 _Ready 里构造
@@ -400,12 +422,18 @@ public partial class WhiteboxPlayer : CharacterBody2D
 
     public override void _Ready()
     {
+        AddToGroup("master");   // BlockField 触碰感应（脆弱/弹跳/宝箱）按此组识别
         CollisionLayer = 1u;
         CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay;
         var shape = new RectangleShape2D { Size = GameDefs.MasterSize };
         AddChild(new CollisionShape2D { Shape = shape });
-        _sprite = ArtBank.MakeSprite("player", GameDefs.MasterSize);
-        AddChild(_sprite);
+        var placeholder = new ColorRect
+        {
+            Color = new Color(0.85f, 0.88f, 0.95f),
+            Size = GameDefs.MasterSize,
+            Position = -GameDefs.MasterSize * 0.5f,
+        };
+        AddChild(placeholder);
         _mover.T = Tuning;
     }
 
@@ -415,6 +443,12 @@ public partial class WhiteboxPlayer : CharacterBody2D
         float dir = Input.GetAxis("move_left", "move_right");
         _mover.Step(this, dir, Input.IsActionJustPressed("jump"), Input.IsActionPressed("jump"),
             Input.IsActionPressed("move_down"), dt);
+
+        if (BounceRequested)
+        {
+            BounceRequested = false;
+            Velocity = new Vector2(Velocity.X, -GameDefs.BounceSpeed);
+        }
 
         if (_mover.JustJumped)
         {
@@ -438,5 +472,12 @@ public partial class WhiteboxPlayer : CharacterBody2D
         MeasuredApex = 0.0f;
         _tracking = false;
         _mover.ResetWindows();
+    }
+
+    public override void _Process(double delta)
+    {
+        // @trace GND-001 世界边界：与游戏主角一致，锁在方块地图（48 列 = ±24）之内
+        float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
+        GlobalPosition = new Vector2(Mathf.Clamp(GlobalPosition.X, -edge, edge), GlobalPosition.Y);
     }
 }

@@ -129,6 +129,11 @@
       "detail": ""
     },
     {
+      "name": "移动内核：上攀总开关走 MoveTuning（白箱可单独开）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "自动上攀：几何台沿探测（Ledge 结构 + ComputeClimb 纯几何方法）",
       "ok": true,
       "detail": ""
@@ -154,7 +159,7 @@
       "detail": ""
     },
     {
-      "name": "GND-001 第一层全覆盖硬约束",
+      "name": "GND-001 地面层全覆盖硬约束",
       "ok": true,
       "detail": ""
     },
@@ -169,12 +174,12 @@
       "detail": ""
     },
     {
-      "name": "平台随机分布（台数/位置/层高浮动，MAP-002）",
+      "name": "方块随机分布（run 长度/空档/类型权重，MAP-003）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "自动上攀：地形导出可攀台沿（PlatformField.GetLedges）",
+      "name": "自动上攀：地形导出可攀台沿（BlockField.GetLedges）",
       "ok": true,
       "detail": ""
     },

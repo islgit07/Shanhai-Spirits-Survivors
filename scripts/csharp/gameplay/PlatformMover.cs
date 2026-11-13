@@ -50,6 +50,8 @@ public sealed class MoveTuning
     public float ClimbStep = GameDefs.MasterClimbStep;
     /// <summary>自动上攀：两次翻越最小间隔（秒）。</summary>
     public float ClimbCooldown = GameDefs.MasterClimbCooldown;
+    /// <summary>自动上攀总开关（CLIMB-001）。默认取 GameDefs（当前整体关闭）；白箱可单独打开预调。</summary>
+    public bool AutoClimbEnabled = GameDefs.MasterAutoClimbEnabled;
 
     public static MoveTuning GameDefaults() => new();
 
@@ -97,6 +99,7 @@ public sealed class MoveTuning
         MaxFallSpeed = MaxFallSpeed, DropThroughTime = DropThroughTime,
         ClimbReachUp = ClimbReachUp, ClimbReachDown = ClimbReachDown,
         ClimbEdgeBand = ClimbEdgeBand, ClimbStep = ClimbStep, ClimbCooldown = ClimbCooldown,
+        AutoClimbEnabled = AutoClimbEnabled,
     };
 }
 
@@ -273,6 +276,7 @@ public sealed class PlatformMover
     /// <summary>用当前台沿列表与调参，对真实角色做一次探测与吸附。</summary>
     private bool TryClimb(CharacterBody2D body, float dirX)
     {
+        if (!T.AutoClimbEnabled) return false;   // 总开关：默认取 GameDefs（当前关闭）；白箱可单独打开预调
         if (_ledges.Count == 0) return false;
         if (ComputeClimb(body.GlobalPosition, GameDefs.MasterSize.Y * 0.5f, dirX, _ledges,
                 T.ClimbReachUp, T.ClimbReachDown, T.ClimbEdgeBand, T.ClimbStep, out Vector2 snap))
@@ -284,17 +288,20 @@ public sealed class PlatformMover
         return false;
     }
 
-    /// <summary>脚下（脚底向下 0.25）是否踩在单向平台层上。射线只查 LayerOneWay，
-    /// 实体地板不命中 → 站实体地板「下 + 跳」仍是正常跳，不会误吞跳跃。</summary>
+    /// <summary>脚下是否踩在单向平台层上：直接读上一帧 MoveAndSlide 的地板碰撞体，
+    /// 查其碰撞层是否含 LayerOneWay。比射线更可靠（射线对 one-way 形状不稳定）。
+    /// 只认单向层 → 站实体地板「下 + 跳」仍是正常跳，不会误吞跳跃。</summary>
     private static bool StandingOnOneWay(CharacterBody2D body)
     {
-        float halfH = GameDefs.MasterSize.Y * 0.5f;
-        Vector2 from = body.GlobalPosition;
-        var query = PhysicsRayQueryParameters2D.Create(
-            from, from + new Vector2(0.0f, halfH + 0.25f),
-            GameDefs.LayerOneWay,
-            new Godot.Collections.Array<Rid> { body.GetRid() });
-        return body.GetWorld2D().DirectSpaceState.IntersectRay(query).Count > 0;
+        for (int i = 0; i < body.GetSlideCollisionCount(); i++)
+        {
+            var ci = body.GetSlideCollision(i);
+            if (ci.GetNormal().Y >= -0.7f) continue;   // 只看地板法线（朝上）
+            if (ci.GetCollider() is PhysicsBody2D pb
+                && (pb.CollisionLayer & GameDefs.LayerOneWay) != 0u)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳 / 误翻越。</summary>
