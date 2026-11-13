@@ -12,3 +12,7 @@
 Current: `v0.0003`
 
 History: Full state before v0.0003 refactor at commit `5978a58`. Legacy docs archived in `docs/archive/v0.003/`.
+
+## 协议
+
+MIT — 见 [LICENSE](LICENSE)。
