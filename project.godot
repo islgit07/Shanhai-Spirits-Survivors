@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="山海幻灵"
-config/description="山海谷的幻灵师 · v0.0001 从零开始：仅保留《终焉之莉莉》式移动手感与平台地图生成"
-config/version="0.0001"
-run/main_scene="res://scenes/Main.tscn"
+config/description="山海谷的幻灵师 · v0.0002 开始页 + 场景编辑器化（主角独立场景）"
+config/version="0.0002"
+run/main_scene="res://scenes/StartPage.tscn"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 
 [display]

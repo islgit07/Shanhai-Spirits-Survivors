@@ -23,8 +23,7 @@ public partial class Master : CharacterBody2D
         AddToGroup("master");
         CollisionLayer = 1u;
         CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay;
-        var shape = new RectangleShape2D { Size = GameDefs.MasterSize };
-        AddChild(new CollisionShape2D { Shape = shape });
+        // 碰撞体在 Player.tscn 里摆（CapsuleShape2D，包围盒 = GameDefs.MasterSize 0.8×1.2）
         _sprite = ArtBank.MakeSprite("player", GameDefs.MasterSize);
         AddChild(_sprite);
     }

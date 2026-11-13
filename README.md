@@ -1,6 +1,6 @@
-# 山海幻灵 · v0.0001
+# 山海幻灵 · v0.0002
 
-> **山海谷的幻灵师** ｜ Godot **4.7.2.stable.mono** ｜ **全量 C#** ｜ 2D 横板跳跃 ｜ 纯代码自举、零 autoload、零第三方插件
+> **山海谷的幻灵师** ｜ Godot **4.7.2.stable.mono** ｜ **全量 C#** ｜ 2D 横板跳跃 ｜ 零 autoload、零第三方插件
 >
 > 工程路径：`D:\GameProjects\山海幻灵`
 
@@ -8,21 +8,15 @@
 
 ## 1. 这一版是什么
 
-**v0.0001 是一次「回退重构」**：应用户要求，把 v0.003 的战斗 / 成长 / 昼夜 / UI / 局外存档全部拆除，只保留两样被验证过的东西作为公共底座，之后与助手在这个对话里逐步重新设计游戏。
+**v0.0002：开始页 + 场景编辑器化**。在 v0.0001 底座（移动手感 + 平台地图生成）上做了三件事：
 
-| 保留 | 内容 |
+| 变更 | 内容 |
 |---|---|
-| **移动手感** | `PlatformMover` + `MoveTuning`：《终焉之莉莉》式跳跃全套（变高跳 / 顶点滞空 / 下落加重 / 下落限速 / 土狼时间 / 跳跃缓冲）+ 类银式下穿（下+跳穿单向平台）。数值 = 白箱实机调出（重力 36 / 跳速 16.2 / 变高跳 0.36 / 下落 2.5 / 顶点 0.45·1.1 / 限速 40） |
-| **平台地图生成** | `PlatformField`：第一层全覆盖实体地板硬约束（GND-001）+ 上层 9 层随机分布单向平台（台数 / 位置 / 层高随机、同层保最小间隙、种子可复现） |
-| **开发工具** | 跳跃白箱（`scenes/Whitebox.tscn`，与游戏共用移动内核）、`CSharpToolchainProbe`、无头冒烟、`check_project.py` |
-| **美术资产** | `assets/art/` 16 张 PNG 全部留在仓库（战斗相关的只是暂时不再被引用） |
+| **开始页** | `StartPage.tscn`（开始 / 设置 / 图鉴 / 退出：开始 → 进世界、退出 → 关游戏、设置 / 图鉴留 TODO 未实装）；`run/main_scene` 改为开始页 |
+| **场景结构编辑器化** | `Main.tscn` 摆节点：根 WorldRoot 挂 GameRoot，子节点 Camera2D / PlatformField / Player；碰撞体在编辑器摆（胶囊体，包围盒 = GameDefs.MasterSize）；代码只取节点 + 程序化生成（平台 / 背景） |
+| **主角独立场景** | `Player.tscn`（Node2D → CharacterBody2D[Master] → CollisionShape2D），供后续战斗 / 装备扩展复用；`WorldRoot.cs` 合并进 `GameRoot.cs` |
 
-| 删除 | 内容 |
-|---|---|
-| 战斗 | `Spirit` / `Projectile` / `WildSpawner` / `EssencePickup` / `SpiritWorld` |
-| 成长 | `Run`（灵韵/资源/军团状态）、`Legion`、`OfferSystem`（唤灵三分支）、`Meta`（局外存档） |
-| 表现 | `Hud` / `MainMenu`（全部游戏 UI）、昼夜 / 营地 / 主题轮换 / 物种表 / 融合配方 |
-| 事件 | `Signals`（战斗事件总线） |
+**背景（v0.0001）**：v0.0001 是「回退重构」——应用户要求把 v0.003 的战斗 / 成长 / 昼夜 / UI / 局外存档全部拆除，只保留「移动手感」（PlatformMover：《终焉之莉莉》式跳跃全套 + 类银式下穿）与「平台地图生成」（PlatformField：GND-001 全覆盖地板 + 9 层随机单向平台）两样被验证过的东西作为公共底座，之后与助手在这个对话里逐步重新设计游戏。
 
 > **找回旧版**：v0.001 / v0.002 / v0.003 均有 git tag；拆除前的完整状态在提交 `5978a58`（自动上攀快照）。旧文档与验证证据在 `docs/archive/v0.003/`。
 
@@ -30,13 +24,14 @@
 
 ```
 scripts/csharp/core/       GameDefs · GameRoot · Rng · ArtBank        (4)
-scripts/csharp/gameplay/   PlatformMover · PlatformField · Master · WorldRoot  (4)
-scripts/csharp/ui/         UiSkin（仅白箱使用）                        (1)
+scripts/csharp/gameplay/   PlatformMover · PlatformField · Master    (3)
+scripts/csharp/ui/         UiSkin（仅白箱使用） · StartPage（开始页）  (2)
 scripts/csharp/tools/      WhiteboxRoot（白箱，非游戏机制）             (1)
 ```
 
-- `Master.cs` 只有移动 / 跳跃 / 边界 / 坠落重生；`WorldRoot.cs` 只有背景 / 地形 / 相机跟随。
-- 启动即进入空世界（无菜单无 UI），A/D + Space 直接跑跳。
+- 场景结构在 Godot 编辑器里摆：`Main.tscn`（根 WorldRoot 挂 GameRoot，子节点 Camera2D / PlatformField / Player）+ `Player.tscn`（主角独立场景：Node2D → CharacterBody2D[Master.cs] → CollisionShape2D）。
+- `Master.cs` 只有移动 / 跳跃 / 边界 / 坠落重生；碰撞体在 `Player.tscn` 里（胶囊体，包围盒 = GameDefs.MasterSize）。
+- 启动进入开始页（`StartPage.tscn`：开始 / 设置 / 图鉴 / 退出），点「开始」进空世界；A/D + Space 跑跳。
 
 ## 3. 操作与验证
 
@@ -55,7 +50,7 @@ ROOT="D:/GameProjects/山海幻灵"
 
 dotnet build "$ROOT/ShanHaiHuanLing.csproj" -v minimal --nologo          # ① 编译
 "$GODOT" --headless --path "$ROOT" --editor --quit                       # ② 资源导入
-"$GODOT" --headless --path "$ROOT" -- --smoke                            # ③ 冒烟：建图/落地/会走/会跳
+"$GODOT" --headless --path "$ROOT" res://scenes/Main.tscn -- --smoke     # ③ 冒烟：建图/落地/走/跳/下穿（主场景是开始页，需显式指定 Main.tscn）
 python "$ROOT/tools/check_project.py"                                    # ④ 静态自检
 ```
 

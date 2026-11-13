@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0001",
+  "version": "0.0002",
   "result": "PASS",
   "checks": [
     {
@@ -9,7 +9,7 @@
       "detail": ""
     },
     {
-      "name": "主场景指向 Main.tscn",
+      "name": "主场景指向 StartPage.tscn",
       "ok": true,
       "detail": ""
     },
@@ -29,12 +29,17 @@
       "detail": ""
     },
     {
+      "name": "StartPage.tscn 挂 StartPage.cs",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "2D 渲染 gl_compatibility",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "config/version = 0.0001",
+      "name": "config/version = 0.0002",
       "ok": true,
       "detail": ""
     },

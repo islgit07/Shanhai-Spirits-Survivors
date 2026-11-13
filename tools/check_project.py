@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0001 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0002 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0001"
+VERSION = "0.0002"
 EXPECTED_CS = 10
 checks = []
 
@@ -34,10 +34,11 @@ def cs(rel):
 # ---------------------------------------------------------------- 1. 工程配置
 pg = read(ROOT / "project.godot")
 check("project.godot 存在", bool(pg))
-check("主场景指向 Main.tscn", 'run/main_scene="res://scenes/Main.tscn"' in pg)
+check("主场景指向 StartPage.tscn", 'run/main_scene="res://scenes/StartPage.tscn"' in pg)
 check("工程名为山海幻灵", 'config/name="山海幻灵"' in pg)
 check("已删除全部 autoload", "[autoload]" not in pg)
 check("Main.tscn 挂 GameRoot.cs", "res://scripts/csharp/core/GameRoot.cs" in read(ROOT / "scenes" / "Main.tscn"))
+check("StartPage.tscn 挂 StartPage.cs", "res://scripts/csharp/ui/StartPage.cs" in read(ROOT / "scenes" / "StartPage.tscn"))
 check("2D 渲染 gl_compatibility", 'renderer/rendering_method="gl_compatibility"' in pg)
 check(f"config/version = {VERSION}", f'config/version="{VERSION}"' in pg)
 
@@ -88,7 +89,7 @@ check("种子化地形（Rng.DeriveSeed64）", "DeriveSeed64" in field)
 check("单向平台独立碰撞层（DROP-001 下穿）", "LayerOneWay" in field and "OneWayCollision" in field)
 check("平台随机分布（台数/位置/层高浮动，MAP-002）",
       "RandiRange" in field and "LayerJitterY" in field and "MinGap" in field)
-check("世界根保留相机跟随", "Lerp" in cs("gameplay/WorldRoot.cs"))
+check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
 check("白箱保留（与游戏共用移动内核）",
       (ROOT / "scenes" / "Whitebox.tscn").exists()
       and "PlatformMover" in cs("tools/WhiteboxRoot.cs"))

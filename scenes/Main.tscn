@@ -1,6 +1,16 @@
 [gd_scene format=3 uid="uid://ba5pdnagvi2ii"]
 
 [ext_resource type="Script" uid="uid://c6s8nd67dec2r" path="res://scripts/csharp/core/GameRoot.cs" id="1_root"]
+[ext_resource type="Script" uid="uid://bdlwufe6ru4e2" path="res://scripts/csharp/gameplay/PlatformField.cs" id="2_platform"]
+[ext_resource type="PackedScene" uid="uid://bbx4vqabg4xbx" path="res://scenes/Player.tscn" id="3_player"]
 
-[node name="Main" type="Node2D" unique_id=410223023]
+[node name="WorldRoot" type="Node2D" unique_id=2033327425]
 script = ExtResource("1_root")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1083373747]
+
+[node name="PlatformField" type="Node2D" parent="." unique_id=1630402645]
+script = ExtResource("2_platform")
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(0, -3.2)

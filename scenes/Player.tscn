@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://bbx4vqabg4xbx"]
+
+[ext_resource type="Script" uid="uid://bv1c6lscdyk5l" path="res://scripts/csharp/gameplay/Master.cs" id="1_master"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_wvhbo"]
+radius = 0.4
+height = 1.2
+
+[node name="Player" type="Node2D" unique_id=544504146]
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="." unique_id=1708134366]
+script = ExtResource("1_master")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2D" unique_id=701518887]
+shape = SubResource("CapsuleShape2D_wvhbo")

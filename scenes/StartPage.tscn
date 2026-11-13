@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://ct3mjb0k4td42"]
+
+[ext_resource type="Script" path="res://scripts/csharp/ui/StartPage.cs" id="1_start"]
+
+[node name="StartPage" type="Control" unique_id=143022231]
+script = ExtResource("1_start")
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Start" type="Button" parent="." unique_id=780850921]
+layout_mode = 0
+offset_left = 210.0
+offset_top = 137.0
+offset_right = 407.0
+offset_bottom = 219.0
+text = "开始"
+
+[node name="Exit" type="Button" parent="." unique_id=1771781569]
+layout_mode = 0
+offset_left = 211.0
+offset_top = 460.0
+offset_right = 408.0
+offset_bottom = 542.0
+text = "退出"
+
+[node name="Setting" type="Button" parent="." unique_id=1569409134]
+layout_mode = 0
+offset_left = 207.0
+offset_top = 244.0
+offset_right = 404.0
+offset_bottom = 326.0
+text = "设置"
+
+[node name="Library" type="Button" parent="." unique_id=721211269]
+layout_mode = 0
+offset_left = 209.0
+offset_top = 348.0
+offset_right = 406.0
+offset_bottom = 430.0
+text = "图鉴"
+
+[node name="Label" type="Label" parent="." unique_id=901204117]
+layout_mode = 0
+offset_left = 1131.0
+offset_top = 677.0
+offset_right = 1195.0
+offset_bottom = 700.0
+text = "版本号："
