@@ -3,8 +3,8 @@ using Godot;
 namespace ShanHaiHuanLing;
 
 /// <summary>
-/// @trace SEED-001 一局一种子 + FNV-1a 分域随机流隔离。
-/// 刷怪 / 地形 / 唤灵 / 营地各走独立流，任一处多抽一次不会串改其他系统结果。
+/// @trace SEED-001 一种子 + FNV-1a 分域随机流隔离。
+/// 地形 / 掉落 / 未来的各系统各走独立流，任一处多抽一次不会串改其他系统结果。
 /// </summary>
 public static class Rng
 {

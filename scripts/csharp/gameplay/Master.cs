@@ -1,42 +1,44 @@
-using System.Collections.Generic;
+
 using Godot;
 
 namespace ShanHaiHuanLing;
 
 /// <summary>
-/// @trace MASTER-001 / JUMP-001 山海谷幻灵师。
-/// 学习 BM 的核心约束：主角完全不攻击，只负责走位 / 跳跃 / 拾取，全部输出由幻灵完成。
-/// 纯平台跳跃：A/D + Space + CharacterBody2D 真实重力；第一层全覆盖硬约束保持不变。
+/// @trace JUMP-001 山海谷幻灵师（v0.0001：只有移动与跳跃，无战斗、无受伤）。
+/// A/D + Space 真实重力 + S/↓ 下穿单向平台；第一层全覆盖硬约束保持不变。
+/// 移动内核与白箱共用 PlatformMover：白箱里调出的手感 = 游戏里的手感。
 /// </summary>
 public partial class Master : CharacterBody2D
 {
-    private float _invuln;
     private Sprite2D _sprite = null!;
     // 移动内核与白箱共用（见 PlatformMover）：白箱里调出的数值写回 GameDefs 即生效
     private readonly PlatformMover _mover = new(MoveTuning.GameDefaults());
     private static readonly StringName Left = new("move_left");
     private static readonly StringName Right = new("move_right");
     private static readonly StringName Jump = new("jump");
+    private static readonly StringName Down = new("move_down");
 
     public override void _Ready()
     {
         AddToGroup("master");
         CollisionLayer = 1u;
-        CollisionMask = 1u;
+        CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay;
         var shape = new RectangleShape2D { Size = GameDefs.MasterSize };
         AddChild(new CollisionShape2D { Shape = shape });
         _sprite = ArtBank.MakeSprite("player", GameDefs.MasterSize);
         AddChild(_sprite);
     }
 
-    /// <summary>把地形层导出的台沿矩形喂给移动内核，启用《终焉之莉莉》式自动上攀。</summary>
-    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.Ledges = ledges;
+
+    /// <summary>重生 / 冒烟传送辅助：清空移动内核窗口状态（土狼 / 缓冲 / 下穿）。</summary>
+    public void ResetMover() => _mover.ResetWindows();
 
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
         float dir = Input.GetAxis(Left, Right);
-        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump), dt);
+        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump),
+            Input.IsActionPressed(Down), dt);
 
         // @trace GND-001 水平活动域锁在第一层全覆盖地板之内
         float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
@@ -49,19 +51,5 @@ public partial class Master : CharacterBody2D
             Velocity = Vector2.Zero;
             _mover.ResetWindows();
         }
-        if (_invuln > 0.0f)
-        {
-            _invuln -= dt;
-            _sprite.Modulate = _invuln > 0.0f
-                ? new Color(1.0f, 0.55f, 0.55f) : new Color(1, 1, 1);
-        }
-    }
-
-    public void TakeDamage(int amount)
-    {
-        if (_invuln > 0.0f || Run.Phase == RunPhase.Dead || Run.Phase == RunPhase.Menu) return;
-        Run.Damage(amount);
-        _invuln = GameDefs.MasterInvuln;
-        if (Run.Hp <= 0) GameRoot.Instance?.PlayerDied();
     }
 }

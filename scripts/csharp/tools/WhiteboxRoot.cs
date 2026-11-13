@@ -57,12 +57,18 @@ public partial class WhiteboxRoot : Node2D
         GetTree().Quit(0);
     }
 
-    /// <summary>与游戏一致的按键映射（白箱单独运行时自行注册）。</summary>
+    /// <summary>与游戏一致的按键映射（白箱单独运行时自行注册），含手柄。</summary>
     private static void RegisterInput()
     {
         Add("move_left", new[] { Key.A, Key.Left });
         Add("move_right", new[] { Key.D, Key.Right });
+        Add("move_down", new[] { Key.S, Key.Down });
         Add("jump", new[] { Key.Space, Key.W, Key.Up });
+        // 手柄适配：左摇杆 + 十字键移动/下穿，A 键（Xbox A / PS 交叉）跳跃
+        AddPad("move_left", JoyAxis.LeftX, -1.0f, JoyButton.DpadLeft);
+        AddPad("move_right", JoyAxis.LeftX, 1.0f, JoyButton.DpadRight);
+        AddPad("move_down", JoyAxis.LeftY, 1.0f, JoyButton.DpadDown);
+        AddPadButton("jump", JoyButton.A);
     }
 
     private static void Add(string action, Key[] keys)
@@ -74,6 +80,22 @@ public partial class WhiteboxRoot : Node2D
             var ev = new InputEventKey { PhysicalKeycode = k };
             if (!InputMap.ActionHasEvent(name, ev)) InputMap.ActionAddEvent(name, ev);
         }
+    }
+
+    /// <summary>手柄绑定：摇杆单轴推满方向 + 同向十字键，一并挂到动作上（带去重）。</summary>
+    private static void AddPad(string action, JoyAxis axis, float value, JoyButton dpad)
+    {
+        var name = new StringName(action);
+        AddEvent(name, new InputEventJoypadMotion { Axis = axis, AxisValue = value });
+        AddEvent(name, new InputEventJoypadButton { ButtonIndex = dpad });
+    }
+
+    private static void AddPadButton(string action, JoyButton button)
+        => AddEvent(new StringName(action), new InputEventJoypadButton { ButtonIndex = button });
+
+    private static void AddEvent(StringName name, InputEvent ev)
+    {
+        if (!InputMap.ActionHasEvent(name, ev)) InputMap.ActionAddEvent(name, ev);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -114,7 +136,7 @@ public partial class WhiteboxRoot : Node2D
         _player = new WhiteboxPlayer { Tuning = _tuning };
         AddChild(_player);
         _player.Respawn();
-        _player.SetLedges(_platforms.GetLedges());
+
 
         float h = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
         float zoom = h / (2.0f * GameDefs.CameraViewHalfHeight);
@@ -191,7 +213,6 @@ public partial class WhiteboxRoot : Node2D
         copy.Pressed += () =>
         {
             DisplayServer.ClipboardSet(SnapshotJson());
-            Signals.EmitHint("参数已复制");
             GD.Print("[WHITEBOX] copied: " + SnapshotJson());
         };
         var reset = UiSkin.MakeButton("恢复默认", 14);
@@ -365,8 +386,6 @@ public partial class WhiteboxPlayer : CharacterBody2D
 
     public bool Grounded => _mover != null && _mover.Grounded;
 
-    /// <summary>把地形层导出的台沿矩形喂给移动内核，启用《终焉之莉莉》式自动上攀。</summary>
-    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.Ledges = ledges;
 
     // 注意：字段初始化顺序，_mover 依赖 Tuning，因此在 _Ready 里构造
     public WhiteboxPlayer()
@@ -377,7 +396,7 @@ public partial class WhiteboxPlayer : CharacterBody2D
     public override void _Ready()
     {
         CollisionLayer = 1u;
-        CollisionMask = 1u;
+        CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay;
         var shape = new RectangleShape2D { Size = GameDefs.MasterSize };
         AddChild(new CollisionShape2D { Shape = shape });
         _sprite = ArtBank.MakeSprite("player", GameDefs.MasterSize);
@@ -389,7 +408,8 @@ public partial class WhiteboxPlayer : CharacterBody2D
     {
         float dt = (float)delta;
         float dir = Input.GetAxis("move_left", "move_right");
-        _mover.Step(this, dir, Input.IsActionJustPressed("jump"), Input.IsActionPressed("jump"), dt);
+        _mover.Step(this, dir, Input.IsActionJustPressed("jump"), Input.IsActionPressed("jump"),
+            Input.IsActionPressed("move_down"), dt);
 
         if (_mover.JustJumped)
         {

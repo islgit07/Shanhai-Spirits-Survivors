@@ -9,6 +9,8 @@ namespace ShanHaiHuanLing;
 ///
 /// @trace GND-001 硬约束（用户明确要求）：第一层恒为「唯一一段、覆盖整条可行走宽度、
 /// 非单向碰撞」的实体地板，不参与随机、不允许分段。上层 L1..L9 才是断续单向平台。
+/// @trace MAP-002 随机分布：上层平台的台数 / 位置 / 层高全部随机（种子可复现），
+/// 同层相邻端点仍硬保证 MinGap。
 /// @trace AXIS-001 Godot 2D 为 y-down：层号越大 y 越小，跳跃是 -y。
 /// </summary>
 [GlobalClass]
@@ -22,7 +24,12 @@ public partial class PlatformField : Node2D
     private const float PlatformThickness = GameDefs.PlatformThickness;
     private const float MinWidth = 3.4f;
     private const float MaxWidth = 7.0f;
-    private const float MinGap = 1.8f;
+    private const float MinGap = 3.0f;            // 相邻平台端点最小间隙（硬保证）
+    private const int MinPlatformsPerLayer = 3;   // 每层期望台数下限（MAP-002 随机）
+    private const int MaxPlatformsPerLayer = 5;   // 每层期望台数上限
+    private const float LayerJitterY = 0.20f;     // 层高随机偏移幅度（±）：相邻层高差 2.6~3.4 浮动
+    private const int PlaceAttempts = 24;         // 单台撒点重试上限（超限则该层少一台）
+    private const float EdgeMargin = 0.5f;        // 平台端点离世界边缘的最小距离
 
     private const float GroundY = GameDefs.GroundY;
     private const float LayerSpacing = GameDefs.LayerSpacing;
@@ -64,19 +71,37 @@ public partial class PlatformField : Node2D
         // GND-001：唯一一段、覆盖 [-W,+W]、实体地板。刻意不走随机分支。
         AddSegment(new Segment(0, -WorldHalfWidth, WorldHalfWidth, LayerY(0), false));
 
-        float width = WorldHalfWidth * 2.0f;
-        int count = GameDefs.SegmentsFor(width);
-        float step = width / count;
+        // @trace MAP-002 随机分布：每层台数（3~5）/ 中心位置（整宽撒点）/ 层高（基准 ±0.2）全随机；
+        // 撒点带间距拒绝采样，同层相邻端点仍硬保证 MinGap。层高偏移使相邻层高差在 2.6~3.4 间浮动，
+        // 落在单跳可达范围（满跳 ≈3.67）→ 竖向攀爬路线随种子变化，带来探索感。
         for (int layer = 1; layer < LayerCount; layer++)
         {
+            float y = LayerY(layer) + _rng.RandfRange(-LayerJitterY, LayerJitterY);
+            int count = _rng.RandiRange(MinPlatformsPerLayer, MaxPlatformsPerLayer);
+            var placedX = new List<float>(count);
+            var placedW = new List<float>(count);
             for (int i = 0; i < count; i++)
             {
-                float center = -WorldHalfWidth + step * (i + 0.5f)
-                               + _rng.RandfRange(-step * 0.18f, step * 0.18f);
-                float maxWidth = Mathf.Max(1.6f, step - MinGap);
-                float w = _rng.RandfRange(MinWidth, Mathf.Min(MaxWidth, maxWidth));
-                AddSegment(new Segment(layer, center - w * 0.5f, center + w * 0.5f,
-                    LayerY(layer), true));
+                for (int attempt = 0; attempt < PlaceAttempts; attempt++)
+                {
+                    float w = _rng.RandfRange(MinWidth, MaxWidth);
+                    float margin = w * 0.5f + EdgeMargin;
+                    float cx = _rng.RandfRange(-WorldHalfWidth + margin, WorldHalfWidth - margin);
+                    bool clear = true;
+                    for (int j = 0; j < placedX.Count; j++)
+                    {
+                        if (Mathf.Abs(cx - placedX[j]) < (w + placedW[j]) * 0.5f + MinGap)
+                        {
+                            clear = false;
+                            break;
+                        }
+                    }
+                    if (!clear) continue;
+                    placedX.Add(cx);
+                    placedW.Add(w);
+                    AddSegment(new Segment(layer, cx - w * 0.5f, cx + w * 0.5f, y, true));
+                    break;
+                }
             }
         }
         bool continuous = IsGroundContinuous();
@@ -108,14 +133,20 @@ public partial class PlatformField : Node2D
         return _rng.RandfRange(pick.X0 + 0.4f, pick.X1 - 0.4f);
     }
 
-    /// <summary>导出全部台沿矩形（含地面），供移动内核做《终焉之莉莉》式自动上攀的几何探测。</summary>
-    public List<PlatformMover.Ledge> GetLedges()
+    /// <summary>冒烟测试用：取第一块上层单向平台的中心点（台面 y）。</summary>
+    public bool GetFirstOneWay(out float centerX, out float topY)
     {
-        var list = new List<PlatformMover.Ledge>(_segments.Count);
         foreach (Segment s in _segments)
-            list.Add(new PlatformMover.Ledge(s.X0, s.X1, s.Y));
-        return list;
+        {
+            if (s.Layer == 0 || !s.OneWay) continue;
+            centerX = (s.X0 + s.X1) * 0.5f;
+            topY = s.Y;
+            return true;
+        }
+        centerX = 0.0f; topY = 0.0f;
+        return false;
     }
+
 
     private void AddSegment(Segment s)
     {
@@ -123,7 +154,8 @@ public partial class PlatformField : Node2D
         var body = new StaticBody2D
         {
             Position = new Vector2((s.X0 + s.X1) * 0.5f, s.Y),
-            CollisionLayer = 1u,
+            // 碰撞分层：实体地板 LayerSolid（不可下穿）；单向平台 LayerOneWay（DROP-001 可下穿）
+            CollisionLayer = s.OneWay ? GameDefs.LayerOneWay : GameDefs.LayerSolid,
         };
         body.AddChild(new CollisionShape2D
         {

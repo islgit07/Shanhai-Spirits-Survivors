@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+
 using Godot;
 
 namespace ShanHaiHuanLing;
@@ -36,10 +36,9 @@ public sealed class MoveTuning
     public float ApexThreshold = GameDefs.MasterApexThreshold;
     /// <summary>最大下落速度（单位/秒）：封顶终端速度，防止长坠落失控。</summary>
     public float MaxFallSpeed = GameDefs.MasterMaxFallSpeed;
-    /// <summary>自动上攀最大高度：台面高于脚不超过此值时，贴着台沿会自动翻上去（莉莉式宽容）。</summary>
-    public float ClimbReach = GameDefs.MasterClimbReach;
-    /// <summary>自动上攀后冷却（秒）：防止连续帧重复触发抖动。</summary>
-    public float ClimbCooldown = GameDefs.MasterClimbCooldown;
+    /// <summary>下穿单向平台窗口（秒）：触发后关闭平台碰撞的时长。取值须满足：
+    /// 窗口内下落距离（≈2.2）能穿过本层（脚越过台缘 ≈0.9），又小于最小层高差（2.6）以免掉过下一层。</summary>
+    public float DropThroughTime = GameDefs.MasterDropThroughTime;
 
     public static MoveTuning GameDefaults() => new();
 
@@ -84,35 +83,25 @@ public sealed class MoveTuning
         AirControl = AirControl, CoyoteTime = CoyoteTime, JumpBuffer = JumpBuffer,
         JumpCutMul = JumpCutMul, FallGravityMul = FallGravityMul,
         ApexGravityMul = ApexGravityMul, ApexThreshold = ApexThreshold,
-        MaxFallSpeed = MaxFallSpeed, ClimbReach = ClimbReach, ClimbCooldown = ClimbCooldown,
+        MaxFallSpeed = MaxFallSpeed, DropThroughTime = DropThroughTime,
     };
 }
 
 /// <summary>
 /// 平台移动内核：游戏主角与白箱角色都走这一份代码，保证「白箱手感 == 游戏手感」。
-/// 只负责水平速度 / 起跳 / 重力 / 自动上攀，不含受伤、边界与坠落重生（那些留在各自的角色里）。
+/// 只负责水平速度 / 起跳 / 重力，不含受伤、边界与坠落重生（那些留在各自的角色里）。
 ///
 /// @trace JUMP-002 终焉之莉莉式跳跃：变高跳(上升松键截断) + 顶点滞空 + 下落加重 + 下落限速。
-/// @trace CLIMB-001 终焉之莉莉式自动上攀：贴着台沿 / 从侧面够到台面，自动翻上台面（几何探测，不依赖碰撞类型）。
+/// @trace DROP-001 类银式下穿：站在单向平台上「下 + 跳」穿层落下；实体地板不受影响。
 /// </summary>
 public sealed class PlatformMover
 {
-    /// <summary>台沿矩形（自动上攀探测用）：x 范围 [X0,X1]，台面 y = TopY（y-down 下越小=越高）。</summary>
-    public readonly struct Ledge
-    {
-        public readonly float X0, X1, TopY;
-        public Ledge(float x0, float x1, float topY) { X0 = x0; X1 = x1; TopY = topY; }
-    }
-
     public MoveTuning T;
-
-    /// <summary>台沿矩形列表（由地形层喂入）。空列表 = 关闭自动上攀。</summary>
-    public List<Ledge> Ledges { get; set; } = new();
 
     private float _coyote;
     private float _buffer;
-    private float _climbCooldown;
     private bool _cutAvailable;   // 本次起跳后，是否还能触发一次「变高跳截断」
+    private float _dropTimer;     // 下穿窗口倒计时：>0 期间与「单向平台层」的碰撞被关闭
 
     public bool Grounded { get; private set; }
     public bool JustJumped { get; private set; }
@@ -125,18 +114,32 @@ public sealed class PlatformMover
     /// <summary>
     /// 推进一步。
     /// jumpPressed = 本帧刚按下跳跃（用于起跳 / 写入缓冲）；
-    /// jumpHeld = 跳跃键当前是否仍按住（用于变高跳：上升中松键即截断）。
+    /// jumpHeld = 跳跃键当前是否仍按住（用于变高跳：上升中松键即截断）；
+    /// downHeld = 下键当前是否按住（配合 jumpPressed 在单向平台上触发下穿）。
     /// </summary>
-    public void Step(CharacterBody2D body, float dirX, bool jumpPressed, bool jumpHeld, float dt)
+    public void Step(CharacterBody2D body, float dirX, bool jumpPressed, bool jumpHeld, bool downHeld, float dt)
     {
         JustJumped = false;
         Grounded = body.IsOnFloor();
-        _climbCooldown = Mathf.Max(0.0f, _climbCooldown - dt);
 
         // 土狼时间 / 跳跃缓冲：默认 0 时退化成「必须站在地上且当帧按跳」，与旧行为完全一致
         _coyote = Grounded ? T.CoyoteTime : Mathf.Max(0.0f, _coyote - dt);
         if (jumpPressed) _buffer = Mathf.Max(T.JumpBuffer, 0.02f);
         else _buffer = Mathf.Max(0.0f, _buffer - dt);
+
+        // @trace DROP-001 类银式下穿：站在单向平台上按住「下」+ 本帧按「跳」→ 吞掉这次跳跃，
+        // 改为穿透台面落下。窗口内只关「单向平台层」的碰撞位，实体地板（LayerSolid）不受影响。
+        // 窗口时长足够穿过本层（脚越过台缘 ≈0.9）又够不到最小层高差的下一层（2.6），落下后正好被下一层接住。
+        _dropTimer = Mathf.Max(0.0f, _dropTimer - dt);
+        bool dropThrough = Grounded && downHeld && jumpPressed && StandingOnOneWay(body);
+        if (dropThrough)
+        {
+            jumpPressed = false;
+            _buffer = 0.0f; _coyote = 0.0f;
+            _dropTimer = T.DropThroughTime;
+        }
+        if (_dropTimer > 0.0f) body.CollisionMask &= ~GameDefs.LayerOneWay;
+        else body.CollisionMask |= GameDefs.LayerOneWay;
 
         float control = Grounded ? 1.0f : T.AirControl;
         body.Velocity = new Vector2(dirX * T.MoveSpeed * control, body.Velocity.Y);
@@ -150,7 +153,9 @@ public sealed class PlatformMover
             }
             else
             {
-                body.Velocity = new Vector2(body.Velocity.X, 0.0f);   // 贴地：不累积重力
+                body.Velocity = dropThrough
+                    ? new Vector2(body.Velocity.X, 2.0f)    // 下穿：给一点向下初速，立即脱离台面
+                    : new Vector2(body.Velocity.X, 0.0f);   // 贴地：不累积重力
             }
         }
         else
@@ -186,60 +191,19 @@ public sealed class PlatformMover
 
         body.MoveAndSlide();
 
-        // @trace CLIMB-001 自动上攀：贴着台沿 / 从侧面够到台面，自动翻上台面（莉莉式宽容手感）。
-        // 用台沿矩形几何探测，不依赖碰撞类型（上层平台是单向碰撞、侧面不挡人，靠碰撞推不动）。
-        if (_climbCooldown <= 0.0f && dirX != 0.0f && Ledges.Count > 0 && !Grounded)
-        {
-            float halfH = GetBodyHalfHeight(body);
-            float centerX = body.GlobalPosition.X;
-            float feetY = body.GlobalPosition.Y + halfH;
-            foreach (Ledge l in Ledges)
-            {
-                if (TryClimb(l, centerX, halfH, feetY, dirX, T.ClimbReach, out float nx, out float ny))
-                {
-                    body.GlobalPosition = new Vector2(nx, ny);
-                    body.Velocity = new Vector2(body.Velocity.X, 0.0f);
-                    _climbCooldown = T.ClimbCooldown;
-                    _cutAvailable = false;
-                    break;
-                }
-            }
-        }
     }
 
-    /// <summary>
-    /// 纯几何判定：角色能否自动攀上某条台沿，并算出上台后的中心坐标。
-    /// 条件：台面须高于脚（top &lt; feetY）且差距在 reach 内；水平须落在台子 x 范围（含容差）；
-    /// 且角色朝台子方向（dirX 指向台子）。返回 true 时 newX/newY 为上台后坐标（脚踩台面、夹在台面内）。
-    /// 已站在该台上（差距 &lt; 0.08）或够不到（差距 &gt; reach）一律返回 false，避免自爬抖动。
-    /// </summary>
-    public static bool TryClimb(Ledge l, float centerX, float halfH, float feetY,
-        float dirX, float reach, out float newX, out float newY)
+    /// <summary>脚下（脚底向下 0.25）是否踩在单向平台层上。射线只查 LayerOneWay，
+    /// 实体地板不命中 → 站实体地板「下 + 跳」仍是正常跳，不会误吞跳跃。</summary>
+    private static bool StandingOnOneWay(CharacterBody2D body)
     {
-        newX = centerX; newY = feetY - halfH;
-        float top = l.TopY;
-        if (top >= feetY) return false;          // 台面在脚或更低 → 已在上方或下方落地，不算
-        if (feetY - top < 0.08f) return false;   // 几乎齐脚（已站该台上）→ 防自爬抖动
-        if (feetY - top > reach) return false;    // 太高够不到
-        const float tol = 0.25f;
-        if (centerX < l.X0 - tol || centerX > l.X1 + tol) return false;
-        bool toward = centerX < l.X0 ? dirX > 0f : centerX > l.X1 ? dirX < 0f : true;
-        if (!toward) return false;
-        newY = top - halfH;                        // 脚踩在台面上
-        float lead = halfH + 0.15f;
-        newX = centerX + dirX * lead;
-        float minX = l.X0 + halfH * 0.5f;
-        float maxX = l.X1 - halfH * 0.5f;
-        if (minX <= maxX) newX = Mathf.Clamp(newX, minX, maxX);
-        return true;
-    }
-
-    private static float GetBodyHalfHeight(CharacterBody2D body)
-    {
-        foreach (Node c in body.GetChildren())
-            if (c is CollisionShape2D cs && cs.Shape is RectangleShape2D r)
-                return r.Size.Y * 0.5f;
-        return 0.6f;
+        float halfH = GameDefs.MasterSize.Y * 0.5f;
+        Vector2 from = body.GlobalPosition;
+        var query = PhysicsRayQueryParameters2D.Create(
+            from, from + new Vector2(0.0f, halfH + 0.25f),
+            GameDefs.LayerOneWay,
+            new Godot.Collections.Array<Rid> { body.GetRid() });
+        return body.GetWorld2D().DirectSpaceState.IntersectRay(query).Count > 0;
     }
 
     /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳。</summary>
@@ -248,5 +212,6 @@ public sealed class PlatformMover
         _coyote = 0.0f;
         _buffer = 0.0f;
         _cutAvailable = false;
+        _dropTimer = 0.0f;
     }
 }

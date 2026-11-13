@@ -1,51 +1,7 @@
 {
   "project": "山海幻灵",
-  "version": "0.003",
-  "engine": "Godot 4.7.2.stable.mono",
-  "language": "C# (full, zero GDScript, zero autoload)",
-  "total": 103,
-  "passed": 103,
-  "failed": 0,
-  "traceIds": [
-    "AREA-001",
-    "ART-001",
-    "AXIS-001",
-    "BOOT-001",
-    "CFG-001",
-    "COIN-001",
-    "CSHARP-001",
-    "DEF-001",
-    "ECO-001",
-    "ESSN-001",
-    "EVT-001",
-    "FOLLOW-001",
-    "GAME-001",
-    "GND-001",
-    "HUD-001",
-    "JUMP-001",
-    "JUMP-002",
-    "LEGN-001",
-    "LORE-001",
-    "MAP-001",
-    "MASTER-001",
-    "MENU-001",
-    "META-001",
-    "OFFR-001",
-    "PLAT-001",
-    "SEED-001",
-    "SOUL-001",
-    "SPEC-001",
-    "TEST-001",
-    "UIS-001",
-    "WAVE-001",
-    "WORLD-001",
-    "WPN-001"
-  ],
-  "scriptCount": {
-    "csharp": 21,
-    "gdscript": 0
-  },
-  "artCount": 16,
+  "version": "0.0001",
+  "result": "PASS",
   "checks": [
     {
       "name": "project.godot 存在",
@@ -78,17 +34,7 @@
       "detail": ""
     },
     {
-      "name": "features 含 C#",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "config/version = 0.003",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "设定写入 config/description",
+      "name": "config/version = 0.0001",
       "ok": true,
       "detail": ""
     },
@@ -108,457 +54,197 @@
       "detail": ""
     },
     {
-      "name": "程序集名 ASCII",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "project.godot 程序集名对齐",
-      "ok": true,
-      "detail": ""
-    },
-    {
       "name": "C# 运行时探针存在",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "C# 迁移收口文档存在",
+      "name": "C# 脚本数量 = 10",
       "ok": true,
-      "detail": ""
+      "detail": "10 个"
     },
     {
-      "name": "C# 脚本数量 = 21",
-      "ok": true,
-      "detail": "21 个"
-    },
-    {
-      "name": "GDScript 数量 = 0",
+      "name": "零 GDScript",
       "ok": true,
       "detail": "0 个"
     },
     {
-      "name": "跳跃白箱场景存在（调参工具）",
+      "name": "全部 .cs 配对 .uid",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "移动内核 PlatformMover 存在且与 Master 共用",
+      "name": "手感常量保留：移动速度",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "每个 .cs 都有配对 .cs.uid",
+      "name": "手感常量保留：跳跃初速",
       "ok": true,
-      "detail": "缺失: "
-    },
-    {
-      "name": "无 .gd.uid 残留",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "正式地形层 PlatformField 存在（白箱与主游戏共用）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "旧 GDScript 目录已清空",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "冻结清单可解析",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "@trace 覆盖率 100%",
-      "ok": true,
-      "detail": "未覆盖: "
-    },
-    {
-      "name": "无未登记的 @trace 编号",
-      "ok": true,
-      "detail": "未登记: "
-    },
-    {
-      "name": "冻结清单 = 33 条",
-      "ok": true,
-      "detail": "33 条"
-    },
-    {
-      "name": "代码 @trace 编号数与清单一致",
-      "ok": true,
-      "detail": "33 个"
-    },
-    {
-      "name": "Spirit 用 Faction 区分敌我",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "敌我共用一张 SpeciesDef",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "敌我共用一张贴图、只改色调",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "野生刷怪池来自 Species 表",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "唤灵候选池来自同一 Species 表",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "投射物也是敌我共用一个类",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "幻灵师完全不攻击（无开火/索敌）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "敌我结构对称（都可受击死亡）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "跟随 = 个人落点（minion_slot 迁移）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "跟随速度随距离增长（sMinion_GetMoveSpeed 迁移）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "进入死区即停（move_to_radius 迁移）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "互相推开（vPushRadius 迁移）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "闲逛 / 呼吸浮动（vIdleSpot / vBob 迁移）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "已无均分圆环",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "横板适配：高度夹取",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "伤害来自幻灵自身攻击（无光环结算）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "三类唤灵出口 Raise/Bolster/Fuse",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "单一资源阀门：灵韵跨阈值排队唤灵",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "Lv3 是融合材料而非终点",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "按物种分类 cap",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "献祭成本显式写入候选",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "灵魄跃迁窗口（权重 ×20）",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "Lore 解锁候选分支",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "Lore 改候选数而非数值",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "融合后回调 Legion.Fuse",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "唤灵由灵韵即时触发、不必等天亮",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "第一层唯一一段 / 全覆盖 / 非单向",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "第一层刻意不走随机分支",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "IsGroundContinuous 运行时不变量",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "typed signal 保留",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "地形常量从 GameDefs 单点读取",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "y-down：层号越大 y 越小",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "y-down：坠落阈值语义",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "出生点在地板上方",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "相机 minf 跟随",
-      "ok": true,
       "detail": ""
     },
     {
-      "name": "水平活动域锁在地板覆盖域",
+      "name": "手感常量保留：变高跳截断",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "16 张美术 PNG",
+      "name": "手感常量保留：下落加重",
       "ok": true,
-      "detail": "16 张"
-    },
-    {
-      "name": "无 Unity .meta 残留",
-      "ok": true,
       "detail": ""
     },
     {
-      "name": ".gitignore 忽略 .godot/",
+      "name": "手感常量保留：顶点滞空",
       "ok": true,
       "detail": ""
     },
     {
-      "name": ".gitignore 不忽略 .cs.uid",
+      "name": "手感常量保留：下落限速",
       "ok": true,
       "detail": ""
     },
     {
-      "name": ".gitignore 忽略 MSBuild 产物",
+      "name": "手感常量保留：土狼时间",
       "ok": true,
       "detail": ""
-    },
-    {
-      "name": "design-freeze version = 0.003",
-      "ok": true,
-      "detail": "0.003"
     },
     {
-      "name": "README 标题 v0.003",
+      "name": "手感常量保留：跳跃缓冲",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "GameRoot 冒烟报告版本一致",
+      "name": "手感常量保留：下穿窗口",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "roadmap 标题 v0.003",
+      "name": "移动内核保留（PlatformMover + MoveAndSlide + 下穿）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冻结清单语言口径为全量 C#",
+      "name": "手柄输入（摇杆 / 十字键 / A 键跳跃）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "设定字段进入冻结清单",
+      "name": "主角只有移动跳跃（Master 无 TakeDamage）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "refactor-v0.003.md 存在",
+      "name": "GND-001 第一层全覆盖硬约束",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "边界四类齐备",
+      "name": "种子化地形（Rng.DeriveSeed64）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "★助手提案 7 项逐条登记",
+      "name": "单向平台独立碰撞层（DROP-001 下穿）",
       "ok": true,
-      "detail": "7"
-    },
-    {
-      "name": "未做清单非空",
-      "ok": true,
       "detail": ""
     },
     {
-      "name": "Q6 已标注由 v0.003 关闭",
+      "name": "平台随机分布（台数/位置/层高浮动，MAP-002）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "诚实边界写明 Play Mode 0 次",
+      "name": "世界根保留相机跟随",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据 compile-evidence.txt 存在",
+      "name": "白箱保留（与游戏共用移动内核）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据 smoke-evidence.txt 存在",
+      "name": "战斗/成长/UI 已拆除：SpeciesDef",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "证据 smoke-report.json 存在",
+      "name": "战斗/成长/UI 已拆除：OfferKind",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "编译证据含 dotnet build 成功",
+      "name": "战斗/成长/UI 已拆除：LegionUnit",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "编译证据含 Godot 导入",
+      "name": "战斗/成长/UI 已拆除：WildSpawner",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "编译证据含 C# 运行时探针",
+      "name": "战斗/成长/UI 已拆除：EssencePickup",
       "ok": true,
       "detail": ""
-    },
-    {
-      "name": "冒烟结果 PASS",
-      "ok": true,
-      "detail": "PASS"
     },
     {
-      "name": "冒烟 27 项断言全过",
+      "name": "战斗/成长/UI 已拆除：Projectile",
       "ok": true,
-      "detail": "27/27"
-    },
-    {
-      "name": "冒烟断言 ground_continuous",
-      "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 player_grounded",
+      "name": "战斗/成长/UI 已拆除：RunPhase",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 fuse_applied",
+      "name": "战斗/成长/UI 已拆除：SpiritTier",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 bolster_applied",
+      "name": "战斗/成长/UI 已拆除：class Hud",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 raise_applied",
+      "name": "战斗/成长/UI 已拆除：class MainMenu",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 shared_species_table",
+      "name": "战斗/成长/UI 已拆除：static class Meta",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 cap_respected",
+      "name": "战斗/成长/UI 已拆除：static class Run ",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 branches_complete",
+      "name": "战斗/成长/UI 已拆除：class Signals",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 ally_attacks_landed",
+      "name": "README 版本一致",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 ally_damage_dealt",
+      "name": "README 记录找回路径",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "冒烟断言 spirits_not_a_ring",
+      "name": "overview 全景文档在 docs 根",
       "ok": true,
       "detail": ""
-    },
-    {
-      "name": "冒烟报告版本一致",
-      "ok": true,
-      "detail": "0.003"
     },
     {
-      "name": "冒烟报告语言口径",
+      "name": "旧文档已归档",
       "ok": true,
       "detail": ""
     }
