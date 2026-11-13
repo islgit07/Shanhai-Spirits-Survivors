@@ -44,7 +44,7 @@
       "detail": ""
     },
     {
-      "name": "ShanHaiHuanLing.csproj 存在",
+      "name": "ShanhaiSpiritsSurvivors.csproj 存在",
       "ok": true,
       "detail": ""
     },
@@ -129,6 +129,21 @@
       "detail": ""
     },
     {
+      "name": "自动上攀：几何台沿探测（Ledge 结构 + ComputeClimb 纯几何方法）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "自动上攀：翻越吸附写入移动内核（TryClimb + 移动后判定）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "自动上攀：攀爬参数常量（ClimbReachUp / ClimbEdgeBand / ClimbStep）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "手柄输入（摇杆 / 十字键 / A 键跳跃）",
       "ok": true,
       "detail": ""
@@ -155,6 +170,16 @@
     },
     {
       "name": "平台随机分布（台数/位置/层高浮动，MAP-002）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "自动上攀：地形导出可攀台沿（PlatformField.GetLedges）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "自动上攀：主角接入台沿（Master.SetLedges）",
       "ok": true,
       "detail": ""
     },

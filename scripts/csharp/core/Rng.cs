@@ -1,6 +1,6 @@
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// @trace SEED-001 一种子 + FNV-1a 分域随机流隔离。

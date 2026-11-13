@@ -1,6 +1,6 @@
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// v0.0001 从零开始的集中数值表：只保留三样东西——
@@ -46,6 +46,13 @@ public static class GameDefs
     public const float MasterMaxFallSpeed = 40.0f; // 终端下落速度封顶
     // 类银式下穿单向平台：站上台沿按住「下」+「跳」穿层落下（HK / Ori / Dead Cells 通例）
     public const float MasterDropThroughTime = 0.20f; // 下穿窗口（秒）：窗口内下落 ≈2.2，穿过本层（≥0.9）且够不到最小层高差的下一层（2.6）
+    // 终焉之莉莉式「自动上攀（台沿翻越）」：撞到上层单向平台边缘附近时，几何探测台沿并自动拉上台面。
+    // 采用几何台沿探测（非射线/碰撞探测）：上层平台为单向碰撞、侧面不挡人，靠矩形命中更稳。
+    public const float MasterClimbReachUp = 0.6f;     // 台顶可高于脚底的最大距离（单位）：够得到就拉上去
+    public const float MasterClimbReachDown = 0.35f;  // 台顶可低于脚底的最大距离（单位）
+    public const float MasterClimbEdgeBand = 0.55f;   // 平台边缘外探测带宽（单位）：玩家中心在边缘 ± 此值内触发
+    public const float MasterClimbStep = 0.35f;       // 翻上后向台内推进的距离（单位），防止立即掉下边缘
+    public const float MasterClimbCooldown = 0.25f;   // 两次翻越的最小间隔（秒），防抖
 
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);
     // 验算：满跳高度 = (16.2²-1.1²)/(2×36) + 1.1²/(2×36×0.45) ≈ 3.67，滞空 ≈ 0.83s

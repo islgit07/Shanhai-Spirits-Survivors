@@ -1,6 +1,6 @@
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// 开始页（主菜单）。

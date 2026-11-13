@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// @trace ART-001 美术加载与规格化。16 张 PNG 从 Unity 工程直接复用（Godot 不需要 .meta）。

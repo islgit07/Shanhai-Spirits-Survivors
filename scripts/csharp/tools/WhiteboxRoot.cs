@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// 平台跳跃白箱（调参工具，不是游戏机制）。
@@ -136,6 +136,7 @@ public partial class WhiteboxRoot : Node2D
         _player = new WhiteboxPlayer { Tuning = _tuning };
         AddChild(_player);
         _player.Respawn();
+        _player.SetLedges(_platforms.GetLedges());   // CLIMB-001 自动上攀：白箱也能实机体验翻台沿
 
 
         float h = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
@@ -148,6 +149,7 @@ public partial class WhiteboxRoot : Node2D
     {
         _platforms.Build(_seed);
         _player.Respawn();
+        _player.SetLedges(_platforms.GetLedges());   // CLIMB-001 换地形后刷新台沿
         RefreshMetrics();
     }
 
@@ -385,6 +387,9 @@ public partial class WhiteboxPlayer : CharacterBody2D
     private bool _tracking;
 
     public bool Grounded => _mover != null && _mover.Grounded;
+
+    /// <summary>注入地形台沿（CLIMB-001 自动上攀用），由白箱在地形建好后调用。</summary>
+    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.SetLedges(ledges);
 
 
     // 注意：字段初始化顺序，_mover 依赖 Tuning，因此在 _Ready 里构造

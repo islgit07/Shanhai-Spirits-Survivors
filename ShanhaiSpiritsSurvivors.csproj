@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>ShanHaiHuanLing</AssemblyName>
-    <RootNamespace>ShanHaiHuanLing</RootNamespace>
+    <AssemblyName>ShanhaiSpiritsSurvivors</AssemblyName>
+    <RootNamespace>ShanhaiSpiritsSurvivors</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 </Project>

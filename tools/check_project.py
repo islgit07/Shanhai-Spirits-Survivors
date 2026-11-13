@@ -43,8 +43,8 @@ check("2D 渲染 gl_compatibility", 'renderer/rendering_method="gl_compatibility
 check(f"config/version = {VERSION}", f'config/version="{VERSION}"' in pg)
 
 # ---------------------------------------------------------------- 2. C# 工具链
-csproj_text = read(ROOT / "ShanHaiHuanLing.csproj")
-check("ShanHaiHuanLing.csproj 存在", (ROOT / "ShanHaiHuanLing.csproj").exists())
+csproj_text = read(ROOT / "ShanhaiSpiritsSurvivors.csproj")
+check("ShanhaiSpiritsSurvivors.csproj 存在", (ROOT / "ShanhaiSpiritsSurvivors.csproj").exists())
 check("使用 Godot.NET.Sdk/4.7.2", "Godot.NET.Sdk/4.7.2" in csproj_text)
 check("目标框架 net8.0", "<TargetFramework>net8.0</TargetFramework>" in csproj_text)
 check("C# 运行时探针存在", (ROOT / "tools" / "CSharpToolchainProbe.cs").exists())
@@ -75,6 +75,12 @@ for key, label in [
 mover = cs("gameplay/PlatformMover.cs")
 check("移动内核保留（PlatformMover + MoveAndSlide + 下穿）",
       "class PlatformMover" in mover and "MoveAndSlide" in mover and "DropThrough" in mover)
+check("自动上攀：几何台沿探测（Ledge 结构 + ComputeClimb 纯几何方法）",
+      "struct Ledge" in mover and "ComputeClimb" in mover)
+check("自动上攀：翻越吸附写入移动内核（TryClimb + 移动后判定）",
+      "TryClimb" in mover and "onFloorNow" in mover)
+check("自动上攀：攀爬参数常量（ClimbReachUp / ClimbEdgeBand / ClimbStep）",
+      "MasterClimbReachUp" in defs and "MasterClimbEdgeBand" in defs and "MasterClimbStep" in defs)
 boot = cs("core/GameRoot.cs")
 check("手柄输入（摇杆 / 十字键 / A 键跳跃）",
       "JoyAxis.LeftX" in boot and "JoyButton.DpadLeft" in boot and "JoyButton.A" in boot)
@@ -89,6 +95,8 @@ check("种子化地形（Rng.DeriveSeed64）", "DeriveSeed64" in field)
 check("单向平台独立碰撞层（DROP-001 下穿）", "LayerOneWay" in field and "OneWayCollision" in field)
 check("平台随机分布（台数/位置/层高浮动，MAP-002）",
       "RandiRange" in field and "LayerJitterY" in field and "MinGap" in field)
+check("自动上攀：地形导出可攀台沿（PlatformField.GetLedges）", "GetLedges" in field)
+check("自动上攀：主角接入台沿（Master.SetLedges）", "SetLedges" in cs("gameplay/Master.cs"))
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
 check("白箱保留（与游戏共用移动内核）",
       (ROOT / "scenes" / "Whitebox.tscn").exists()

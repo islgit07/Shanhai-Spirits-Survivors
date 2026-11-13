@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// v0.0001 自举：注册输入 → 拉起最小世界（相机 + 地形生成 + 主角 + 相机跟随）。
@@ -116,10 +116,11 @@ public partial class GameRoot : Node2D
 		GroundContinuous = _platforms.IsGroundContinuous();
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
-		Player.GlobalPosition = new Vector2(0.0f,
+		Player!.GlobalPosition = new Vector2(0.0f,
 			GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
+		Player.SetLedges(_platforms.GetLedges());   // CLIMB-001 自动上攀：地形建好后注入台沿
 		PlayerGrounded = false;
 	}
 
@@ -231,6 +232,21 @@ public partial class GameRoot : Node2D
 	{
 		bool hasPlayer = Player != null && IsInstanceValid(Player);
 		Vector2 now = hasPlayer ? Player!.GlobalPosition : Vector2.Zero;
+		// @trace CLIMB-001 几何台沿探测：纯几何确定性校验（不依赖物理时序）。
+		// 场景：台沿 (0..4, 顶 y=0)，角色在左边缘外、脚底略低于台顶、朝右移动 → 应命中并吸附到台顶。
+		var climbLedge = new List<PlatformMover.Ledge> { new(0.0f, 4.0f, 0.0f) };
+		bool climbHit = PlatformMover.ComputeClimb(
+			new Vector2(-0.3f, -0.4f), 0.6f, 1.0f, climbLedge,
+			GameDefs.MasterClimbReachUp, GameDefs.MasterClimbReachDown,
+			GameDefs.MasterClimbEdgeBand, GameDefs.MasterClimbStep, out Vector2 snap);
+		bool climbMissDir = !PlatformMover.ComputeClimb(
+			new Vector2(-0.3f, -0.4f), 0.6f, 0.0f, climbLedge,
+			GameDefs.MasterClimbReachUp, GameDefs.MasterClimbReachDown,
+			GameDefs.MasterClimbEdgeBand, GameDefs.MasterClimbStep, out _);
+		bool climbMissFar = !PlatformMover.ComputeClimb(
+			new Vector2(-5.0f, -0.4f), 0.6f, 1.0f, climbLedge,
+			GameDefs.MasterClimbReachUp, GameDefs.MasterClimbReachDown,
+			GameDefs.MasterClimbEdgeBand, GameDefs.MasterClimbStep, out _);
 		var assertions = new Dictionary<string, bool>
 		{
 			["platforms_built"] = PlatformCount > 0,
@@ -239,6 +255,7 @@ public partial class GameRoot : Node2D
 			["player_moved"] = Mathf.Abs(_smokeMovedPos.X - _smokeStartPos.X) > 2.0f,
 			["player_jumped"] = _smokeMinY < _smokeStartPos.Y - 0.5f,
 			["player_drop_through"] = _dropSkipped || _smokeMaxY > _dropPlatY + 0.5f,
+			["climb_logic_ok"] = climbHit && climbMissDir && climbMissFar,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>

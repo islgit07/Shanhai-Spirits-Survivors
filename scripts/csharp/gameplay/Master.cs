@@ -1,7 +1,8 @@
 
+using System.Collections.Generic;
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// @trace JUMP-001 山海谷幻灵师（v0.0001：只有移动与跳跃，无战斗、无受伤）。
@@ -29,8 +30,11 @@ public partial class Master : CharacterBody2D
     }
 
 
-    /// <summary>重生 / 冒烟传送辅助：清空移动内核窗口状态（土狼 / 缓冲 / 下穿）。</summary>
+    /// <summary>重生 / 冒烟传送辅助：清空移动内核窗口状态（土狼 / 缓冲 / 下穿 / 翻越冷却）。</summary>
     public void ResetMover() => _mover.ResetWindows();
+
+    /// <summary>注入地形台沿（CLIMB-001 自动上攀用），由 GameRoot 在地形建好后调用。</summary>
+    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.SetLedges(ledges);
 
     public override void _PhysicsProcess(double delta)
     {

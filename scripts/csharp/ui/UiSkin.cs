@@ -1,6 +1,6 @@
 using Godot;
 
-namespace ShanHaiHuanLing;
+namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// @trace UIS-001 统一 UI 调色板 + 系统中文字体。
