@@ -11,9 +11,7 @@
 
 Current: `v0.0004`
 
-Updates: `v0.0004` — 优化地图生成（MAP-005~009 上下净空 / 少单块 / 登顶可达 / 多路径 / 粘液块，以及脆弱木板踩碎修复）。
-
-History: Full state before v0.0003 refactor at commit `5978a58`. Legacy docs archived in `docs/archive/v0.003/`.
+Updates: `v0.0004` — 优化地图生成
 
 ## 协议
 
