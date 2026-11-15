@@ -78,7 +78,7 @@
   },
   "verification": {
     "dotnetBuild": {
-      "command": "dotnet build ShanHaiHuanLing.csproj -v minimal --nologo",
+      "command": "dotnet build ShanhaiSpiritsSurvivors.csproj -v minimal --nologo",
       "result": "0 警告 0 错误",
       "evidence": "docs/compile-evidence.txt"
     },
@@ -301,7 +301,7 @@
       "id": "CSHARP-001",
       "title": "【收口用户上轮 C# 诉求 / Q6】全量 C#：19 个 .cs、0 个 .gd、0 autoload；静态状态类 + 静态事件总线取代 GDScript autoload；中文 SystemFont 保留",
       "status": "implemented",
-      "file": "ShanHaiHuanLing.csproj",
+      "file": "ShanhaiSpiritsSurvivors.csproj",
       "origin": "replaced"
     },
     {

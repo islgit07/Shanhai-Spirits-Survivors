@@ -8,20 +8,32 @@ namespace ShanhaiSpiritsSurvivors;
 /// 平台移动参数（单点定义）。游戏与白箱共用同一份结构：
 /// 白箱里调出来的数值，写回 GameDefs 后就是游戏里的手感，不会再走样。
 ///
-/// 默认值取自 GameDefs（与当前游戏一致）。本版以「复刻终焉之莉莉」的手感为目标：
-///   · 变高跳（短按矮、长按高）—— 莉莉系 2D 动作游戏的核心跳跃手感
-///   · 顶点滞空（apex hang）—— 上升/下落穿过顶点附近时降低重力，悬停感更柔
-///   · 下落比上升更重（fall &gt; 1）—— 落得快、起得飘，整体更「轻盈可控」
-///   · 最大下落速度封顶 —— 防止长坠落失控
-/// 土狼时间 / 跳跃缓冲 / 空中控制仍保留，给落地手感兜底。
+/// 默认值取自 GameDefs（与当前游戏一致）。本版以「蔚蓝（Celeste）式响应」为手感目标：
+///   · 加速度曲线：地面/空中独立加减速 + 反向输入转向加成 —— 起停跟手
+///   · 空中松开方向键只轻微减速（EndTraction）—— 保留跳跃动量
+///   · 变高跳（短按矮、长按高）保留 —— 松键截断上升
+///   · 顶点滞空默认关闭（ApexGravityMul = 1.0）—— 弧线干脆无浮空
+///   · 下落比上升更重（fall &gt; 1）+ 最大下落速度封顶
+///   · 蔚蓝式转角修正：上升撞到方块角时自动横移滑过，而不是撞头掉下来
+/// 土狼时间 / 跳跃缓冲 / 下穿仍保留，给落地手感兜底。
 /// </summary>
 public sealed class MoveTuning
 {
     public float MoveSpeed = GameDefs.MasterMoveSpeed;
     public float JumpSpeed = GameDefs.MasterJumpSpeed;
     public float Gravity = GameDefs.Gravity;
-    /// <summary>空中水平控制强度：1 = 与地面一样灵活（当前行为），0 = 起跳后锁死水平速度。</summary>
-    public float AirControl = GameDefs.MasterAirControl;
+    /// <summary>地面加速度（单位/秒²）：0→满速 ≈ MoveSpeed/Accel 秒。</summary>
+    public float GroundAccel = GameDefs.MasterGroundAccel;
+    /// <summary>地面减速度（单位/秒²）：松键刹车。</summary>
+    public float GroundDecel = GameDefs.MasterGroundDecel;
+    /// <summary>空中加速度（单位/秒²）。</summary>
+    public float AirAccel = GameDefs.MasterAirAccel;
+    /// <summary>空中减速度基准（单位/秒²）：松开方向键时 × EndTraction。</summary>
+    public float AirDecel = GameDefs.MasterAirDecel;
+    /// <summary>反向输入时加速度倍率（急转身）。</summary>
+    public float TurnAccelMul = GameDefs.MasterTurnAccelMul;
+    /// <summary>空中松开方向键的减速倍率：越小动量保留越多。</summary>
+    public float EndTraction = GameDefs.MasterEndTraction;
     /// <summary>土狼时间：离开平台边缘后仍可起跳的宽限窗口（秒）。0 = 关闭。</summary>
     public float CoyoteTime = GameDefs.MasterCoyoteTime;
     /// <summary>跳跃缓冲：落地前提前按跳，落地瞬间自动起跳的窗口（秒）。0 = 关闭。</summary>
@@ -40,6 +52,10 @@ public sealed class MoveTuning
     /// <summary>下穿单向平台窗口（秒）：触发后关闭平台碰撞的时长。取值须满足：
     /// 窗口内下落距离（≈2.2）能穿过本层（脚越过台缘 ≈0.9），又小于最小层高差（2.6）以免掉过下一层。</summary>
     public float DropThroughTime = GameDefs.MasterDropThroughTime;
+    /// <summary>转角修正：上升撞头时允许的最大自动横移（单位）。0 = 关闭。</summary>
+    public float CornerCorrectionMax = GameDefs.MasterCornerCorrectionMax;
+    /// <summary>转角修正后与方块的保留间隙（单位）。</summary>
+    public float CornerCorrectionSkin = GameDefs.MasterCornerCorrectionSkin;
     /// <summary>自动上攀（CLIMB-001）：台顶可高于脚底的最大距离（单位）。</summary>
     public float ClimbReachUp = GameDefs.MasterClimbReachUp;
     /// <summary>自动上攀：台顶可低于脚底的最大距离（单位）。</summary>
@@ -93,10 +109,14 @@ public sealed class MoveTuning
     public MoveTuning Clone() => new()
     {
         MoveSpeed = MoveSpeed, JumpSpeed = JumpSpeed, Gravity = Gravity,
-        AirControl = AirControl, CoyoteTime = CoyoteTime, JumpBuffer = JumpBuffer,
+        GroundAccel = GroundAccel, GroundDecel = GroundDecel,
+        AirAccel = AirAccel, AirDecel = AirDecel,
+        TurnAccelMul = TurnAccelMul, EndTraction = EndTraction,
+        CoyoteTime = CoyoteTime, JumpBuffer = JumpBuffer,
         JumpCutMul = JumpCutMul, FallGravityMul = FallGravityMul,
         ApexGravityMul = ApexGravityMul, ApexThreshold = ApexThreshold,
         MaxFallSpeed = MaxFallSpeed, DropThroughTime = DropThroughTime,
+        CornerCorrectionMax = CornerCorrectionMax, CornerCorrectionSkin = CornerCorrectionSkin,
         ClimbReachUp = ClimbReachUp, ClimbReachDown = ClimbReachDown,
         ClimbEdgeBand = ClimbEdgeBand, ClimbStep = ClimbStep, ClimbCooldown = ClimbCooldown,
         AutoClimbEnabled = AutoClimbEnabled,
@@ -129,7 +149,9 @@ public sealed class PlatformMover
     private bool _cutAvailable;   // 本次起跳后，是否还能触发一次「变高跳截断」
     private float _dropTimer;     // 下穿窗口倒计时：>0 期间与「单向平台层」的碰撞被关闭
     private float _climbCooldown; // 自动上攀冷却：>0 期间不触发下一次翻越（防抖）
+    private bool _onOneWayFloor;  // 脚下地面是否单向平台（站立静止帧沿用上次结论）
     private List<Ledge> _ledges = new();   // 台沿列表（CLIMB-001）
+    private IBlockGeometry? _geometry;     // 方块几何（转角修正用）
 
     public bool Grounded { get; private set; }
     public bool JustJumped { get; private set; }
@@ -141,6 +163,9 @@ public sealed class PlatformMover
 
     /// <summary>注入地形台沿（CLIMB-001）。地形建好后由角色调用一次。</summary>
     public void SetLedges(List<Ledge> ledges) => _ledges = ledges ?? new List<Ledge>();
+
+    /// <summary>注入方块几何（转角修正用）。由地形建好后由角色调用。</summary>
+    public void SetGeometry(IBlockGeometry geometry) => _geometry = geometry;
 
     /// <summary>
     /// 推进一步。
@@ -162,7 +187,7 @@ public sealed class PlatformMover
         // 改为穿透台面落下。窗口内只关「单向平台层」的碰撞位，实体地板（LayerSolid）不受影响。
         // 窗口时长足够穿过本层（脚越过台缘 ≈0.9）又够不到最小层高差的下一层（2.6），落下后正好被下一层接住。
         _dropTimer = Mathf.Max(0.0f, _dropTimer - dt);
-        bool dropThrough = Grounded && downHeld && jumpPressed && StandingOnOneWay(body);
+        bool dropThrough = Grounded && downHeld && jumpPressed && _onOneWayFloor;
         if (dropThrough)
         {
             jumpPressed = false;
@@ -172,8 +197,7 @@ public sealed class PlatformMover
         if (_dropTimer > 0.0f) body.CollisionMask &= ~GameDefs.LayerOneWay;
         else body.CollisionMask |= GameDefs.LayerOneWay;
 
-        float control = Grounded ? 1.0f : T.AirControl;
-        body.Velocity = new Vector2(dirX * T.MoveSpeed * control, body.Velocity.Y);
+        body.Velocity = new Vector2(ApplyHorizontal(body.Velocity.X, dirX, Grounded, dt), body.Velocity.Y);
 
         if (Grounded)
         {
@@ -222,9 +246,14 @@ public sealed class PlatformMover
 
         body.MoveAndSlide();
 
+        // 蔚蓝式转角修正：上升中头部碰到方块时，若角部另一侧有横向空间，
+        // 自动横移滑过角部（保留 CornerCorrectionSkin 间隙），替代生硬的撞头反弹。
+        TryCornerCorrection(body);
+
         // 移动后的真实落地状态（用于本帧末尾的台沿判定与外部查询）
         bool onFloorNow = body.IsOnFloor();
         Grounded = onFloorNow;
+        UpdateFloorContact(body, onFloorNow);
 
         // @trace CLIMB-001 几何台沿探测：撞到上层单向平台边缘附近时自动翻上去。
         // 仅在空中、有水平输入、且冷却结束时触发；命中即把脚底拉上台顶并向台内推一步。
@@ -235,7 +264,26 @@ public sealed class PlatformMover
             _cutAvailable = false;
             JustJumped = false;
             Grounded = true;   // 本帧视为已上台，避免下一帧落地前的误判
+            _onOneWayFloor = false;   // 翻上台沿后脚下地面类型未知，下帧落地判定刷新
         }
+    }
+
+    /// <summary>
+    /// 蔚蓝式水平运动：加速度逼近目标速度，反向输入 × TurnAccelMul（急转身）。
+    /// 空中松开方向键时只以 AirDecel × EndTraction 轻减速（保留跳跃动量）。
+    /// </summary>
+    private float ApplyHorizontal(float current, float dirX, bool grounded, float dt)
+    {
+        if (dirX != 0.0f)
+        {
+            float target = dirX * T.MoveSpeed;
+            float accel = current * dirX < 0.0f
+                ? (grounded ? T.GroundAccel : T.AirAccel) * T.TurnAccelMul   // 反向 = 急转身
+                : (grounded ? T.GroundAccel : T.AirAccel);
+            return Mathf.MoveToward(current, target, accel * dt);
+        }
+        float decel = grounded ? T.GroundDecel : T.AirDecel * T.EndTraction;
+        return Mathf.MoveToward(current, 0.0f, decel * dt);
     }
 
     /// <summary>
@@ -288,20 +336,80 @@ public sealed class PlatformMover
         return false;
     }
 
-    /// <summary>脚下是否踩在单向平台层上：直接读上一帧 MoveAndSlide 的地板碰撞体，
-    /// 查其碰撞层是否含 LayerOneWay。比射线更可靠（射线对 one-way 形状不稳定）。
-    /// 只认单向层 → 站实体地板「下 + 跳」仍是正常跳，不会误吞跳跃。</summary>
-    private static bool StandingOnOneWay(CharacterBody2D body)
+    /// <summary>
+    /// 转角修正（蔚蓝式）：仅上升撞到方块时生效。身体大部分已越过方块边缘
+    /// （交叠 ≤ CornerCorrectionMax）→ 沿空侧横移刚好脱离方块（保留 skin 间隙）；
+    /// 身体居中或深撞时照常撞头，绝不长距离瞬移。
+    /// </summary>
+    private void TryCornerCorrection(CharacterBody2D body)
     {
+        IBlockGeometry? geometry = _geometry;
+        if (T.CornerCorrectionMax <= 0.0f || geometry == null) return;
+        if (body.Velocity.Y >= 0.0f) return;   // 只修上升撞头
+        if (body.GetSlideCollisionCount() == 0) return;
+
+        float halfW = GameDefs.MasterSize.X * 0.5f;
+        for (int i = 0; i < body.GetSlideCollisionCount(); i++)
+        {
+            var ci = body.GetSlideCollision(i);
+            if (ci.GetNormal().Y <= 0.7f) continue;                 // 只要天花板（y-down：法线朝下）
+            if (ci.GetCollider() is not StaticBody2D block) continue;
+            float bcX = block.GlobalPosition.X;                     // 1×1 方块中心
+            float px0 = body.GlobalPosition.X - halfW;
+            float px1 = body.GlobalPosition.X + halfW;
+            float bx0 = bcX - 0.5f, bx1 = bcX + 0.5f;
+            float overlapLeft = px1 - bx0;                          // 身体右缘探入方块左缘的深度
+            float overlapRight = bx1 - px0;                         // 身体左缘探入方块右缘的深度
+            float dx;
+            if (px0 < bx0 && overlapLeft > 0.0f && overlapLeft <= T.CornerCorrectionMax)
+                dx = -(overlapLeft + T.CornerCorrectionSkin);       // 身体挂在方块左缘 → 向左滑出
+            else if (px1 > bx1 && overlapRight > 0.0f && overlapRight <= T.CornerCorrectionMax)
+                dx = overlapRight + T.CornerCorrectionSkin;         // 身体挂在方块右缘 → 向右滑出
+            else continue;                                          // 居中或深撞 → 正常撞头
+            if (!SpanClear(geometry, body, body.GlobalPosition.X + dx, halfW)) continue;
+            body.GlobalPosition = new Vector2(body.GlobalPosition.X + dx, body.GlobalPosition.Y);
+            break;
+        }
+    }
+
+    /// <summary>修正后身体水平跨度在头部所在行及其上一行不得再有实体块。</summary>
+    private bool SpanClear(IBlockGeometry geometry, CharacterBody2D body, float newX, float halfW)
+    {
+        float headY = body.GlobalPosition.Y - GameDefs.MasterSize.Y * 0.5f;
+        for (int r = -1; r <= 0; r++)
+        {
+            float y = headY + r * 0.5f;
+            for (float px = newX - halfW; px <= newX + halfW; px += 0.2f)
+            {
+                if (geometry.WorldToCell(new Vector2(px, y), out int row, out int col)
+                    && geometry.IsBlocked(row, col))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// 记录脚下地面类型（是否单向平台）：读本次 MoveAndSlide 的地板碰撞体。
+    /// 站立静止帧（vy=0 无新滑动碰撞）沿用上一次结论，保证「站着按 下+跳」可靠下穿。
+    /// </summary>
+    private void UpdateFloorContact(CharacterBody2D body, bool onFloorNow)
+    {
+        if (!onFloorNow)
+        {
+            _onOneWayFloor = false;
+            return;
+        }
         for (int i = 0; i < body.GetSlideCollisionCount(); i++)
         {
             var ci = body.GetSlideCollision(i);
             if (ci.GetNormal().Y >= -0.7f) continue;   // 只看地板法线（朝上）
-            if (ci.GetCollider() is PhysicsBody2D pb
-                && (pb.CollisionLayer & GameDefs.LayerOneWay) != 0u)
-                return true;
+            if (ci.GetCollider() is PhysicsBody2D pb)
+            {
+                _onOneWayFloor = (pb.CollisionLayer & GameDefs.LayerOneWay) != 0u;
+                return;
+            }
         }
-        return false;
     }
 
     /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳 / 误翻越。</summary>
@@ -312,5 +420,6 @@ public sealed class PlatformMover
         _cutAvailable = false;
         _dropTimer = 0.0f;
         _climbCooldown = 0.0f;
+        _onOneWayFloor = false;
     }
 }

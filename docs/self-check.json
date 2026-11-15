@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0002",
+  "version": "0.0003",
   "result": "PASS",
   "checks": [
     {
@@ -39,7 +39,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0002",
+      "name": "config/version = 0.0003",
       "ok": true,
       "detail": ""
     },
@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 10",
+      "name": "C# 脚本数量 = 11",
       "ok": true,
-      "detail": "10 个"
+      "detail": "11 个"
     },
     {
       "name": "零 GDScript",
@@ -149,7 +149,7 @@
       "detail": ""
     },
     {
-      "name": "手柄输入（摇杆 / 十字键 / A 键跳跃）",
+      "name": "基础键鼠映射（4 action × 1 键，无手柄 / 无方向键）",
       "ok": true,
       "detail": ""
     },
@@ -195,6 +195,36 @@
     },
     {
       "name": "白箱保留（与游戏共用移动内核）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "白箱零 PNG：Whitebox.tscn 无贴图引用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "白箱零 PNG：共用方块 / 掉落预制体无贴图引用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "纯色纹理由 ArtBank 运行时生成（不依赖资源文件）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "开始页键盘导航（grab_focus + 上下焦点链）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "开始页基础按键说明",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "--smoke 从开始页自动进游戏（不挂死）",
       "ok": true,
       "detail": ""
     },

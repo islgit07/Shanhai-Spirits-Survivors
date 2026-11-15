@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://b0gr6rfoshf65"]
+
+[sub_resource type="RectangleShape2D" id="rect"]
+size = Vector2(1, 1)
+
+[node name="block_treasure" type="StaticBody2D"]
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("rect")
+
+[node name="Visual" type="Sprite2D" parent="."]
+scale = Vector2(0.03125, 0.03125)
+modulate = Color(0.95, 0.8, 0.35, 1)
+
+[node name="Touch" type="Area2D" parent="."]
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Touch"]
+shape = SubResource("rect")

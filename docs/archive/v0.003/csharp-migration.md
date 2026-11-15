@@ -11,8 +11,8 @@
 | Godot | `4.7.2.stable.mono.official`，`D:/Program Files (x86)/Godot_v4.7.2-stable_mono_win64/` |
 | .NET SDK | 10.0.402（本机 `dotnet --list-sdks` 实测） |
 | NuGet 缓存 | `Godot.NET.Sdk/4.7.2` 已在 `C:/Users/Administrator/.nuget/packages/`，可离线还原 |
-| 工程文件 | `ShanHaiHuanLing.csproj`：`Godot.NET.Sdk/4.7.2` + `net8.0` + `EnableDynamicLoading` + `Nullable=enable` |
-| 程序集名 | ASCII `ShanHaiHuanLing`，与 `project.godot [dotnet] project/assembly_name` 对齐（中文名会让 mono 加载失败） |
+| 工程文件 | `ShanhaiSpiritsSurvivors.csproj`：`Godot.NET.Sdk/4.7.2` + `net8.0` + `EnableDynamicLoading` + `Nullable=enable` |
+| 程序集名 | ASCII `ShanhaiSpiritsSurvivors`，与 `project.godot [dotnet] project/assembly_name` 对齐（中文名会让 mono 加载失败） |
 | 验证 | `dotnet build` 0 警告 0 错误；`--script res://tools/CSharpToolchainProbe.cs` 证实引擎加载并执行 C#；headless 导入 0 解析错误 |
 
 > Godot CLI **不会自动创建 `.csproj`**（需编辑器菜单或手写）；本仓库的 csproj 是手写的。`.cs.uid` 由 `--headless --editor --quit` 自动生成，等同 Unity 的 `.meta`，**必须提交**以保住脚本引用稳定。

@@ -32,6 +32,9 @@ public static class ArtBank
         return _fallback;
     }
 
+    /// <summary>运行时生成的 2×2 纯白纹理：给场景里的 Sprite2D 填色用，不依赖任何 PNG 文件。</summary>
+    public static Texture2D PlainTexture() => MakeFallback();
+
     public static Sprite2D MakeSprite(string key, Vector2 size)
     {
         var s = new Sprite2D { Texture = Tex(key) };
@@ -47,4 +50,18 @@ public static class ArtBank
         Size = size,
         Position = -size * 0.5f,
     };
+
+    /// <summary>
+    /// 世界内纯色方块：Sprite2D + 白纹理 + modulate 上色。
+    /// Control（ColorRect）挂在 Node2D 父级下渲染时会相对碰撞体偏移约半格，
+    /// 视觉与物理错位；Sprite2D 是纯 Node2D 渲染，中心即节点原点，永远与碰撞盒对齐。
+    /// </summary>
+    public static Sprite2D MakeBox(Vector2 size, Color color)
+    {
+        var s = new Sprite2D { Texture = MakeFallback(), Modulate = color };
+        s.Scale = size / new Vector2(TexSize, TexSize);
+        return s;
+    }
+
+    private const int TexSize = 2;
 }

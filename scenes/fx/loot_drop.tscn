@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://r7agy5imnlpt"]
+
+[sub_resource type="RectangleShape2D" id="Rect_loot"]
+size = Vector2(0.3, 0.3)
+
+[node name="loot_drop" type="Area2D"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Rect_loot")
+
+[node name="Visual" type="Sprite2D" parent="."]
+modulate = Color(1, 0.85, 0.4, 0.95)
+scale = Vector2(0.009375, 0.009375)

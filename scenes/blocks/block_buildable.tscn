@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cdm0hr4of8fo1"]
+
+[sub_resource type="RectangleShape2D" id="rect"]
+size = Vector2(1, 1)
+
+[node name="block_buildable" type="StaticBody2D"]
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("rect")
+
+[node name="Visual" type="Sprite2D" parent="."]
+scale = Vector2(0.03125, 0.03125)
+modulate = Color(0.55, 0.62, 0.72, 1)

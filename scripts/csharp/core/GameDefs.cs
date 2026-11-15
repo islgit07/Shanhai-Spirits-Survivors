@@ -12,7 +12,7 @@ namespace ShanhaiSpiritsSurvivors;
 public static class GameDefs
 {
     // ---------------------------------------------------------------- 世界几何
-    public const float WorldHalfWidth = 24.0f;
+    public const float WorldHalfWidth = 28.0f;
     public const float GroundY = -2.2f;
     public const int LayerCount = 10;
     public const float LayerSpacing = 3.0f;
@@ -37,12 +37,15 @@ public static class GameDefs
     //   ② 每个可站立块上方净空 2 格（身高 1.2 > 单格 1.0，双层才能站人不顶头）；
     //   ③ 大多数 run 是纯跳跃平台（特殊块整段至多一块，权重合计 ≈0.17）；
     //   ④ 同行空档 ≤ 4 格（满跳水平距离 ≈5.4 格 = 6.5 速度 × 0.83s 滞空，留余量）。
-    public const int BlockCols = 48;
+    //   ⑤ 层与层之间固定 2 格（骨架层间距 = LayerStepRows）；装饰块不得挡住骨架跳跃走廊
+    //     （MAP-004），尽可能少出现挡道的方块。
+    public const int BlockCols = 56;
     public const int BlockRows = 27;
+    public const int LayerStepRows = 2;    // 骨架主路径层间距（行数）
     public const int BlockRunMin = 1;      // run 长度（同行连续块数）
     public const int BlockRunMax = 5;
-    public const int BlockGapMin = 2;      // 同行 run 之间的空档
-    public const int BlockGapMax = 4;      // ≤ 满跳水平距离（原则④）
+    public const int BlockGapMin = 3;      // 同行 run 之间的空档（加大 → 装饰更稀，少挡道）
+    public const int BlockGapMax = 4;      // ≤ 满跳水平跨距（蔚蓝手感 ≈5.3 格，原则④）
     public const int BlockHeadroomRows = 2;         // 可站立块上方净空行数（原则②）
     public const int BlockBounceHeadroomRows = 7;   // 弹跳块上方净空行数（弹射 ≈5 格 + 身高 1.2）
     // 特殊块权重（每个 run 掷一次，整段纯平台概率 = 1 - 总和 ≈0.83，原则③）
@@ -50,27 +53,39 @@ public static class GameDefs
     public const float BlockWeightBounce = 0.06f;    // 弹跳块：弹射 ≈5 格高
     public const float BlockWeightBuildable = 0.02f; // 可建筑块：占位
     public const float BlockWeightTreasure = 0.02f;  // 宝箱块：占位宝物
-    public const float BlockOneWayChance = 0.30f;    // 非地面普通块成为单向的概率（保留 DROP-001 下穿）
-    public const float BounceSpeed = 19.0f;          // 弹跳块弹射初速（≈5 格高，实机可调）
+    public const float BlockOneWayChance = 0.30f;    // 每个 run 含「单向连排段」的概率（段长分布见 OneWayLen* 权重）
+    // 单向平台连排长度分布（同一 run 内横排连续格数）：2~3 常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）
+    public const float OneWayLen1Weight = 0.10f;
+    public const float OneWayLen2Weight = 0.40f;
+    public const float OneWayLen3Weight = 0.35f;
+    public const float OneWayLen4Weight = 0.12f;
+    public const float OneWayLen5Weight = 0.03f;
+    public const float BounceSpeed = 22.0f;          // 弹跳块弹射初速（新重力下 ≈4.8 格高，保持旧弹射高度）
 
 
     // ---------------------------------------------------------------- 主角移动手感
-    // 目标 = 复刻《终焉之莉莉》：轻盈可控、顶点悬停、短按矮跳、长按照高。
-    // 以下数值 = 跳跃白箱（scenes/Whitebox.tscn）按《终焉之莉莉》手感实机调出后写回（terrain_seed 20261112）。
-    public const float MasterMoveSpeed = 6.5f;     // 空中更易修正落点
-    public const float Gravity = 36.0f;            // 偏重 → 整体更沉稳（原默认 22）
-    public const float MasterJumpSpeed = 16.2f;    // 满跳高度 ≈ 3.67 ≥ 最大层高差 3.4 → 一次跳跃刚好够上相邻层（见下注）
-    public const float MasterAirControl = 0.6f;    // 空中水平控制（明显低于地面，保留惯性）
-    public const float MasterCoyoteTime = 0.13f;   // 土狼时间（离台沿后仍可起跳的宽限；关闭自动上攀后攀爬全靠真跳，容错调宽）
-    public const float MasterJumpBuffer = 0.13f;   // 跳跃缓冲（落地前预按自动起跳；同上调宽）
-    // 《终焉之莉莉》式跳跃细节
-    public const float MasterJumpCutMul = 0.36f;   // 变高跳：上升松键截断系数（短按≈0.39 单位矮跳）
-    public const float MasterFallGravityMul = 2.5f;// 下落比上升重 2.5 倍 → 落得利落
-    public const float MasterApexGravityMul = 0.45f;// 顶点滞空：穿过顶点附近重力降到 0.45 倍（保留飘感但更利落，压总滞空）
-    public const float MasterApexThreshold = 1.1f; // 顶点区速度阈值（单位/秒）
-    public const float MasterMaxFallSpeed = 40.0f; // 终端下落速度封顶
+    // 目标 = 蔚蓝（Celeste）式响应：起停跟手、跳跃弧线干脆、零顶点浮空。
+    // 核心 = 加速度曲线（地面/空中独立加减速 + 转向加成）替代旧的「空中控制系数」；
+    // 顶点滞空默认关闭（1.0 = 无浮空），白箱保留滑条可做对照。
+    public const float MasterMoveSpeed = 8.0f;      // 顶速（格/秒）
+    public const float Gravity = 50.0f;             // 上升重力：起跳干脆（满跳 ≈3.4 格）
+    public const float MasterJumpSpeed = 18.4f;     // 满跳高度 = 18.4²/(2×50) ≈ 3.4 ≥ 层高差 3.0+0.3 抖动
+    public const float MasterGroundAccel = 90.0f;   // 地面加速：0→满速 ≈0.09s（蔚蓝式起手）
+    public const float MasterGroundDecel = 110.0f;  // 地面刹车：满速→0 ≈0.07s（松键即停）
+    public const float MasterAirAccel = 60.0f;      // 空中加速：0→满速 ≈0.13s（跟手但保留一点惯性）
+    public const float MasterAirDecel = 55.0f;      // 空中减速基准（实际 × EndTraction）
+    public const float MasterTurnAccelMul = 2.0f;   // 反向输入时加速 ×2（急转身）
+    public const float MasterEndTraction = 0.12f;   // 空中松开方向键的减速倍率：保留跳跃动量
+    public const float MasterCoyoteTime = 0.10f;    // 土狼时间（离台沿后仍可起跳的宽限）
+    public const float MasterJumpBuffer = 0.12f;    // 跳跃缓冲（落地前预按自动起跳）
+    // 蔚蓝式跳跃细节
+    public const float MasterJumpCutMul = 0.42f;    // 变高跳：上升松键截断系数（短按 ≈0.6 格矮跳）
+    public const float MasterFallGravityMul = 1.6f; // 下落比上升重 1.6 倍 → 干脆的下坠弧线
+    public const float MasterApexGravityMul = 1.0f; // 顶点滞空：默认关闭（1.0 = 无浮空）；白箱可调回 <1 对照
+    public const float MasterApexThreshold = 1.1f;  // 顶点区速度阈值（单位/秒）
+    public const float MasterMaxFallSpeed = 24.0f;  // 终端下落速度封顶
     // 类银式下穿单向平台：站上台沿按住「下」+「跳」穿层落下（HK / Ori / Dead Cells 通例）
-    public const float MasterDropThroughTime = 0.20f; // 下穿窗口（秒）：窗口内下落 ≈2.2，穿过本层（≥0.9）且够不到最小层高差的下一层（2.6）
+    public const float MasterDropThroughTime = 0.18f; // 下穿窗口（秒）：窗口内下落 ≈1.7，穿过本层（≥0.9）且够不到最小层高差的下一层（2.6）
     // 终焉之莉莉式「自动上攀（台沿翻越）」：撞到上层单向平台边缘附近时，几何探测台沿并自动拉上台面。
     // 采用几何台沿探测（非射线/碰撞探测）：上层平台为单向碰撞、侧面不挡人，靠矩形命中更稳。
     // 总开关（探测手感待重调，暂时关闭；代码与参数全部保留，改回 true 即恢复）。
@@ -82,10 +97,16 @@ public static class GameDefs
     public const float MasterClimbCooldown = 0.25f;   // 两次翻越的最小间隔（秒），防抖
 
     public static readonly Vector2 MasterSize = new(0.8f, 1.2f);
-    // 验算：满跳高度 = (16.2²-1.1²)/(2×36) + 1.1²/(2×36×0.45) ≈ 3.67，滞空 ≈ 0.83s
-    //        短按高度 ≈ 3.67 × 0.36² ≈ 0.48（矮跳）
-    //        ✓ 3.67 ≥ 最大层高差 3.4（基准 3.0 ± 层高抖动 0.4）→ 一次满跳刚好够上任意相邻层，跳过头 ≤ 0.3。
-    //        ✓ 滞空 0.83s < 旧版 0.92s（跳速 14.6 时代）——更短更利落。
+    // 验算：满跳高度 = 18.4²/(2×50) ≈ 3.39；上升 0.37s + 下落(×1.6) 0.29s ≈ 0.66s 滞空
+    //        短按高度 ≈ 3.39 × 0.42² ≈ 0.6（矮跳）
+    //        ✓ 满跳 ≈3.39 ≥ 最大层高差 ≈3.3（基准 3.0 ± 0.3）→ 一次满跳刚好够上相邻层
+    //        ✓ 2 格高差落点横移 ≈4.8 格 ≥ 地图 dr2 可达半径 3；3 格高差 ≈3.9 格 ≥ dr3 半径 2
+    //        ✓ 满跳水平跨距 ≈ 8.0 × 0.66 ≈ 5.3 格 ≥ 地图同行空档上限 4
+
+    // 蔚蓝式转角修正：上升撞到方块角时自动横移滑过，而不是撞头掉下来。
+    // 只在身体小部分探入方块边缘时触发（Celeste ≈ 半格以内），绝不长距离瞬移。
+    public const float MasterCornerCorrectionMax = 0.45f;  // 允许修正的最大交叠深度（单位）
+    public const float MasterCornerCorrectionSkin = 0.08f; // 修正后与方块的保留间隙
 
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;

@@ -19,6 +19,16 @@ public enum BlockType
 }
 
 /// <summary>
+/// 方块几何查询接口：供移动内核做转角修正等几何探测。
+/// IsBlocked = 该格有存活且实体（非单向）的方块；单向块上升撞头不成立，不计入。
+/// </summary>
+public interface IBlockGeometry
+{
+    bool WorldToCell(Vector2 worldPos, out int row, out int col);
+    bool IsBlocked(int row, int col);
+}
+
+/// <summary>
 /// 方块弹跳接口：Master / WhiteboxPlayer 实现。BlockField 触碰感应置标志，
 /// 角色在 Step 之后应用弹射速度（先应用会被贴地逻辑当帧把 Y 清零）。
 /// </summary>
@@ -38,12 +48,13 @@ public interface IBounceable
 /// 一段 3~4 格纯平台，水平步幅严格在跳跃可达内），装饰 run 只在骨架之外随机撒。
 /// 大多数 run 是纯跳跃平台：整段至多一块特殊块（PickType 权重，约 83% run 无特殊块）。
 /// 弹跳块上方净空 BlockBounceHeadroomRows = 7 格，弹射航道不被上层块遮挡。
-/// 单向是普通块的属性（BlockOneWayChance），保留 DROP-001 下穿与 CLIMB-001 台沿上攀。
+/// 单向平台按 run 成段出现（BlockOneWayChance 为 run 命中率），段长连排分布见 GameDefs.OneWayLen*：
+/// 2~3 格连排常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）。保留 DROP-001 下穿与 CLIMB-001 台沿上攀。
 /// 方块行为：Fragile = 顶面感应 → 碎；Bounce = 整块感应 → IBounceable.Bounce()；
 /// Treasure = 整块感应 → 打开（移除碰撞，掉落占位宝物）；Buildable = 实心占位。
 /// </summary>
 [GlobalClass]
-public partial class BlockField : Node2D
+public partial class BlockField : Node2D, IBlockGeometry
 {
     private readonly BlockType[,] _type = new BlockType[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _oneWay = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
@@ -51,7 +62,31 @@ public partial class BlockField : Node2D
     private readonly bool[,] _reachable = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _reserved = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly Node2D?[,] _nodes = new Node2D[GameDefs.BlockRows, GameDefs.BlockCols];
+    private readonly Sprite2D?[,] _visuals = new Sprite2D[GameDefs.BlockRows, GameDefs.BlockCols];
+    private readonly bool[,] _jellyBusy = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly RandomNumberGenerator _rng = new();
+    private readonly List<(int Row, int C0, int C1)> _backbone = new();
+
+    // ---------------------------------------------------------------- 场景预制体（编辑器可拖拽换贴图）
+    [Export] public PackedScene? SceneSolid;
+    [Export] public PackedScene? SceneOneWay;
+    [Export] public PackedScene? SceneFragile;
+    [Export] public PackedScene? SceneBounce;
+    [Export] public PackedScene? SceneBuildable;
+    [Export] public PackedScene? SceneTreasure;
+    [Export] public PackedScene? SceneLootDrop;
+
+    /// <summary>未在编辑器里拖场景时按路径加载（白箱在代码里 new BlockField() 也能用）。</summary>
+    private void EnsureScenes()
+    {
+        SceneSolid ??= GD.Load<PackedScene>("res://scenes/blocks/block_solid.tscn");
+        SceneOneWay ??= GD.Load<PackedScene>("res://scenes/blocks/block_oneway.tscn");
+        SceneFragile ??= GD.Load<PackedScene>("res://scenes/blocks/block_fragile.tscn");
+        SceneBounce ??= GD.Load<PackedScene>("res://scenes/blocks/block_bounce.tscn");
+        SceneBuildable ??= GD.Load<PackedScene>("res://scenes/blocks/block_buildable.tscn");
+        SceneTreasure ??= GD.Load<PackedScene>("res://scenes/blocks/block_treasure.tscn");
+        SceneLootDrop ??= GD.Load<PackedScene>("res://scenes/fx/loot_drop.tscn");
+    }
 
     public int BlockCount { get; private set; }
 
@@ -65,6 +100,7 @@ public partial class BlockField : Node2D
     /// <summary>按种子重建整张方块地图，可重复调用（旧节点延迟释放）。</summary>
     public void Build(int seedValue)
     {
+        EnsureScenes();
         foreach (Node child in GetChildren())
         {
             RemoveChild(child);
@@ -75,6 +111,9 @@ public partial class BlockField : Node2D
         Array.Clear(_alive);
         Array.Clear(_reachable);
         Array.Clear(_nodes);
+        Array.Clear(_visuals);
+        Array.Clear(_jellyBusy);
+        _backbone.Clear();
         _rng.Seed = Rng.DeriveSeed64(seedValue, "blocks");
         BlockCount = 0;
 
@@ -89,7 +128,7 @@ public partial class BlockField : Node2D
         for (int r = GameDefs.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
         {
             var runs = new List<(int Start, int Len)>();
-            int x = _rng.RandiRange(0, 3);
+            int x = _rng.RandiRange(0, 6);
             while (x < GameDefs.BlockCols)
             {
                 int len = _rng.RandiRange(GameDefs.BlockRunMin, GameDefs.BlockRunMax);
@@ -109,6 +148,7 @@ public partial class BlockField : Node2D
                 if (_alive[r, c]) SpawnNode(r, c);
 
         GD.Print($"[BLOCKS] blocks={BlockCount} ground_continuous={IsGroundContinuous()}");
+
     }
 
     /// <summary>
@@ -127,11 +167,11 @@ public partial class BlockField : Node2D
             int len = _rng.RandiRange(3, 4);
             c = Mathf.Clamp(c, 0, GameDefs.BlockCols - len);
             PlaceRun(r, c, len, purePlatform: true);
-            int dr = _rng.RandiRange(2, 3);
+            _backbone.Add((r, c, c + len - 1));
+            int dr = GameDefs.LayerStepRows;   // 原则⑤：层间距固定 2 格
             r += dr;
             if (r >= GameDefs.BlockRows) break;
-            int reach = dr == 2 ? 3 : 2;
-            int step = _rng.RandiRange(2, reach + len - 2);
+            int step = _rng.RandiRange(2, 3 + len - 2);
             int next = c + (right ? step : -step);
             if (next < 1 || next + len > GameDefs.BlockCols - 1)
             {
@@ -145,9 +185,53 @@ public partial class BlockField : Node2D
     private void PlaceRun(int r, int start, int len, bool purePlatform = false)
     {
         if (start >= GameDefs.BlockCols || !RunReachable(r, start, len)) return;
+        // 原则⑤：装饰 run 不得挡住骨架跳跃走廊（MAP-004）；骨架段本身豁免。
+        if (!purePlatform)
+        {
+            int blocked = 0;
+            for (int k = 0; k < len; k++)
+                if (InJumpCorridor(r, start + k)) blocked++;
+            if (blocked > len / 2) return;   // 过半落在走廊 → 整段放弃
+        }
         // 原则③：大多数 run 是纯跳跃平台——整段至多一块特殊块（约 83% 的 run 掷不到）
         var special = purePlatform ? BlockType.Normal : PickType();
-        int specialAt = special == BlockType.Normal ? -1 : _rng.RandiRange(0, len - 1);
+        // 单向连排段：按 run 掷一次，段长 2~3 常见 / 1 或 4 少见 / 5 极少见 / >5 不出现
+        int oneWayLen = 0, oneWayStart = 0;
+        if (_rng.Randf() < GameDefs.BlockOneWayChance)
+        {
+            int want = SampleOneWayLength();
+            if (want <= len)
+            {
+                for (int attempt = 0; attempt < 4 && oneWayLen == 0; attempt++)
+                {
+                    int s = _rng.RandiRange(0, len - want);
+                    bool fits = true;
+                    for (int k = 0; k < want; k++)
+                    {
+                        int cc = start + s + k;
+                        if (cc >= GameDefs.BlockCols || _reserved[r, cc] || _alive[r, cc] || InSpawnZone(r, cc))
+                        {
+                            fits = false;
+                            break;
+                        }
+                    }
+                    if (fits)
+                    {
+                        oneWayLen = want;
+                        oneWayStart = s;
+                    }
+                }
+            }
+        }
+        int specialAt = -1;
+        if (special != BlockType.Normal)
+        {
+            var candidates = new List<int>();
+            for (int k = 0; k < len; k++)
+                if (k < oneWayStart || k >= oneWayStart + oneWayLen) candidates.Add(k);
+            if (candidates.Count > 0)
+                specialAt = candidates[_rng.RandiRange(0, candidates.Count - 1)];
+        }
         for (int k = 0; k < len; k++)
         {
             int c = start + k;
@@ -155,9 +239,24 @@ public partial class BlockField : Node2D
             if (_reserved[r, c]) continue;     // 下方块的净空区不放块（原则②）
             if (InSpawnZone(r, c)) continue;   // 出生净空区不放块
             var t = k == specialAt ? special : BlockType.Normal;
-            bool oneWay = t == BlockType.Normal && _rng.Randf() < GameDefs.BlockOneWayChance;
+            bool oneWay = t == BlockType.Normal && k >= oneWayStart && k < oneWayStart + oneWayLen;
             SetCell(r, c, t, oneWay);
         }
+    }
+
+    /// <summary>单向连排段长度抽样：2~3 常见，1/4 少见，5 极少见（权重见 GameDefs.OneWayLen*）。</summary>
+    private int SampleOneWayLength()
+    {
+        float roll = _rng.Randf();
+        float acc = GameDefs.OneWayLen1Weight;
+        if (roll < acc) return 1;
+        acc += GameDefs.OneWayLen2Weight;
+        if (roll < acc) return 2;
+        acc += GameDefs.OneWayLen3Weight;
+        if (roll < acc) return 3;
+        acc += GameDefs.OneWayLen4Weight;
+        if (roll < acc) return 4;
+        return 5;   // 剩余概率 = OneWayLen5Weight
     }
 
     /// <summary>
@@ -166,6 +265,23 @@ public partial class BlockField : Node2D
     /// 避免在出生点起跳时头顶撞上首层平台底面。
     /// </summary>
     private static bool InSpawnZone(int r, int c) => r >= 1 && r <= 3 && c >= 22 && c <= 27;
+
+    /// <summary>
+    /// 原则⑤（MAP-004）：骨架跳跃走廊。玩家从下层骨架平台跳到上层时经过的格子：
+    /// 每段骨架平台上方 1~2 行（层间距 2 → 中间行 + 落点行）、水平方向平台两端
+    /// 各外扩 3 列（dr=2 的可达半径）。装饰块落入走廊会挡跳跃路线，直接拒绝。
+    /// </summary>
+    private bool InJumpCorridor(int r, int c)
+    {
+        foreach (var (row, c0, c1) in _backbone)
+        {
+            int dr = row - r;
+            if (dr is < 1 or > GameDefs.LayerStepRows) continue;   // 只看平台上方 1..2 行
+            int reach = 3;   // dr=2 对应的水平可达半径（与 CellReachable 一致）
+            if (c >= c0 - reach && c <= c1 + reach) return true;
+        }
+        return false;
+    }
 
     /// <summary>run 内任一块有可达来源，则整段可放（run 内行走保证全段可达）。</summary>
     private bool RunReachable(int r, int start, int len)
@@ -244,37 +360,45 @@ public partial class BlockField : Node2D
     }
 
     // ---------------------------------------------------------------- 节点
+    /// <summary>实例化方块预制体场景：碰撞层 / 单向属性 / 贴图都由场景自带，代码只管摆位置和连触摸信号。</summary>
     private void SpawnNode(int r, int c)
     {
         var t = _type[r, c];
         bool oneWay = _oneWay[r, c];
-        var body = new StaticBody2D
+        PackedScene? scene = t switch
         {
-            Name = $"{t}_{c}_{r}",
-            Position = BlockCenter(r, c),
-            // 碰撞分层：实体 = LayerSolid；单向普通块 = LayerOneWay（DROP-001 可下穿）
-            CollisionLayer = (t == BlockType.Normal && oneWay) ? GameDefs.LayerOneWay : GameDefs.LayerSolid,
+            BlockType.Normal => oneWay ? SceneOneWay : SceneSolid,
+            BlockType.Fragile => SceneFragile,
+            BlockType.Bounce => SceneBounce,
+            BlockType.Buildable => SceneBuildable,
+            BlockType.Treasure => SceneTreasure,
+            _ => SceneSolid,
         };
-        body.AddChild(new CollisionShape2D
+        if (scene == null) return;
+        var body = scene.Instantiate<StaticBody2D>();
+        body.Name = $"{t}_{c}_{r}";
+        body.Position = BlockCenter(r, c);
+        var visual = body.GetNodeOrNull<Sprite2D>("Visual");
+        if (visual != null)
         {
-            Shape = new RectangleShape2D { Size = new Vector2(1f, 1f) },
-            OneWayCollision = oneWay,
-            OneWayCollisionMargin = 0.2f,
-        });
-        body.AddChild(new ColorRect
-        {
-            Color = Tint(t, oneWay),
-            Size = new Vector2(1f, 1f),
-            Position = new Vector2(-0.5f, -0.5f),
-        });
+            // 零 PNG：预制体只带碰撞与配色，纹理用运行时 2×2 白图 + modulate 上色。
+            // 2 px 纹理铺满 1×1 世界单位 → scale = 0.5（果冻动画以本 scale 为基准）。
+            visual.Texture = ArtBank.PlainTexture();
+            visual.Scale = Vector2.One * 0.5f;
+            _visuals[r, c] = visual;
+        }
         if (t is BlockType.Fragile or BlockType.Bounce or BlockType.Treasure)
-            AddTouchArea(body, r, c);
+        {
+            var touch = body.GetNodeOrNull<Area2D>("Touch");
+            if (touch != null)
+                touch.BodyEntered += b => OnTouched(r, c, b);
+        }
         AddChild(body);
         _nodes[r, c] = body;
     }
 
-    /// <summary>配色：实心普通 = 绿 / 单向普通 = 紫（沿用旧平台配色），其余块一眼可辨。</summary>
-    private static Color Tint(BlockType t, bool oneWay) => t switch
+    /// <summary>配色：实心普通 = 绿 / 单向普通 = 紫（沿用旧平台配色），其余块一眼可辨。白箱图例共用。</summary>
+    public static Color Tint(BlockType t, bool oneWay = false) => t switch
     {
         BlockType.Normal => oneWay ? new Color(0.42f, 0.40f, 0.52f) : new Color(0.30f, 0.36f, 0.30f),
         BlockType.Fragile => new Color(0.72f, 0.55f, 0.33f),
@@ -308,6 +432,7 @@ public partial class BlockField : Node2D
                 BreakBlock(r, c);
                 break;
             case BlockType.Bounce:
+                Jelly(r, c);
                 (body as IBounceable)?.Bounce();
                 break;
             case BlockType.Treasure:
@@ -329,6 +454,24 @@ public partial class BlockField : Node2D
         GD.Print($"[BLOCKS] fragile broken ({c},{r})");
     }
 
+    /// <summary>
+    /// 弹跳块果冻动画：被压扁（横向膨胀 ×1.35 / 纵向压扁 ×0.55）后弹性回弹，
+    /// 弹性缓动自带 1~2 次过冲抖动。动画期间重复触碰不重播，弹射不受影响。
+    /// </summary>
+    private void Jelly(int r, int c)
+    {
+        var visual = _visuals[r, c];
+        if (visual == null || _jellyBusy[r, c]) return;
+        _jellyBusy[r, c] = true;
+        Vector2 baseScale = visual.Scale;
+        var tw = CreateTween();
+        tw.TweenProperty(visual, "scale", new Vector2(baseScale.X * 1.35f, baseScale.Y * 0.55f), 0.07f)
+            .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+        tw.TweenProperty(visual, "scale", baseScale, 0.5f)
+            .SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        tw.TweenCallback(Callable.From(() => _jellyBusy[r, c] = false));
+    }
+
     /// <summary>宝箱块：触碰打开，移除碰撞，掉落占位宝物（内容后续版本设计）。</summary>
     private void OpenTreasure(int r, int c)
     {
@@ -340,25 +483,28 @@ public partial class BlockField : Node2D
         if (n != null && IsInstanceValid(n)) { RemoveChild(n); n.QueueFree(); }
         BlockCount--;
 
-        var holder = new Node2D
+        if (SceneLootDrop != null)
         {
-            Name = $"Loot_{c}_{r}",
-            Position = BlockCenter(r, c),
-        };
-        holder.AddChild(new ColorRect
-        {
-            Color = new Color(1.0f, 0.85f, 0.4f, 0.95f),
-            Size = new Vector2(0.3f, 0.3f),
-            Position = new Vector2(-0.15f, -0.15f),
-        });
-        AddChild(holder);
+            var loot = SceneLootDrop.Instantiate<Node2D>();
+            loot.Name = $"Loot_{c}_{r}";
+            loot.Position = BlockCenter(r, c);
+            // 零 PNG：掉落物与方块共用运行时白纹理；0.15 × 2px = 0.3 世界单位。
+            var lootVisual = loot.GetNodeOrNull<Sprite2D>("Visual");
+            if (lootVisual != null)
+            {
+                lootVisual.Texture = ArtBank.PlainTexture();
+                lootVisual.Scale = Vector2.One * 0.15f;
+            }
+            AddChild(loot);
+        }
         GD.Print($"[LOOT] 宝箱打开 ({c},{r}) —— 占位宝物，内容待设计");
     }
 
     // ---------------------------------------------------------------- 查询
     /// <summary>
     /// CLIMB-001：返回所有「可攀」台沿（仅单向块，实体块不计入）。
-    /// 每个条目是该块台面的水平区间与顶面 y，供 PlatformMover 几何台沿探测使用。
+    /// 每个条目是该块的台面水平区间与可行走顶面 y（块上缘 = RowTopY(r)-1），
+    /// 供 PlatformMover 几何台沿探测使用。
     /// 单向块不会被踩碎，列表整局稳定，Build 后取一次即可。
     /// </summary>
     public List<PlatformMover.Ledge> GetLedges()
@@ -367,7 +513,7 @@ public partial class BlockField : Node2D
         for (int r = 0; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
                 if (_alive[r, c] && _oneWay[r, c])
-                    outList.Add(new PlatformMover.Ledge(ColX(c), ColX(c) + 1f, RowTopY(r)));
+                    outList.Add(new PlatformMover.Ledge(ColX(c), ColX(c) + 1f, RowTopY(r) - 1f));
         return outList;
     }
 
@@ -380,7 +526,25 @@ public partial class BlockField : Node2D
         return true;
     }
 
-    /// <summary>冒烟测试用：取第一块单向块（row ≥1）的中心 x 与台面 y，供「下 + 跳」下穿验证。</summary>
+    // ---------------------------------------------------------------- 几何查询（IBlockGeometry）
+    /// <summary>世界坐标 → 方块格（row/col），出界返回 false。</summary>
+    public bool WorldToCell(Vector2 worldPos, out int row, out int col)
+    {
+        int c = (int)MathF.Floor(worldPos.X - ColX(0));
+        float yFromGround = GameDefs.GroundY - worldPos.Y;   // y-down：高于地面的距离
+        int r = (int)MathF.Floor(yFromGround);
+        row = r;
+        col = c;
+        return r >= 0 && r < GameDefs.BlockRows && c >= 0 && c < GameDefs.BlockCols;
+    }
+
+    /// <summary>该格是否有存活且实体（非单向）的方块（转角修正只把实体块当障碍）。</summary>
+    public bool IsBlocked(int row, int col)
+    {
+        return _alive[row, col] && !_oneWay[row, col];
+    }
+
+    /// <summary>冒烟测试用：取第一块单向块（row ≥1）的中心 x 与可行走台面 y（块上缘），供「下 + 跳」下穿验证。</summary>
     public bool GetFirstOneWay(out float centerX, out float topY)
     {
         for (int r = 1; r < GameDefs.BlockRows; r++)
@@ -388,7 +552,7 @@ public partial class BlockField : Node2D
                 if (_alive[r, c] && _oneWay[r, c])
                 {
                     centerX = ColX(c) + 0.5f;
-                    topY = RowTopY(r);
+                    topY = RowTopY(r) - 1f;
                     var b = _nodes[r, c] as StaticBody2D;
                     GD.Print($"[BLOCKDBG] first oneway r={r} c={c} type={_type[r, c]} oneWay={_oneWay[r, c]} bodyLayer={(b != null ? b.CollisionLayer : 99u)}");
                     for (int rr = 1; rr <= 2; rr++)

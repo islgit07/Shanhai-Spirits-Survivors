@@ -40,69 +40,58 @@ public partial class GameRoot : Node2D
 	private Vector2 _smokeMovedPos;   // 传送前的位置（player_moved 断言用，不受传送干扰）
 	private float _smokeMinY;
 
-	private static readonly Dictionary<string, int[]> ActionKeys = new()
-	{
-		{ "move_left",  new[] { (int)Key.A, (int)Key.Left } },
-		{ "move_right", new[] { (int)Key.D, (int)Key.Right } },
-		{ "move_down",  new[] { (int)Key.S, (int)Key.Down } },
-		{ "jump",       new[] { (int)Key.Space, (int)Key.W, (int)Key.Up } },
-	};
-
 	public override void _Ready()
 	{
 		Instance = this;
-		RegisterActions();
 
 		string[] args = OS.GetCmdlineArgs();
 		string[] userArgs = OS.GetCmdlineUserArgs();
 		SmokeMode = args.Contains("--smoke") || userArgs.Contains("--smoke");
 
-		// 场景结构在 Main.tscn 摆好（节点名即契约）；背景精灵仍在代码里生成（ArtBank 按纹理像素算缩放）
+		// 场景结构在 Main.tscn 摆好（节点名即契约）；Backdrop / Player 的贴图与节点都在场景里摆
 		_camera = GetNode<Camera2D>("Camera2D");
 		_blocks = GetNode<BlockField>("BlockField");
 		Player = GetNode<Master>("Player/CharacterBody2D");
 
-		_backdrop = ArtBank.MakeSprite(GameDefs.BackdropArt, ViewSizeWorld());
-		_backdrop.Name = "Backdrop";
-		_backdrop.ZIndex = -100;
-		_backdrop.Modulate = GameDefs.BackdropTint;
-		_camera.AddChild(_backdrop);
+		// Backdrop 在 Main.tscn 里摆（Sprite2D ← 贴图 / 色调在编辑器里调）；缺失时代码兜底生成
+		_backdrop = _camera.GetNodeOrNull<Sprite2D>("Backdrop");
+		if (_backdrop == null)
+		{
+			_backdrop = ArtBank.MakeSprite(GameDefs.BackdropArt, ViewSizeWorld());
+			_backdrop.Name = "Backdrop";
+			_backdrop.ZIndex = -100;
+			_backdrop.Modulate = GameDefs.BackdropTint;
+			_camera.AddChild(_backdrop);
+		}
+		else if (_backdrop.Texture != null)
+		{
+			// 场景里有 Backdrop：按视口尺寸算缩放（贴图和色调已在编辑器里设好）
+			_backdrop.Scale = ViewSizeWorld() / new Vector2(
+				Mathf.Max(1f, _backdrop.Texture.GetWidth()),
+				Mathf.Max(1f, _backdrop.Texture.GetHeight()));
+		}
 
 		BeginRun(SmokeMode ? SmokeFixedSeed : TimeSeed());
 
-		GD.Print("[BOOT] 山海幻灵 v0.0002 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
+		GD.Print("[BOOT] 山海幻灵 v0.0003 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
 		if (SmokeMode) BeginSmoke();
+
+		// 仅截图自检用：--shot 时 1.5 秒后存图并退出
+		if (args.Contains("--shot") || userArgs.Contains("--shot"))
+			CallDeferred(new StringName(nameof(CaptureShot)));
+	}
+
+	private async void CaptureShot()
+	{
+		await ToSignal(GetTree().CreateTimer(1.5), SceneTreeTimer.SignalName.Timeout);
+		await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+		Error err = GetViewport().GetTexture().GetImage().SavePng("user://game_shot.png");
+		GD.Print($"[BOOT] shot err={err}");
+		GetTree().Quit(0);
 	}
 
 	private static int TimeSeed() => (int)Time.GetUnixTimeFromSystem() & 0x7FFFFFFF;
 
-	private static void RegisterActions()
-	{
-		foreach (var kv in ActionKeys)
-		{
-			var name = new StringName(kv.Key);
-			if (!InputMap.HasAction(name)) InputMap.AddAction(name, 0.2f);
-			foreach (int code in kv.Value)
-				InputMap.ActionAddEvent(name, new InputEventKey { PhysicalKeycode = (Key)code });
-		}
-		// 手柄适配：左摇杆 + 十字键移动/下穿，A 键（Xbox A / PS 交叉）跳跃
-		AddPad("move_left", JoyAxis.LeftX, -1.0f, JoyButton.DpadLeft);
-		AddPad("move_right", JoyAxis.LeftX, 1.0f, JoyButton.DpadRight);
-		AddPad("move_down", JoyAxis.LeftY, 1.0f, JoyButton.DpadDown);
-		AddPadButton("jump", JoyButton.A);
-	}
-
-	/// <summary>手柄绑定：摇杆单轴推满方向 + 同向十字键，一并挂到动作上。</summary>
-	private static void AddPad(string action, JoyAxis axis, float value, JoyButton dpad)
-	{
-		var name = new StringName(action);
-		InputMap.ActionAddEvent(name, new InputEventJoypadMotion { Axis = axis, AxisValue = value });
-		InputMap.ActionAddEvent(name, new InputEventJoypadButton { ButtonIndex = dpad });
-	}
-
-	private static void AddPadButton(string action, JoyButton button)
-		=> InputMap.ActionAddEvent(new StringName(action),
-			new InputEventJoypadButton { ButtonIndex = button });
 
 	/// <summary>开局：设相机缩放、按种子建地形、把主角复位到出生点。</summary>
 	private void BeginRun(int seed)
@@ -121,6 +110,7 @@ public partial class GameRoot : Node2D
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
 		Player.SetLedges(_blocks.GetLedges());   // CLIMB-001 自动上攀：地形建好后注入台沿
+		Player.SetGeometry(_blocks);             // 蔚蓝式转角修正：注入方块几何
 		PlayerGrounded = false;
 	}
 
@@ -137,7 +127,7 @@ public partial class GameRoot : Node2D
 	{
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstOneWay(out float x, out float y)) return false;
-		Player.GlobalPosition = new Vector2(x, y - 0.05f);
+		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.05f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
 		return true;
@@ -261,7 +251,7 @@ public partial class GameRoot : Node2D
 		var report = new Dictionary<string, object>
 		{
 			["project"] = "山海幻灵",
-			["version"] = "0.0002",
+			["version"] = "0.0003",
 			["mode"] = "headless-smoke",
 			["result"] = ok ? "PASS" : "FAIL",
 			["platforms"] = PlatformCount,

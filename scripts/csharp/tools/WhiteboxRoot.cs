@@ -37,7 +37,7 @@ public partial class WhiteboxRoot : Node2D
 
     public override void _Ready()
     {
-        RegisterInput();      // 白箱是独立场景，没有 GameRoot 帮忙注册按键
+        // 输入映射在 project.godot [input] 里统一配置（move_left / move_right / move_down / jump）
         BuildWorld();
         BuildUi();
         RefreshMetrics();
@@ -55,47 +55,6 @@ public partial class WhiteboxRoot : Node2D
         Error err = GetViewport().GetTexture().GetImage().SavePng("user://whitebox_shot.png");
         GD.Print($"[WHITEBOX] shot err={err}");
         GetTree().Quit(0);
-    }
-
-    /// <summary>与游戏一致的按键映射（白箱单独运行时自行注册），含手柄。</summary>
-    private static void RegisterInput()
-    {
-        Add("move_left", new[] { Key.A, Key.Left });
-        Add("move_right", new[] { Key.D, Key.Right });
-        Add("move_down", new[] { Key.S, Key.Down });
-        Add("jump", new[] { Key.Space, Key.W, Key.Up });
-        // 手柄适配：左摇杆 + 十字键移动/下穿，A 键（Xbox A / PS 交叉）跳跃
-        AddPad("move_left", JoyAxis.LeftX, -1.0f, JoyButton.DpadLeft);
-        AddPad("move_right", JoyAxis.LeftX, 1.0f, JoyButton.DpadRight);
-        AddPad("move_down", JoyAxis.LeftY, 1.0f, JoyButton.DpadDown);
-        AddPadButton("jump", JoyButton.A);
-    }
-
-    private static void Add(string action, Key[] keys)
-    {
-        var name = new StringName(action);
-        if (!InputMap.HasAction(name)) InputMap.AddAction(name, 0.2f);
-        foreach (Key k in keys)
-        {
-            var ev = new InputEventKey { PhysicalKeycode = k };
-            if (!InputMap.ActionHasEvent(name, ev)) InputMap.ActionAddEvent(name, ev);
-        }
-    }
-
-    /// <summary>手柄绑定：摇杆单轴推满方向 + 同向十字键，一并挂到动作上（带去重）。</summary>
-    private static void AddPad(string action, JoyAxis axis, float value, JoyButton dpad)
-    {
-        var name = new StringName(action);
-        AddEvent(name, new InputEventJoypadMotion { Axis = axis, AxisValue = value });
-        AddEvent(name, new InputEventJoypadButton { ButtonIndex = dpad });
-    }
-
-    private static void AddPadButton(string action, JoyButton button)
-        => AddEvent(new StringName(action), new InputEventJoypadButton { ButtonIndex = button });
-
-    private static void AddEvent(StringName name, InputEvent ev)
-    {
-        if (!InputMap.ActionHasEvent(name, ev)) InputMap.ActionAddEvent(name, ev);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -119,30 +78,27 @@ public partial class WhiteboxRoot : Node2D
     // ---------------------------------------------------------------- 世界
     private void BuildWorld()
     {
-        var bg = new ColorRect
-        {
-            Color = new Color(0.10f, 0.11f, 0.16f),
-            Position = new Vector2(-2000f, -2000f),
-            Size = new Vector2(4000f, 4000f),
-            ZIndex = -50,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        AddChild(bg);
-
-        _blocks = new BlockField();
-        AddChild(_blocks);
+        // 场景节点在 Whitebox.tscn 里摆（Backdrop / BlockField / Player[CharacterBody2D+Visual+Camera2D]）
+        _blocks = GetNodeOrNull<BlockField>("BlockField");
+        if (_blocks == null) { _blocks = new BlockField(); AddChild(_blocks); }
         _blocks.Build(_seed);
 
-        _player = new WhiteboxPlayer { Tuning = _tuning };
-        AddChild(_player);
+        _player = GetNodeOrNull<WhiteboxPlayer>("Player");
+        if (_player == null) { _player = new WhiteboxPlayer { Tuning = _tuning }; AddChild(_player); }
+        else { _player.Tuning = _tuning; }
         _player.Respawn();
         _player.SetLedges(_blocks.GetLedges());   // CLIMB-001 自动上攀：白箱也能实机体验翻台沿
+        _player.SetGeometry(_blocks);             // 蔚蓝式转角修正：注入方块几何
 
-
-        float h = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
-        float zoom = h / (2.0f * GameDefs.CameraViewHalfHeight);
-        _camera = new Camera2D { Zoom = new Vector2(zoom, zoom), Enabled = true };
-        _player.AddChild(_camera);
+        _camera = _player.GetNodeOrNull<Camera2D>("Camera2D");
+        float h2 = GetViewportRect().Size.Y <= 0.0f ? 720.0f : GetViewportRect().Size.Y;
+        float zoom2 = h2 / (2.0f * GameDefs.CameraViewHalfHeight);
+        if (_camera == null)
+        {
+            _camera = new Camera2D { Zoom = new Vector2(zoom2, zoom2), Enabled = true };
+            _player.AddChild(_camera);
+        }
+        else { _camera.Zoom = new Vector2(zoom2, zoom2); _camera.Enabled = true; }
     }
 
     private void RebuildPlatforms()
@@ -188,13 +144,17 @@ public partial class WhiteboxRoot : Node2D
 
         _vbox.AddChild(UiSkin.MakeLabel("跳跃白箱 · 参数调节", 22, UiSkin.Gold));
         _vbox.AddChild(UiSkin.MakeLabel("白箱与游戏共用同一移动内核，调好即生效", 13, UiSkin.Jade));
-        _vbox.AddChild(UiSkin.MakeLabel("手感目标：复刻《终焉之莉莉》——轻盈可控、顶点悬停、短按矮跳",
+        _vbox.AddChild(UiSkin.MakeLabel("手感目标：蔚蓝（Celeste）式响应——起停跟手、弧线干脆、零浮空",
             12, new Color(0.62f, 0.66f, 0.78f)));
 
         AddSlider("移动速度", 2.0f, 16.0f, 0.1f, _tuning.MoveSpeed, v => _tuning.MoveSpeed = v);
         AddSlider("跳跃初速", 6.0f, 26.0f, 0.1f, _tuning.JumpSpeed, v => _tuning.JumpSpeed = v);
         AddSlider("重力", 8.0f, 60.0f, 0.5f, _tuning.Gravity, v => _tuning.Gravity = v);
-        AddSlider("空中控制", 0.0f, 1.0f, 0.05f, _tuning.AirControl, v => _tuning.AirControl = v);
+        AddSlider("地面加速", 20.0f, 200.0f, 5.0f, _tuning.GroundAccel, v => _tuning.GroundAccel = v);
+        AddSlider("地面刹车", 20.0f, 200.0f, 5.0f, _tuning.GroundDecel, v => _tuning.GroundDecel = v);
+        AddSlider("空中加速", 20.0f, 200.0f, 5.0f, _tuning.AirAccel, v => _tuning.AirAccel = v);
+        AddSlider("急转身倍率", 1.0f, 4.0f, 0.1f, _tuning.TurnAccelMul, v => _tuning.TurnAccelMul = v);
+        AddSlider("空中滑行", 0.0f, 1.0f, 0.02f, _tuning.EndTraction, v => _tuning.EndTraction = v);
         AddSlider("土狼时间(秒)", 0.0f, 0.30f, 0.01f, _tuning.CoyoteTime, v => _tuning.CoyoteTime = v);
         AddSlider("跳跃缓冲(秒)", 0.0f, 0.30f, 0.01f, _tuning.JumpBuffer, v => _tuning.JumpBuffer = v);
         AddSlider("变高跳截断", 0.10f, 1.00f, 0.01f, _tuning.JumpCutMul, v => _tuning.JumpCutMul = v);
@@ -207,6 +167,7 @@ public partial class WhiteboxRoot : Node2D
         AddSlider("上攀探测带宽", 0.0f, 1.00f, 0.05f, _tuning.ClimbEdgeBand, v => _tuning.ClimbEdgeBand = v);
         AddSlider("上攀推进距离", 0.05f, 0.80f, 0.05f, _tuning.ClimbStep, v => _tuning.ClimbStep = v);
         AddSlider("上攀冷却(秒)", 0.0f, 0.50f, 0.01f, _tuning.ClimbCooldown, v => _tuning.ClimbCooldown = v);
+        AddSlider("转角修正", 0.0f, 2.0f, 0.05f, _tuning.CornerCorrectionMax, v => _tuning.CornerCorrectionMax = v);
 
         _metrics = UiSkin.MakeLabel("", 14, UiSkin.Text);
         _vbox.AddChild(_metrics);
@@ -249,6 +210,57 @@ public partial class WhiteboxRoot : Node2D
             "调好后把 user://whitebox_tuning.json 发给助手，或直接念数值。", 12, UiSkin.Jade));
         _vbox.AddChild(UiSkin.MakeLabel("参数每次改动都会自动写入 " + SavePath, 12,
             new Color(0.62f, 0.66f, 0.78f)));
+
+        BuildLegend();
+    }
+
+    // ---------------------------------------------------------------- 方块图例（常驻左上角）
+    /// <summary>左上角常驻图例：方块颜色 → 名称 / 行为 / 生成规则，与 BlockField.Tint 同源配色。</summary>
+    private void BuildLegend()
+    {
+        var panel = new ColorRect
+        {
+            Color = new Color(0.07f, 0.08f, 0.13f, 0.88f),
+            Position = new Vector2(16f, 16f),
+            Size = new Vector2(344f, 246f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _ui.AddChild(panel);
+
+        var box = new VBoxContainer
+        {
+            Position = new Vector2(12f, 10f),
+            Size = new Vector2(320f, 226f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        box.AddThemeConstantOverride("separation", 3);
+        panel.AddChild(box);
+
+        box.AddChild(UiSkin.MakeLabel("方块图例", 15, UiSkin.Gold));
+        AddLegendRow(box, BlockField.Tint(BlockType.Normal), "普通实心块 —— 四面实体");
+        AddLegendRow(box, BlockField.Tint(BlockType.Normal, true), "单向平台 —— 下方可跳穿 · 站上 S+跳 下穿");
+        AddLegendRow(box, BlockField.Tint(BlockType.Fragile), "脆弱木板 —— 踩上即碎（本局不恢复）");
+        AddLegendRow(box, BlockField.Tint(BlockType.Bounce), "弹跳块 —— 弹射 ≈4.8 格（果冻动画）");
+        AddLegendRow(box, BlockField.Tint(BlockType.Buildable), "可建筑块 —— 占位（未来塔防改造点）");
+        AddLegendRow(box, BlockField.Tint(BlockType.Treasure), "宝箱块 —— 触碰打开 · 掉占位宝物");
+        box.AddChild(UiSkin.MakeLabel("单向连排：2~3 常见 · 1/4 少见 · 5 极少见 · >5 不出现", 11, UiSkin.Jade));
+        box.AddChild(UiSkin.MakeLabel("特殊块/run：脆弱 7% · 弹跳 6% · 建筑 2% · 宝箱 2%", 11, UiSkin.Jade));
+    }
+
+    /// <summary>图例一行：色块 + 说明文字。</summary>
+    private static void AddLegendRow(VBoxContainer box, Color color, string text)
+    {
+        var row = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        row.AddThemeConstantOverride("separation", 8);
+        row.AddChild(new ColorRect
+        {
+            Color = color,
+            CustomMinimumSize = new Vector2(16f, 16f),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        });
+        row.AddChild(UiSkin.MakeLabel(text, 12, UiSkin.Text));
+        box.AddChild(row);
     }
 
     /// <summary>一行：标题 + 滑条 + 读数，加入 VBox。滑条值变化时即时写回调参对象。</summary>
@@ -293,19 +305,25 @@ public partial class WhiteboxRoot : Node2D
         0 => $"{v:F1} 格/秒",
         1 => $"{v:F1} 格/秒",
         2 => $"{v:F1} 格/秒²",
-        3 => $"{v:P0}",
-        4 => $"{v:F2} 秒",
-        5 => $"{v:F2} 秒",
-        6 => $"{v:P0}",
-        7 => $"{v:F2} ×",
-        8 => $"{v:F2} ×",
-        9 => $"{v:F1} 格/秒",
-        10 => $"{v:F2} 秒",
-        11 => $"{v:F2} 格",
-        12 => $"{v:F2} 格",
-        13 => $"{v:F2} 格",
-        14 => $"{v:F2} 秒",
-        _ => $"{v:F1} 单位/秒",
+        3 => $"{v:F0} 格/秒²",
+        4 => $"{v:F0} 格/秒²",
+        5 => $"{v:F0} 格/秒²",
+        6 => $"{v:F1} ×",
+        7 => $"{v:P0}",
+        8 => $"{v:F2} 秒",
+        9 => $"{v:F2} 秒",
+        10 => $"{v:P0}",
+        11 => $"{v:F2} ×",
+        12 => $"{v:F2} ×",
+        13 => $"{v:F1} 格/秒",
+        14 => $"{v:F2} 格/秒",
+        15 => $"{v:F2} 秒",
+        16 => $"{v:F2} 格",
+        17 => $"{v:F2} 格",
+        18 => $"{v:F2} 格",
+        19 => $"{v:F2} 秒",
+        20 => $"{v:F2} 格",
+        _ => $"{v:F1}",
     };
 
     private void RefreshMetrics()
@@ -340,7 +358,11 @@ public partial class WhiteboxRoot : Node2D
         _tuning.MoveSpeed = d.MoveSpeed;
         _tuning.JumpSpeed = d.JumpSpeed;
         _tuning.Gravity = d.Gravity;
-        _tuning.AirControl = d.AirControl;
+        _tuning.GroundAccel = d.GroundAccel;
+        _tuning.GroundDecel = d.GroundDecel;
+        _tuning.AirAccel = d.AirAccel;
+        _tuning.TurnAccelMul = d.TurnAccelMul;
+        _tuning.EndTraction = d.EndTraction;
         _tuning.CoyoteTime = d.CoyoteTime;
         _tuning.JumpBuffer = d.JumpBuffer;
         _tuning.JumpCutMul = d.JumpCutMul;
@@ -348,6 +370,12 @@ public partial class WhiteboxRoot : Node2D
         _tuning.ApexGravityMul = d.ApexGravityMul;
         _tuning.ApexThreshold = d.ApexThreshold;
         _tuning.MaxFallSpeed = d.MaxFallSpeed;
+        _tuning.CornerCorrectionMax = d.CornerCorrectionMax;
+        _tuning.DropThroughTime = d.DropThroughTime;
+        _tuning.ClimbReachUp = d.ClimbReachUp;
+        _tuning.ClimbEdgeBand = d.ClimbEdgeBand;
+        _tuning.ClimbStep = d.ClimbStep;
+        _tuning.ClimbCooldown = d.ClimbCooldown;
         // 重建 UI 读数：直接还原滑条值（触发 ValueChanged 即同步 _tuning 与读数）
         for (int i = 0; i < _sliders.Count; i++)
             _sliders[i].Value = _sliderDefaults[i];
@@ -362,7 +390,11 @@ public partial class WhiteboxRoot : Node2D
             ["move_speed"] = Math.Round(_tuning.MoveSpeed, 2),
             ["jump_speed"] = Math.Round(_tuning.JumpSpeed, 2),
             ["gravity"] = Math.Round(_tuning.Gravity, 2),
-            ["air_control"] = Math.Round(_tuning.AirControl, 2),
+            ["ground_accel"] = Math.Round(_tuning.GroundAccel, 1),
+            ["ground_decel"] = Math.Round(_tuning.GroundDecel, 1),
+            ["air_accel"] = Math.Round(_tuning.AirAccel, 1),
+            ["turn_accel_mul"] = Math.Round(_tuning.TurnAccelMul, 2),
+            ["end_traction"] = Math.Round(_tuning.EndTraction, 2),
             ["coyote_time"] = Math.Round(_tuning.CoyoteTime, 3),
             ["jump_buffer"] = Math.Round(_tuning.JumpBuffer, 3),
             ["jump_cut_mul"] = Math.Round(_tuning.JumpCutMul, 3),
@@ -370,6 +402,7 @@ public partial class WhiteboxRoot : Node2D
             ["apex_gravity_mul"] = Math.Round(_tuning.ApexGravityMul, 3),
             ["apex_threshold"] = Math.Round(_tuning.ApexThreshold, 3),
             ["max_fall_speed"] = Math.Round(_tuning.MaxFallSpeed, 2),
+            ["corner_correction_max"] = Math.Round(_tuning.CornerCorrectionMax, 2),
             ["derived"] = new Godot.Collections.Dictionary
             {
                 ["jump_height"] = Math.Round(_tuning.JumpHeight, 2),
@@ -388,96 +421,5 @@ public partial class WhiteboxRoot : Node2D
         using FileAccess f = FileAccess.Open(SavePath, FileAccess.ModeFlags.Write);
         if (f == null) return;
         f.StoreString(SnapshotJson());
-    }
-}
-
-/// <summary>白箱角色：只做「跑 + 跳」，移动完全走 PlatformMover（与游戏主角同一份内核）。</summary>
-public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
-{
-    public MoveTuning Tuning = MoveTuning.GameDefaults();
-
-    /// <summary>本次起跳后的实测最高点（脱离地面那一刻开始计）。</summary>
-    public float MeasuredApex { get; private set; }
-
-    private readonly PlatformMover _mover = null!;
-    private float _jumpStartY;
-    private bool _tracking;
-
-    public bool Grounded => _mover != null && _mover.Grounded;
-
-    /// <summary>注入地形台沿（CLIMB-001 自动上攀用），由白箱在地形建好后调用。</summary>
-    public void SetLedges(List<PlatformMover.Ledge> ledges) => _mover.SetLedges(ledges);
-
-    /// <summary>弹跳标志：由 BlockField 触碰感应置位，Step 之后应用（与游戏主角一致）。</summary>
-    public bool BounceRequested;
-
-    public void Bounce() => BounceRequested = true;
-
-
-    // 注意：字段初始化顺序，_mover 依赖 Tuning，因此在 _Ready 里构造
-    public WhiteboxPlayer()
-    {
-        _mover = new PlatformMover(MoveTuning.GameDefaults());
-    }
-
-    public override void _Ready()
-    {
-        AddToGroup("master");   // BlockField 触碰感应（脆弱/弹跳/宝箱）按此组识别
-        CollisionLayer = 1u;
-        CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay;
-        var shape = new RectangleShape2D { Size = GameDefs.MasterSize };
-        AddChild(new CollisionShape2D { Shape = shape });
-        var placeholder = new ColorRect
-        {
-            Color = new Color(0.85f, 0.88f, 0.95f),
-            Size = GameDefs.MasterSize,
-            Position = -GameDefs.MasterSize * 0.5f,
-        };
-        AddChild(placeholder);
-        _mover.T = Tuning;
-    }
-
-    public override void _PhysicsProcess(double delta)
-    {
-        float dt = (float)delta;
-        float dir = Input.GetAxis("move_left", "move_right");
-        _mover.Step(this, dir, Input.IsActionJustPressed("jump"), Input.IsActionPressed("jump"),
-            Input.IsActionPressed("move_down"), dt);
-
-        if (BounceRequested)
-        {
-            BounceRequested = false;
-            Velocity = new Vector2(Velocity.X, -GameDefs.BounceSpeed);
-        }
-
-        if (_mover.JustJumped)
-        {
-            _tracking = true;
-            _jumpStartY = GlobalPosition.Y;
-            MeasuredApex = 0.0f;
-        }
-        else if (_tracking)
-        {
-            MeasuredApex = Mathf.Max(MeasuredApex, _jumpStartY - GlobalPosition.Y);
-            if (_mover.Grounded) _tracking = false;
-        }
-
-        if (GlobalPosition.Y > GameDefs.FallKillY) Respawn();
-    }
-
-    public void Respawn()
-    {
-        GlobalPosition = new Vector2(0.0f, GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
-        Velocity = Vector2.Zero;
-        MeasuredApex = 0.0f;
-        _tracking = false;
-        _mover.ResetWindows();
-    }
-
-    public override void _Process(double delta)
-    {
-        // @trace GND-001 世界边界：与游戏主角一致，锁在方块地图（48 列 = ±24）之内
-        float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
-        GlobalPosition = new Vector2(Mathf.Clamp(GlobalPosition.X, -edge, edge), GlobalPosition.Y);
     }
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0002 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0003 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
-拆除确认（无战斗/成长/UI 残留引用）/ 版本一致。
+拆除确认（无战斗/成长/UI 残留引用）/ 零 PNG 白箱链路 / 版本一致。
 输出 docs/self-check.json；全过退出 0，任一失败退出 1。
 """
 import json
@@ -14,8 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0002"
-EXPECTED_CS = 10
+VERSION = "0.0003"
+EXPECTED_CS = 11
 checks = []
 
 
@@ -83,9 +83,10 @@ check("自动上攀：翻越吸附写入移动内核（TryClimb + 移动后判�
       "TryClimb" in mover and "onFloorNow" in mover)
 check("自动上攀：攀爬参数常量（ClimbReachUp / ClimbEdgeBand / ClimbStep）",
       "MasterClimbReachUp" in defs and "MasterClimbEdgeBand" in defs and "MasterClimbStep" in defs)
-boot = cs("core/GameRoot.cs")
-check("手柄输入（摇杆 / 十字键 / A 键跳跃）",
-      "JoyAxis.LeftX" in boot and "JoyButton.DpadLeft" in boot and "JoyButton.A" in boot)
+check("基础键鼠映射（4 action × 1 键，无手柄 / 无方向键）",
+      all(a + "={" in pg for a in ("move_left", "move_right", "move_down", "jump"))
+      and "InputEventJoypad" not in pg
+      and pg.count('"physical_keycode"') == 4)
 check("主角只有移动跳跃（Master 无 TakeDamage）",
       "TakeDamage" not in cs("gameplay/Master.cs"))
 
@@ -94,7 +95,9 @@ field = cs("gameplay/BlockField.cs")
 check("GND-001 地面层全覆盖硬约束", "BlockType.Normal, false" in field
       and "IsGroundContinuous" in field)
 check("种子化地形（Rng.DeriveSeed64）", "DeriveSeed64" in field)
-check("单向平台独立碰撞层（DROP-001 下穿）", "LayerOneWay" in field and "OneWayCollision" in field)
+oneway_tscn = read(ROOT / "scenes" / "blocks" / "block_oneway.tscn")
+check("单向平台独立碰撞层（DROP-001 下穿）",
+      "collision_layer = 2" in oneway_tscn and "one_way_collision = true" in oneway_tscn)
 check("方块随机分布（run 长度/空档/类型权重，MAP-003）",
       "BlockRunMax" in field and "BlockGapMax" in field and "PickType" in field)
 check("自动上攀：地形导出可攀台沿（BlockField.GetLedges）", "GetLedges" in field)
@@ -104,14 +107,32 @@ check("白箱保留（与游戏共用移动内核）",
       (ROOT / "scenes" / "Whitebox.tscn").exists()
       and "PlatformMover" in cs("tools/WhiteboxRoot.cs"))
 
-# ---------------------------------------------------------------- 6. 拆除确认
+# ---------------------------------------------------------------- 6. 零 PNG 白箱链路 / 开始页
+whitebox = read(ROOT / "scenes" / "Whitebox.tscn")
+block_scenes = "".join(read(p) for p in sorted((ROOT / "scenes" / "blocks").glob("*.tscn")))
+loot_scene = read(ROOT / "scenes" / "fx" / "loot_drop.tscn")
+check("白箱零 PNG：Whitebox.tscn 无贴图引用",
+      ".png" not in whitebox and "Texture2D" not in whitebox)
+check("白箱零 PNG：共用方块 / 掉落预制体无贴图引用",
+      ".png" not in (block_scenes + loot_scene))
+check("纯色纹理由 ArtBank 运行时生成（不依赖资源文件）",
+      "PlainTexture" in cs("core/ArtBank.cs") and "PlainTexture" in field)
+start = cs("ui/StartPage.cs")
+start_tscn = read(ROOT / "scenes" / "StartPage.tscn")
+check("开始页键盘导航（grab_focus + 上下焦点链）",
+      "GrabFocus" in start and "FocusNeighbor" in start)
+check("开始页基础按键说明", "A / D 移动" in start_tscn and "Help" in start_tscn)
+check("--smoke 从开始页自动进游戏（不挂死）",
+      "IsSmokeRequested" in start and "ChangeSceneToFile" in start)
+
+# ---------------------------------------------------------------- 7. 拆除确认
 all_cs = "".join(read(p) for p in cs_files)
 for gone in ["SpeciesDef", "OfferKind", "LegionUnit", "WildSpawner", "EssencePickup",
              "Projectile", "RunPhase", "SpiritTier", "class Hud", "class MainMenu",
              "static class Meta", "static class Run ", "class Signals"]:
     check(f"战斗/成长/UI 已拆除：{gone}", gone not in all_cs)
 
-# ---------------------------------------------------------------- 7. 版本一致
+# ---------------------------------------------------------------- 8. 版本一致
 readme = read(ROOT / "README.md")
 check("README 版本一致", f"v{VERSION}" in readme)
 check("README 记录找回路径", "5978a58" in readme and "docs/archive/v0.003" in readme)
