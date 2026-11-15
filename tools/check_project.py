@@ -115,6 +115,12 @@ check("MAP-005 末尾统计合规率 + 冒烟断言 >= 80%",
 check("MAP-005 骨架层间距 3 行（中间空 2 格）", "LayerStepRows = 3" in defs)
 check("MAP-005 不达标时修剪装饰块（骨架 / 地面受保护）",
       "EnforceVerticalClearance" in field and "_backboneCell" in field)
+check("MAP-006 尽量少出现单个方块（BlockRunMin=2 + PruneIsolatedSingles + 断言）",
+      "BlockRunMin = 2" in defs and "PruneIsolatedSingles" in field
+      and "few_single_blocks" in cs("core/GameRoot.cs"))
+check("MAP-007 地面到顶层完整路径验证与兜底（EnsureFullPathToTop + ComputeTrueReachability）",
+      "EnsureFullPathToTop" in field and "ComputeTrueReachability" in field
+      and "path_to_top_ok" in cs("core/GameRoot.cs"))
 check("MAP-005 多种子探针存在", (ROOT / "tools" / "MapSeedProbe.cs").exists())
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))

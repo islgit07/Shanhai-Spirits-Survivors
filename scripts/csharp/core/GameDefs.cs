@@ -42,10 +42,13 @@ public static class GameDefs
     //   ⑥ 上下净空（MAP-005）：方块与方块之间要「隔开两个格子」，即行差 ≥ 3
     //     （中间空 2 行）。行差 1~2 且水平列差 ≤ BlockVerticalClearCols 视为贴太近/挡道。
     //     至少 BlockVerticalClearRatio 的方块必须满足；生成期以 BreakChance 概率保留贴太近的块。
+    //   ⑦ 尽量少出现单个方块（MAP-006）：BlockRunMin = 2，生成后清理大部分孤立单块，
+    //     孤立单块占比控制在 ≤ BlockSingleRatioMax。
+    //   ⑧ 完整登顶路径（MAP-007）：保证存在从地面 row 0 完整跳到最高有效层（row ≥ BlockTopReachMinRow）的可达通路。
     public const int BlockCols = 56;
     public const int BlockRows = 27;
     public const int LayerStepRows = 3;    // 骨架主路径层间距（行数）：3 = 中间空 2 行，与 MAP-005 一致
-    public const int BlockRunMin = 1;      // run 长度（同行连续块数）
+    public const int BlockRunMin = 2;      // run 长度最小为 2（原则⑦：尽量少出现单个方块）
     public const int BlockRunMax = 5;
     public const int BlockGapMin = 3;      // 同行 run 之间的空档（加大 → 装饰更稀，少挡道）
     public const int BlockGapMax = 4;      // ≤ 满跳水平跨距（蔚蓝手感 ≈5.3 格，原则④）
@@ -56,6 +59,11 @@ public static class GameDefs
     public const int BlockVerticalClearCols = 2;         // 视为「同一条上下通道」的水平列半径
     public const float BlockVerticalClearRatio = 0.80f;  // 达标线：至少 80% 方块满足上下净空
     public const float BlockVerticalClearBreakChance = 0.20f; // 贴太近的装饰块仍有 20% 概率保留（随机破例）
+    // MAP-006：尽量少出现单个方块（原则⑦）
+    public const float BlockSingleKeepChance = 0.15f;    // 生成/修剪后残留的孤立单块仅 15% 概率保留
+    public const float BlockSingleRatioMax = 0.05f;      // 达标线：孤立单块占总块数 ≤ 5%
+    // MAP-007：完整登顶路径（原则⑧）
+    public const int BlockTopReachMinRow = 24;           // 从地面起跳可达的最高层下限（层间距 3 时顶层骨架在 row 24）
     // 特殊块权重（每个 run 掷一次，整段纯平台概率 = 1 - 总和 ≈0.83，原则③）
     public const float BlockWeightFragile = 0.07f;   // 脆弱木板：踩碎
     public const float BlockWeightBounce = 0.06f;    // 弹跳块：弹射 ≈5 格高

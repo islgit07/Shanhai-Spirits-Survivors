@@ -18,13 +18,16 @@ public partial class MapSeedProbe : SceneTree
             field.Build(seed);
             float ratio = field.VerticalClearRatio;
             bool ok = ratio >= GameDefs.BlockVerticalClearRatio
+                      && field.SingleBlockRatio <= GameDefs.BlockSingleRatioMax
+                      && field.HasPathToTop
                       && field.IsGroundContinuous()
                       && field.OneWayCount > 0;
             if (!ok) fail++;
             GD.Print($"[MAP_PROBE] seed={seed} blocks={field.BlockCount} " +
-                     $"vertical_clear={field.VerticalClearCount}/{field.VerticalClearTotal} " +
-                     $"({ratio:P1}) pruned={field.VerticalClearPruned} " +
-                     $"oneway={field.OneWayCount} ok={(ok ? 1 : 0)}");
+                     $"vertical_clear={field.VerticalClearCount}/{field.VerticalClearTotal} ({ratio:P1}) " +
+                     $"singles={field.SingleBlockCount}/{field.VerticalClearTotal} ({field.SingleBlockRatio:P1}) " +
+                     $"top={field.MaxReachableRow} path={field.HasPathToTop} " +
+                     $"pruned={field.VerticalClearPruned} oneway={field.OneWayCount} ok={(ok ? 1 : 0)}");
             field.Free();
         }
         GD.Print($"[MAP_PROBE] total={seeds.Length} fail={fail}");

@@ -34,6 +34,10 @@ public partial class GameRoot : Node2D
 	public int VerticalClearCount;
 	public int VerticalClearTotal;
 	public int OneWayCount;
+	public int SingleBlockCount;
+	public float SingleBlockRatio;
+	public int MaxReachableRow;
+	public bool HasPathToTop;
 
 	private float _smokeTimer;
 	private bool _jumpInjected, _releaseInjected;
@@ -111,6 +115,10 @@ public partial class GameRoot : Node2D
 		VerticalClearCount = _blocks.VerticalClearCount;
 		VerticalClearTotal = _blocks.VerticalClearTotal;
 		OneWayCount = _blocks.OneWayCount;
+		SingleBlockCount = _blocks.SingleBlockCount;
+		SingleBlockRatio = _blocks.SingleBlockRatio;
+		MaxReachableRow = _blocks.MaxReachableRow;
+		HasPathToTop = _blocks.HasPathToTop;
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
@@ -255,6 +263,8 @@ public partial class GameRoot : Node2D
 			["player_drop_through"] = _dropSkipped || _smokeMaxY > _dropPlatY + 0.5f,
 			["climb_logic_ok"] = climbHit && climbMissDir && climbMissFar,
 			["vertical_clear_80pct"] = VerticalClearRatio >= GameDefs.BlockVerticalClearRatio,
+			["few_single_blocks"] = SingleBlockRatio <= GameDefs.BlockSingleRatioMax,
+			["path_to_top_ok"] = HasPathToTop,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -268,6 +278,11 @@ public partial class GameRoot : Node2D
 			["vertical_clear"] = $"{VerticalClearCount}/{VerticalClearTotal}",
 			["vertical_clear_ratio"] = Math.Round(VerticalClearRatio, 4),
 			["vertical_clear_target"] = GameDefs.BlockVerticalClearRatio,
+			["single_blocks"] = $"{SingleBlockCount}/{VerticalClearTotal}",
+			["single_block_ratio"] = Math.Round(SingleBlockRatio, 4),
+			["single_block_max"] = GameDefs.BlockSingleRatioMax,
+			["max_reachable_row"] = MaxReachableRow,
+			["path_to_top"] = HasPathToTop,
 			["oneway_blocks"] = OneWayCount,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),

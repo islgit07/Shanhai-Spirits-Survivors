@@ -97,3 +97,22 @@
 - 20% 破例块是刻意的：`EnforceVerticalClearance` 达标即停，因此合规率稳定落在 80%~81%，
   不会把地图剪成 100% 规则化。
 - 只改地图生成与验证链路，未动移动手感、输入映射、开始页、白箱美术、版本号。
+
+---
+
+## 6. 同日第三轮：MAP-006 少出现单个方块 + MAP-007 完整登顶路径
+
+### 6.1 规则口径
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `BlockRunMin` | 1 → **2** | 生成期 run 长度至少 2 格 |
+| `BlockSingleKeepChance` | 0.15 | 生成/修剪后残留的孤立单块仅 15% 概率保留 |
+| `BlockSingleRatioMax` | 0.05 | 孤立单块占总块数 ≤ 5% 硬指标（冒烟断言 `few_single_blocks`） |
+| `BlockTopReachMinRow` | 24 | 从 row 0 起 BFS 跳跃可达的最高行下限（冒烟断言 `path_to_top_ok`） |
+
+### 6.2 实现与验证
+
+- `PruneIsolatedSingles`：清理非骨架孤立单块，并将单块率严格压在 ≤ 5%。
+- `EnsureFullPathToTop` + `ComputeTrueReachability`：按真实可站立净空（上方 2 格无实心块）与跳跃包络从地面 row 0 做 BFS 校验，若断路则自动补齐骨架段并清理遮挡。
+- 验证结果：静态自检 **71/71 PASS**；无头冒烟 **10/10 断言 PASS**（`blocks=199, vertical_clear=93.5%, singles=4.0%, max_reachable_row=26, path_to_top=true`）；`MapSeedProbe` 10 组种子全部达标（`fail=0`，单块率 1.4%~4.9%，最高可达行 24~26）。

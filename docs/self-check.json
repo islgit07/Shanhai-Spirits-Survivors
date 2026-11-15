@@ -214,6 +214,16 @@
       "detail": ""
     },
     {
+      "name": "MAP-006 尽量少出现单个方块（BlockRunMin=2 + PruneIsolatedSingles + 断言）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-007 地面到顶层完整路径验证与兜底（EnsureFullPathToTop + ComputeTrueReachability）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "MAP-005 多种子探针存在",
       "ok": true,
       "detail": ""

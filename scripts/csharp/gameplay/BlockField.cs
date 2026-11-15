@@ -102,6 +102,12 @@ public partial class BlockField : Node2D, IBlockGeometry
     public int OneWayCount { get; private set; }
     /// <summary>MAP-005 兜底修剪掉的装饰块数（达标即停）。</summary>
     public int VerticalClearPruned { get; private set; }
+    /// <summary>MAP-006：最终地图中的孤立单块数量与占比。</summary>
+    public int SingleBlockCount { get; private set; }
+    public float SingleBlockRatio { get; private set; }
+    /// <summary>MAP-007：从地面层 BFS 跳跃可达的最高行号，以及是否具备完整登顶路径。</summary>
+    public int MaxReachableRow { get; private set; }
+    public bool HasPathToTop { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -135,6 +141,10 @@ public partial class BlockField : Node2D, IBlockGeometry
         VerticalClearTotal = 0;
         VerticalClearRatio = 1f;
         VerticalClearPruned = 0;
+        SingleBlockCount = 0;
+        SingleBlockRatio = 0f;
+        MaxReachableRow = 0;
+        HasPathToTop = false;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -162,7 +172,10 @@ public partial class BlockField : Node2D, IBlockGeometry
                 }
         }
 
-        EnforceVerticalClearance();   // 统计 MAP-005 合规率，不达标则修剪装饰块补齐，再实例化节点
+        EnforceVerticalClearance();   // 统计 MAP-005 合规率，不达标则修剪装饰块补齐
+        PruneIsolatedSingles();       // MAP-006：尽量少出现孤立单个方块（移除后只会让上下净空更宽松）
+        MeasureVerticalClearance();   // 重新同步最终方块统计与单块率
+        EnsureFullPathToTop();        // MAP-007：真实验证从地面到顶层的跳跃可达性
 
         for (int r = 0; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -170,6 +183,8 @@ public partial class BlockField : Node2D, IBlockGeometry
 
         GD.Print($"[BLOCKS] blocks={BlockCount} ground_continuous={IsGroundContinuous()} " +
                  $"vertical_clear={VerticalClearCount}/{VerticalClearTotal} ({VerticalClearRatio:P1}) " +
+                 $"singles={SingleBlockCount}/{VerticalClearTotal} ({SingleBlockRatio:P1}) " +
+                 $"top_row={MaxReachableRow} path_to_top={HasPathToTop} " +
                  $"pruned={VerticalClearPruned} oneway={OneWayCount}");
 
     }
@@ -191,7 +206,7 @@ public partial class BlockField : Node2D, IBlockGeometry
             c = Mathf.Clamp(c, 0, GameDefs.BlockCols - len);
             PlaceRun(r, c, len, purePlatform: true);
             for (int k = 0; k < len && c + k < GameDefs.BlockCols; k++)
-                _backboneCell[r, c + k] = true;   // 兜底修剪时不删主路径骨架
+                if (_alive[r, c + k]) _backboneCell[r, c + k] = true;   // 兜底修剪时不删主路径骨架
             _backbone.Add((r, c, c + len - 1));
             int dr = GameDefs.LayerStepRows;   // 原则⑤：层间空 2 行
             r += dr;
@@ -408,10 +423,19 @@ public partial class BlockField : Node2D, IBlockGeometry
         return false;
     }
 
-    /// <summary>MAP-005：统计最终地图里「上下隔开 2 格」的方块占比，供日志与冒烟断言使用。</summary>
+    /// <summary>判断 (r,c) 是否为孤立单个方块（同行左右两侧均无相邻存活方块）。</summary>
+    private bool IsIsolatedSingle(int r, int c)
+    {
+        if (!_alive[r, c]) return false;
+        bool left = c > 0 && _alive[r, c - 1];
+        bool right = c + 1 < GameDefs.BlockCols && _alive[r, c + 1];
+        return !left && !right;
+    }
+
+    /// <summary>MAP-005 / MAP-006：统计最终地图里「上下隔开 2 格」与「孤立单块」的方块占比，供日志与冒烟断言使用。</summary>
     private void MeasureVerticalClearance()
     {
-        int total = 0, clear = 0, oneWay = 0;
+        int total = 0, clear = 0, oneWay = 0, singles = 0;
         for (int r = 0; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
             {
@@ -419,11 +443,153 @@ public partial class BlockField : Node2D, IBlockGeometry
                 total++;
                 if (_oneWay[r, c]) oneWay++;
                 if (!HasNearVerticalNeighbor(r, c)) clear++;
+                if (IsIsolatedSingle(r, c)) singles++;
             }
         VerticalClearTotal = total;
         VerticalClearCount = clear;
         VerticalClearRatio = total == 0 ? 1f : (float)clear / total;
         OneWayCount = oneWay;
+        SingleBlockCount = singles;
+        SingleBlockRatio = total == 0 ? 0f : (float)singles / total;
+    }
+
+    /// <summary>
+    /// MAP-006：尽量少出现单个方块。生成/修剪后残留的孤立单块（非骨架）仅以极低概率保留，
+    /// 若整体单块率仍高于 BlockSingleRatioMax 则继续清理，确保地图以连排平台为主。
+    /// </summary>
+    private void PruneIsolatedSingles()
+    {
+        for (int r = 1; r < GameDefs.BlockRows; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+            {
+                if (!_alive[r, c] || _backboneCell[r, c]) continue;
+                if (IsIsolatedSingle(r, c) && _rng.Randf() >= GameDefs.BlockSingleKeepChance)
+                {
+                    _alive[r, c] = false;
+                    _reachable[r, c] = false;
+                    BlockCount--;
+                }
+            }
+        MeasureVerticalClearance();
+        if (SingleBlockRatio <= GameDefs.BlockSingleRatioMax) return;
+        for (int r = GameDefs.BlockRows - 1; r >= 1; r--)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+            {
+                if (SingleBlockRatio <= GameDefs.BlockSingleRatioMax) return;
+                if (!_alive[r, c] || _backboneCell[r, c] || !IsIsolatedSingle(r, c)) continue;
+                _alive[r, c] = false;
+                _reachable[r, c] = false;
+                BlockCount--;
+                MeasureVerticalClearance();
+            }
+    }
+
+    /// <summary>
+    /// MAP-007：真实验证并兜底「从最下面 row 0 跳到最上面」的完整路径。
+    /// 规则：要求方块上方至少 2 格非实心净空（玩家可站立），按跳跃包络（dr 1..3 对应水平 4/3/2、
+    /// 同行水平 ≤4、下落 dr -1..-6 对应水平 ≤4）从 row 0 做 BFS，刷新 _reachable 并验证可达最高层。
+    /// </summary>
+    private void EnsureFullPathToTop()
+    {
+        ComputeTrueReachability();
+        if (HasPathToTop) return;
+
+        // 若因出生区豁免或极端修剪导致断路，把全部骨架段补齐（连排 3~4 格，绝不产生单块）
+        foreach (var (row, c0, c1) in _backbone)
+        {
+            for (int c = c0; c <= c1; c++)
+            {
+                if (!_alive[row, c])
+                {
+                    SetCell(row, c, BlockType.Normal, false);
+                    _backboneCell[row, c] = true;
+                }
+                // 确保骨架块上方 2 格净空不被实心装饰块封死
+                for (int hr = 1; hr <= GameDefs.BlockHeadroomRows && row + hr < GameDefs.BlockRows; hr++)
+                    if (_alive[row + hr, c] && !_backboneCell[row + hr, c] && !_oneWay[row + hr, c])
+                    {
+                        _alive[row + hr, c] = false;
+                        BlockCount--;
+                    }
+            }
+        }
+        MeasureVerticalClearance();
+        ComputeTrueReachability();
+    }
+
+    private bool CanStandOn(int r, int c)
+    {
+        if (r < 0 || r >= GameDefs.BlockRows || c < 0 || c >= GameDefs.BlockCols) return false;
+        if (!_alive[r, c]) return false;
+        for (int hr = 1; hr <= GameDefs.BlockHeadroomRows && r + hr < GameDefs.BlockRows; hr++)
+            if (_alive[r + hr, c] && !_oneWay[r + hr, c]) return false;
+        return true;
+    }
+
+    private void ComputeTrueReachability()
+    {
+        Array.Clear(_reachable);
+        var q = new Queue<(int R, int C)>();
+        MaxReachableRow = 0;
+        for (int c = 0; c < GameDefs.BlockCols; c++)
+            if (CanStandOn(0, c))
+            {
+                _reachable[0, c] = true;
+                q.Enqueue((0, c));
+            }
+
+        while (q.Count > 0)
+        {
+            var (r, c) = q.Dequeue();
+            if (r > MaxReachableRow) MaxReachableRow = r;
+
+            // 1. 向上跳跃 dr = 1..3
+            for (int dr = 1; dr <= 3; dr++)
+            {
+                int nr = r + dr;
+                if (nr >= GameDefs.BlockRows) break;
+                int reach = dr switch { 1 => 4, 2 => 3, _ => 2 };
+                for (int dc = -reach; dc <= reach; dc++)
+                {
+                    int nc = c + dc;
+                    if (nc < 0 || nc >= GameDefs.BlockCols || _reachable[nr, nc]) continue;
+                    if (CanStandOn(nr, nc))
+                    {
+                        _reachable[nr, nc] = true;
+                        q.Enqueue((nr, nc));
+                    }
+                }
+            }
+            // 2. 同行行走 / 平跳 dc = -4..+4
+            for (int dc = -4; dc <= 4; dc++)
+            {
+                if (dc == 0) continue;
+                int nc = c + dc;
+                if (nc < 0 || nc >= GameDefs.BlockCols || _reachable[r, nc]) continue;
+                if (CanStandOn(r, nc))
+                {
+                    _reachable[r, nc] = true;
+                    q.Enqueue((r, nc));
+                }
+            }
+            // 3. 向下跳落 dr = 1..6
+            for (int dr = 1; dr <= 6; dr++)
+            {
+                int nr = r - dr;
+                if (nr < 0) break;
+                for (int dc = -4; dc <= 4; dc++)
+                {
+                    int nc = c + dc;
+                    if (nc < 0 || nc >= GameDefs.BlockCols || _reachable[nr, nc]) continue;
+                    if (CanStandOn(nr, nc))
+                    {
+                        _reachable[nr, nc] = true;
+                        q.Enqueue((nr, nc));
+                    }
+                }
+            }
+        }
+        HasPathToTop = MaxReachableRow >= GameDefs.BlockTopReachMinRow;
     }
 
     /// <summary>
