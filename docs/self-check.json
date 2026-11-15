@@ -319,7 +319,7 @@
       "detail": ""
     },
     {
-      "name": "开始页 Help 节点保留（按键说明文案允许在编辑器里自由修改）",
+      "name": "开始页 Help 节点保留（按键说明另处实现，不锁死文案）",
       "ok": true,
       "detail": ""
     },
@@ -404,12 +404,27 @@
       "detail": ""
     },
     {
-      "name": "overview 全景文档在 docs 根",
+      "name": "overview 全景文档反映 0.0003 回退后基线（非旧战斗版）",
       "ok": true,
       "detail": ""
     },
     {
       "name": "旧文档已归档",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".gitattributes 存在且统一 LF 行尾",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".gitattributes 把图片标为二进制（不参与行尾转换）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "工作区文本文件无 CRLF 残留",
       "ok": true,
       "detail": ""
     }

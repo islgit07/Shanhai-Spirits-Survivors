@@ -191,7 +191,7 @@ start = cs("ui/StartPage.cs")
 start_tscn = read(ROOT / "scenes" / "StartPage.tscn")
 check("开始页键盘导航（grab_focus + 上下焦点链）",
       "GrabFocus" in start and "FocusNeighbor" in start)
-check("开始页 Help 节点保留（按键说明文案允许在编辑器里自由修改）",
+check("开始页 Help 节点保留（按键说明另处实现，不锁死文案）",
       'node name="Help" type="Label"' in start_tscn)
 check("--smoke 从开始页自动进游戏（不挂死）",
       "IsSmokeRequested" in start and "ChangeSceneToFile" in start)
@@ -207,8 +207,37 @@ for gone in ["SpeciesDef", "OfferKind", "LegionUnit", "WildSpawner", "EssencePic
 readme = read(ROOT / "README.md")
 check("README 版本一致", f"v{VERSION}" in readme)
 check("README 记录找回路径", "5978a58" in readme and "docs/archive/v0.003" in readme)
-check("overview 全景文档在 docs 根", (DOCS / "overview-v0.003.md").exists())
+overview = read(DOCS / "overview-v0.003.md")
+# 不只验「文件存在」：旧战斗版 overview 也曾存在，必须验内容确实是 0.0003 回退后基线。
+check("overview 全景文档反映 0.0003 回退后基线（非旧战斗版）",
+      bool(overview)
+      and "0.0003 回退后基线" in overview
+      and "ShanhaiSpiritsSurvivors" in overview
+      and "PlatformMover" in overview
+      and "MAP-009" in overview
+      and "无静态状态类" in overview
+      and "两个工程是什么关系" not in overview
+      and "灵韵 → 唤灵三分支" not in overview)
 check("旧文档已归档", (DOCS / "archive" / "v0.003" / "refactor-v0.003.md").exists())
+
+# ---------------------------------------------------------------- 9. 工程元配置
+# 本机 core.autocrlf=true 曾让 .tscn / .cs 在工作区出现 CRLF 与 LF 混用，
+# git 还会反复告警 "LF will be replaced by CRLF"。规则见 .gitattributes。
+ga = read(ROOT / ".gitattributes")
+check(".gitattributes 存在且统一 LF 行尾",
+      bool(ga) and "* text=auto eol=lf" in ga and "*.tscn text eol=lf" in ga)
+check(".gitattributes 把图片标为二进制（不参与行尾转换）", "*.png binary" in ga)
+text_exts = {".cs", ".tscn", ".tres", ".godot", ".cfg", ".import", ".uid",
+             ".py", ".json", ".md", ".txt", ".csproj", ".gd", ".gdshader"}
+crlf_files = []
+for p in ROOT.rglob("*"):
+    if not p.is_file() or any(s in p.parts for s in (".git", ".godot", "bin", "obj")):
+        continue
+    if p.suffix not in text_exts and p.name not in (".gitattributes", ".gitignore", ".gdignore"):
+        continue
+    if b"\r\n" in p.read_bytes():
+        crlf_files.append(str(p.relative_to(ROOT)))
+check("工作区文本文件无 CRLF 残留", not crlf_files, ",".join(crlf_files[:3]))
 
 # ---------------------------------------------------------------- 输出
 ok_all = all(c["ok"] for c in checks)

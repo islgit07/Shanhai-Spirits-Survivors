@@ -32,7 +32,9 @@
 
 - 用户要求「键鼠映射最基础」→ 4 个 action 各只绑 1 键（A / D / S / Space），
   **不提供手柄绑定**，偏离 `input-handling` 清单「每个 action 应同时有键盘与手柄」。
-- `GameDefs` 硬编码手感参数、静态 `Signals` 事件总线为项目既有架构（见 GodotPrompter 路由卡）。
+- `GameDefs` 硬编码手感参数为项目既有架构（见 GodotPrompter 路由卡）。
+  > 更正（第 9 节）：本节原写「静态 `Signals` 事件总线为项目既有架构」，属回退前的过期描述。
+  > `e815b5c` 之后 `Signals` / `Run` / `Meta` 均已不存在，现行代码零静态状态类、零事件总线。
 - 跳跃在 `_physics_process` 用 `IsActionJustPressed` 轮询 + `PlatformMover` 跳跃缓冲，
   而非 `_unhandled_input`，为既有移动内核设计。
 - 白箱调试热键 R / T / Tab 仍是硬编码 `Key`，未进 Input Map（避免反向增加映射复杂度）。
@@ -40,8 +42,10 @@
 ## 4. 诚实边界与遗留
 
 - 键盘焦点交互仅有 `GrabFocus` / 上下焦点链的静态检查 + 场景独立运行无错。
-- `docs/overview-v0.003.md` 仍是旧 v0.003 战斗版全景文档，与回退后代码脱节，本轮按范围未改。
+- `docs/overview-v0.003.md` 当时仍是旧 v0.003 战斗版全景文档（本轮第 9 节已重写为 0.0003 回退后基线）。
 - `assets/art/block_white.png` 已零引用，文件保留未删（等确认）。
+- `scenes/StartPage.tscn` 的外部未提交改动由用户自行维护：Help 文案是占位，**按键说明按用户规划在别处实现**，
+  不要恢复原按键文案、不要改写、不要提交该文件；提交时继续排除。
 - 版本号保持 `0.0003`（用户拍板保留），**未打 tag、未升版**。
 
 ---
@@ -223,3 +227,58 @@
 - 粘液效果只改共用移动内核与地图生成，`Master` / `WhiteboxPlayer` / 输入映射 / 开始页 / 版本口径均未动。
 - 保底块刻意避开骨架与地面，所以不会把唯一登顶通路变成「跳不上去」；多条路径断言保持全绿。
 - 版本保持 `0.0003`，未升版、未打 tag、未 push。
+
+---
+
+## 9. 同日第七轮：P0 元工程整改（不含玩法改动）
+
+范围：按 `godot-project-setup` / `godot-code-review` / `csharp-godot` / `scene-organization` /
+`godot-optimization` / `godot-testing` / `export-pipeline` / `responsive-ui` 做完工程体检后，
+只落地用户拍板的 P0 两项元工程整改。**未改任何 C# 逻辑、场景、数值或版本。**
+
+### 9.1 行尾统一（P0-1）
+
+- 根因：仓库无 `.gitattributes`，本机 `core.autocrlf=true`，`git diff` 直接告警
+  `LF will be replaced by CRLF the next time Git touches it`；实测工作区 17 个文本文件 CRLF / LF 混用。
+- 处置：新增 `.gitattributes`（`* text=auto eol=lf`、Godot/C#/文档文本显式 `eol=lf`、图片 `binary`）；
+  仓库级 `git config --local core.autocrlf false`；把工作区 17 个残留 CRLF 文件转成 LF。
+- 结果：`git update-index --really-refresh` + `git add --renormalize`（显式排除 `scenes/StartPage.tscn`）后确认
+  **索引里本来就是 LF，行尾归一化没有产生任何内容 diff**，工作区只剩用户那份外部改动。
+- 新增静态检查 3 条：`.gitattributes` 规则、图片标 binary、工作区无 CRLF 残留。
+
+### 9.2 文档与路由卡同步（P0-2）
+
+- `GodotPrompter` 路由卡（用户级 skill，不在本仓库）：程序集名 `ShanHaiHuanLing` → `ShanhaiSpiritsSurvivors`；
+  删除「静态 `Signals` 事件总线」这条已不存在的项目架构描述；补齐 13 个 C# / 零 autoload / 零 GDScript /
+  回退后基线、MAP-001~009、CLIMB-001、粘液块、版本纪律、白箱零 PNG、行尾、冒烟命令，
+  以及「按键说明不放开始页」这条用户新约定。
+- `docs/verification-2026-11-15.md` 第 3 节给「静态 Signals」加更正注记，第 4 节补上开始页约定。
+- `docs/overview-v0.003.md` 整体重写为 0.0003 回退后基线（文件名沿用历史命名，顶部明确标注）；
+  旧战斗版内容仍留在 `docs/archive/v0.003/`。
+- `tools/check_project.py`：把 `overview 全景文档在 docs 根` 这条**假阳性检查**（只验文件存在，旧战斗版也能 PASS）
+  改成内容校验——必须含新基线锚点、且不含旧版章节标题；开始页 Help 检查措辞改为「按键说明另处实现，不锁死文案」。
+
+### 9.3 验证结果（全部实跑）
+
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `dotnet build ShanhaiSpiritsSurvivors.csproj --nologo` | **0 警告 0 错误** |
+| 2 | `python tools/check_project.py` | **85/85 PASS**（原 82 + 新增 3）→ `docs/self-check.json` |
+| 3 | headless `--editor --quit` | exit 0，**0 ERROR** |
+| 4 | `-- --smoke`（开始页 → 主场景） | exit 0，**PASS**，粘液四条断言全 true |
+| 5 | `res://scenes/Main.tscn -- --smoke` | exit 0，**16/16 断言 PASS**，JSON 中 0 个 false |
+| 6 | Whitebox 120f | exit 0，0 ERROR，`blocks=263 / paths=3/3 / slime=1 slime_grouped=1` |
+| 7 | StartPage 120f | exit 0，0 ERROR |
+| 8 | `CSharpToolchainProbe.cs` | `ok=1 engine=4.7.2-stable` |
+| 9 | `MapSeedProbe.cs` | **10/10 `fail=0`**；`[SLIME_PROBE] apex=0.350 snapped=True slow_ok=1 hop_ok=1` |
+
+`godot-code-review`：本轮无 C# 逻辑改动，改动面仅 `.gitattributes` / 文档 / Python 自检脚本；
+按清单核对无 Critical、无 Improvement（新增检查不进热路径、不触碰 Godot API 边界）。
+
+### 9.4 边界
+
+- `scenes/StartPage.tscn` 是用户自己的改动：**未改、未提交**，提交时继续排除。
+  按键说明按用户规划在别处实现，不恢复 Help 原文案。
+- 版本保持 `0.0003`，未升版、未打 tag、未 push。
+- 本轮只做 P0；P1（灰尘特效复用、冒烟 harness 拆分、`StringName` 缓存、`[BLOCKDBG]` 清理）
+  与 P2（拆 `BlockField`、`.sln` / 导出预设 / CI、UI 锚点、死资源清单）均只登记，未动。
