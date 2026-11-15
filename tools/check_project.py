@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0003 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0004 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0003"
+VERSION = "0.0004"
 EXPECTED_CS = 11
 checks = []
 

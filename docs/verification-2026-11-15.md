@@ -359,4 +359,50 @@ lambda 捕获的是值类型参数）、`QueueFree` 而非 `Free`、`.tscn` 头 
 - 白箱默认种子 `20261112` 该图 `fragile=0`（没有脆弱木板），`wired == count` 仍成立；
   踩碎验证用固定种子 `20261113`，该图有 2 块。
 - `scenes/StartPage.tscn` 是用户自己的改动：未改、未提交，提交时继续排除。
-- 版本保持 `0.0003`，未升版、未打 tag、未 push。
+- 版本保持 `0.0003`，未升版、未打 tag、未 push。（本节记录的是第 10 轮当时的事实。）
+
+---
+
+## 11. 版本更新 0.0003 → 0.0004（优化地图生成）
+
+用户明确指令：「项目版本更新 3->4 然后把目前的 push 一下 更新内容：优化地图生成」。
+
+### 11.1 版本口径同步
+
+| 位置 | 变更 |
+|---|---|
+| `project.godot` `application/config/version` | `0.0003` → `0.0004`（`StartPage.cs` 从 ProjectSettings 读取，开始页版本号自动跟随） |
+| `README.md` | `Current: v0.0004`，新增 `Updates: v0.0004 — 优化地图生成` |
+| `tools/check_project.py` | 文件头 `v0.0004`、`VERSION = "0.0004"` |
+| `GameRoot.cs` | BOOT 日志 `v0.0004`、冒烟 JSON `["version"] = "0.0004"` |
+| `docs/overview-v0.003.md` | 标题补「现行 0.0004」、版本表改为 `0.0004`；文件名与「0.0003 回退后基线」历史标题沿用 |
+| `docs/self-check.json` | 由静态自检重生成，`version` 与检查名随 `VERSION` 更新 |
+
+`tools/check_project.py` 里保留的 `"0.0003 回退后基线"` 是 overview 历史基线标题的校验锚点，不是当前版本号声明。
+前 10 节里「版本保持 0.0003」是各轮当时的既成事实，按证据文档口径不回改。
+版本线说明：`v0.0001` / `v0.0002` / 本次 `v0.0004` 属回退后四位小数线；
+`v0.001` / `v0.002` / `v0.003` 是回退前旧战斗版 tag，`0.0003` 轮按用户拍板未打 tag。
+
+### 11.2 本次「优化地图生成」涵盖的提交
+
+`bd1c318` 基线整改 → `eb89a43` MAP-005 上下净空 → `5511f9b` MAP-006/007 少单块 + 登顶可达 →
+`b3ccf6c` MAP-008 多路径 + 种子 UI → `b33c71b` MAP-009 粘液块 →
+`f8cf84a` / `3f64561` P0 元工程整改 → `025f425` 脆弱木板踩碎修复，共 8 个此前未推送的提交。
+
+### 11.3 升版后实测（全部实跑）
+
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **91/91 PASS**（`version=0.0004`） |
+| 3 | `Main.tscn --smoke` | **PASS，17/17 断言全 true**，`version=0.0004`，运行时 0 ERROR |
+| 4 | 开始页 → `Main --smoke` | **PASS**，`version=0.0004` |
+| 5 | 编辑器导入 | 0 ERROR |
+| 6 | 白箱 / 开始页各 120 帧 | 0 ERROR；白箱 `blocks=263 / 净空 92.8% / paths=3/3 / slime=1 grouped=1` |
+| 7 | `CSharpToolchainProbe` | `ok=1 engine=4.7.2-stable` |
+| 8 | `MapSeedProbe` | 10 组种子 `fail=0`；`SLIME_PROBE slow_ok=1 hop_ok=1` |
+
+### 11.4 tag / push
+
+按版本纪律打附注 tag `v0.0004`（tag 说明「优化地图生成」），连同 `master` 上全部本地提交推送 `origin`。
+`scenes/StartPage.tscn` 仍是用户自己的未提交改动，本次提交显式排除，不在推送范围内。

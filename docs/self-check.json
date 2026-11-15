@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0003",
+  "version": "0.0004",
   "result": "PASS",
   "checks": [
     {
@@ -39,7 +39,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0003",
+      "name": "config/version = 0.0004",
       "ok": true,
       "detail": ""
     },
