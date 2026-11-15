@@ -45,6 +45,9 @@ public partial class GameRoot : Node2D
 	// MAP-009 粘液块统计（由 BlockField 读取，冒烟断言用）
 	public int SlimeCount;
 	public int SlimeGroupedCount;
+	// BUGFIX-FRAGILE 脆弱木板统计（由 BlockField 读取，冒烟断言用）
+	public int FragileCount;
+	public int FragileTouchWiredCount;
 
 	private float _smokeTimer;
 	private bool _jumpInjected, _releaseInjected;
@@ -58,6 +61,9 @@ public partial class GameRoot : Node2D
 	private bool _slimeTeleported, _slimeSkipped, _slimeMoveReleased, _slimeJumpInjected, _slimeJumpReleased;
 	private bool _slimeLandedChecked, _slimeLanded;
 	private float _slimePlatY, _slimeApexY, _slimeGroundSpeed;
+	// BUGFIX-FRAGILE 冒烟阶段（4.5~5.4s）：传送到脆弱块上方 → 自由落下 → 断言该块消失
+	private bool _fragileTeleported, _fragileSkipped;
+	private int _fragileBrokenBefore;
 
 	public override void _Ready()
 	{
@@ -141,6 +147,8 @@ public partial class GameRoot : Node2D
 		ReachablePathCount = _blocks.ReachablePathCount;
 		SlimeCount = _blocks.SlimeCount;
 		SlimeGroupedCount = _blocks.SlimeGroupedCount;
+		FragileCount = _blocks.FragileCount;
+		FragileTouchWiredCount = _blocks.FragileTouchWiredCount;
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
@@ -177,6 +185,17 @@ public partial class GameRoot : Node2D
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstSlime(out float x, out float y)) return false;
 		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.05f);
+		Player.Velocity = Vector2.Zero;
+		Player.ResetMover();
+		return true;
+	}
+
+	/// <summary>BUGFIX-FRAGILE 冒烟测试用：把主角放到第一块脆弱木板上方 0.6 格，供自由落下踩碎验证。</summary>
+	private bool SmokeTeleportToFragile()
+	{
+		if (Player == null || !IsInstanceValid(Player)) return false;
+		if (!_blocks.GetFirstFragile(out float x, out float y)) return false;
+		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.6f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
 		return true;
@@ -309,7 +328,21 @@ public partial class GameRoot : Node2D
 				&& Player.IsOnFloor()
 				&& Mathf.Abs(Player.GlobalPosition.Y - _slimePlatY) < 0.3f;
 		}
-		if (_smokeTimer > 4.4f) FinishSmoke();
+		// @trace BUGFIX-FRAGILE 脆弱木板运行时验证：传送到可踩的脆弱块上方 → 自由落下 → 该块必须被踩碎。
+		// 不注入任何输入，靠真实物理让角色进入顶面感应区，避免「传送即判定」的假阳性。
+		if (_smokeTimer > 4.5f && !_fragileTeleported)
+		{
+			_fragileTeleported = true;
+			_fragileBrokenBefore = _blocks.FragileBrokenCount;
+			if (SmokeTeleportToFragile())
+				GD.Print("[SMOKE] 传送到脆弱木板上方 + 自由落下");
+			else
+			{
+				_fragileSkipped = true;
+				GD.Print("[SMOKE] 脆弱木板验证跳过（传送失败）");
+			}
+		}
+		if (_smokeTimer > 5.4f) FinishSmoke();
 	}
 
 	private void FinishSmoke()
@@ -362,6 +395,12 @@ public partial class GameRoot : Node2D
 								   && slimeRise > 0.02f && slimeRise <= GameDefs.SlimeHopApexMax,
 			["slime_snap_ok"] = slimeApexSim > 0.0f && slimeApexSim <= GameDefs.SlimeHopApexMax
 								&& slimeSnapped,
+			// BUGFIX-FRAGILE：接线完整 + 真实踩碎 + 方块总数确实减少
+			["fragile_break_ok"] = !_fragileSkipped
+								   && FragileCount > 0
+								   && FragileTouchWiredCount == FragileCount
+								   && _blocks.FragileBrokenCount > _fragileBrokenBefore
+								   && _blocks.BlockCount < PlatformCount,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -395,6 +434,11 @@ public partial class GameRoot : Node2D
 			["slime_hop_rise_sim"] = Math.Round(slimeApexSim, 3),
 			["slime_hop_rise_max"] = GameDefs.SlimeHopApexMax,
 			["slime_landed_back"] = _slimeLanded,
+			// BUGFIX-FRAGILE 脆弱木板证据
+			["fragile_blocks"] = FragileCount,
+			["fragile_touch_wired"] = FragileTouchWiredCount,
+			["fragile_broken"] = _blocks.FragileBrokenCount,
+			["fragile_blocks_left"] = _blocks.BlockCount,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

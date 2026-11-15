@@ -125,6 +125,12 @@ public partial class BlockField : Node2D, IBlockGeometry
     public int SlimeCount { get; private set; }
     /// <summary>MAP-009：实例化后确实挂上 SlimeBlockGroup 的碰撞体数（== SlimeCount 才说明移动内核能识别）。</summary>
     public int SlimeGroupedCount { get; private set; }
+    /// <summary>BUGFIX-FRAGILE：最终地图中的脆弱木板数量（生成后统计，冒烟/探针读取）。</summary>
+    public int FragileCount { get; private set; }
+    /// <summary>BUGFIX-FRAGILE：成功接上 Touch.BodyEntered 的脆弱块数（== FragileCount 才说明感应链路接线完整）。</summary>
+    public int FragileTouchWiredCount { get; private set; }
+    /// <summary>BUGFIX-FRAGILE：本局已被踩碎的脆弱块数（BreakBlock 递增，Build 复位）。</summary>
+    public int FragileBrokenCount { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -168,6 +174,9 @@ public partial class BlockField : Node2D, IBlockGeometry
         SlimeCount = 0;
         SlimeGroupedCount = 0;
         _slimeBudget = 0;
+        FragileCount = 0;
+        FragileTouchWiredCount = 0;
+        FragileBrokenCount = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -212,7 +221,8 @@ public partial class BlockField : Node2D, IBlockGeometry
                  $"top_row={MaxReachableRow} path_to_top={HasPathToTop} " +
                  $"paths={ReachablePathCount}/{PathCount} " +
                  $"pruned={VerticalClearPruned} oneway={OneWayCount} " +
-                 $"slime={SlimeCount} slime_grouped={SlimeGroupedCount}");
+                 $"slime={SlimeCount} slime_grouped={SlimeGroupedCount} " +
+                 $"fragile={FragileCount} fragile_wired={FragileTouchWiredCount}");
 
     }
 
@@ -736,6 +746,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         var body = scene.Instantiate<StaticBody2D>();
         body.Name = $"{t}_{c}_{r}";
         body.Position = BlockCenter(r, c);
+        // BUGFIX-FRAGILE：SpawnNode 只在存活格上调用，这里统计最贴近最终地图。
+        if (t == BlockType.Fragile) FragileCount++;
         // MAP-009：粘液块靠「地板碰撞体所在组」被移动内核识别，不挂触碰信号。
         // 计数与 SlimeCount 一一对应；不等说明分组没挂上，移动内核会认不出脚下是粘液。
         if (t == BlockType.Slime)
@@ -756,7 +768,11 @@ public partial class BlockField : Node2D, IBlockGeometry
         {
             var touch = body.GetNodeOrNull<Area2D>("Touch");
             if (touch != null)
+            {
                 touch.BodyEntered += b => OnTouched(r, c, b);
+                // BUGFIX-FRAGILE：接线数单独可观测，把「没接上信号」与「感应区碰不到」区分开。
+                if (t == BlockType.Fragile) FragileTouchWiredCount++;
+            }
         }
         AddChild(body);
         _nodes[r, c] = body;
@@ -774,21 +790,11 @@ public partial class BlockField : Node2D, IBlockGeometry
         _ => Colors.White,
     };
 
-    /// <summary>行为感应区：Fragile 只感应顶面 0.4（踩碎），Bounce / Treasure 感应整块。</summary>
-    private void AddTouchArea(Node2D body, int r, int c)
-    {
-        var area = new Area2D();
-        bool topOnly = _type[r, c] == BlockType.Fragile;
-        var shape = new CollisionShape2D
-        {
-            Shape = new RectangleShape2D { Size = topOnly ? new Vector2(1f, 0.4f) : new Vector2(1f, 1f) },
-            Position = topOnly ? new Vector2(0f, -0.3f) : Vector2.Zero,
-        };
-        area.AddChild(shape);
-        area.BodyEntered += b => OnTouched(r, c, b);
-        body.AddChild(area);
-    }
-
+    /// <summary>
+    /// 触碰感应链路（BUGFIX-FRAGILE）：感应区只由方块预制体自带，SpawnNode 取 "Touch" 接线。
+    /// 曾经这里还有一份代码动态创建感应区的死实现，位置完全埋在方块内部（踩不到），已删除，
+    /// 避免「两份几何、其中一份是错的」再次误导维护者。
+    /// </summary>
     private void OnTouched(int r, int c, Node body)
     {
         if (!_alive[r, c] || !body.IsInGroup("master")) return;
@@ -807,6 +813,16 @@ public partial class BlockField : Node2D, IBlockGeometry
         }
     }
 
+    /// <summary>
+    /// BUGFIX-FRAGILE：Area2D.BodyEntered 属于物理回调，里面同步 RemoveChild 一个 CollisionObject
+    /// 会触发 Godot 的 "Removing a CollisionObject node during a physics callback is not allowed"。
+    /// QueueFree 是帧末延迟释放（自动从父节点摘除），这里只置空引用，不做同步移除。
+    /// </summary>
+    private static void DeferredRemove(Node2D? n)
+    {
+        if (n != null && IsInstanceValid(n)) n.QueueFree();
+    }
+
     /// <summary>脆弱块：踩碎消失，本局内不恢复（换种子 / 重开新局恢复）。</summary>
     private void BreakBlock(int r, int c)
     {
@@ -815,8 +831,9 @@ public partial class BlockField : Node2D, IBlockGeometry
         _reachable[r, c] = false;
         var n = _nodes[r, c];
         _nodes[r, c] = null;
-        if (n != null && IsInstanceValid(n)) { RemoveChild(n); n.QueueFree(); }
+        DeferredRemove(n);
         BlockCount--;
+        FragileBrokenCount++;
         GD.Print($"[BLOCKS] fragile broken ({c},{r})");
     }
 
@@ -846,7 +863,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         _reachable[r, c] = false;
         var n = _nodes[r, c];
         _nodes[r, c] = null;
-        if (n != null && IsInstanceValid(n)) { RemoveChild(n); n.QueueFree(); }
+        DeferredRemove(n);   // 同 BreakBlock：触碰回调里不能同步移除碰撞体
         BlockCount--;
 
         if (SceneLootDrop != null)
@@ -921,6 +938,27 @@ public partial class BlockField : Node2D, IBlockGeometry
             for (int c = 0; c < GameDefs.BlockCols; c++)
                 if (_alive[r, c] && _type[r, c] == BlockType.Slime
                     && !_oneWay[r, c] && CanStandOn(r, c))
+                {
+                    centerX = ColX(c) + 0.5f;
+                    topY = RowTopY(r) - 1f;
+                    return true;
+                }
+        centerX = 0f;
+        topY = 0f;
+        return false;
+    }
+
+    /// <summary>
+    /// BUGFIX-FRAGILE 冒烟测试用：取第一块「能从上方踩到」的脆弱木板，返回中心 x 与台面 y。
+    /// 要求正上方一格无任何方块且满足 CanStandOn，保证角色自由落下时不会先踩到别的块。
+    /// 只用于 --smoke 传送，不参与正常游戏流程。
+    /// </summary>
+    public bool GetFirstFragile(out float centerX, out float topY)
+    {
+        for (int r = 1; r < GameDefs.BlockRows - 1; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && _type[r, c] == BlockType.Fragile
+                    && !_oneWay[r, c] && !_alive[r + 1, c] && CanStandOn(r, c))
                 {
                     centerX = ColX(c) + 0.5f;
                     topY = RowTopY(r) - 1f;

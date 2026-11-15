@@ -285,3 +285,78 @@
 - 版本保持 `0.0003`，未升版、未打 tag、未 push。
 - 本轮只做 P0；P1（灰尘特效复用、冒烟 harness 拆分、`StringName` 缓存、`[BLOCKDBG]` 清理）
   与 P2（拆 `BlockField`、`.sln` / 导出预设 / CI、UI 锚点、死资源清单）均只登记，未动。
+
+## 10. 同日第八轮：BUGFIX-FRAGILE 脆弱木板踩不碎
+
+### 10.1 复现（改场景之前的真实运行输出）
+
+先只加观测点、不碰场景，给 `--smoke` 增加「传送到脆弱块上方 → 自由落下」阶段，实跑得到：
+
+```text
+[BLOCKS] ... fragile=2 fragile_wired=2
+[SMOKE] 传送到脆弱木板上方 + 自由落下
+  "result": "FAIL",
+  "fragile_blocks": 2,
+  "fragile_touch_wired": 2,
+  "fragile_broken": 0,
+  "fragile_blocks_left": 262,
+    "fragile_break_ok": false
+```
+
+`fragile_wired=2` 说明 `Touch.BodyEntered` 两条信号都接上了，玩家也在 `master` 组、
+`CollisionLayer = 1` 与 `collision_mask = 1` 匹配 → **排除「信号没接上」**，锁定感应区几何。
+
+### 10.2 根因
+
+`scenes/blocks/block_fragile.tscn` 的 `Touch` 感应区原本 `position = (0,-0.3)`、`size = (1,0.4)`，
+覆盖 y ∈ [-0.5, -0.1]；而 1×1 方块的**顶面是 y = -0.5** —— 感应区完全埋在方块内部。
+玩家站在顶面时碰撞体全在其上方，与感应区无重叠，`Area2D.BodyEntered` 永不发出，
+`OnTouched → BreakBlock` 从不执行。
+
+另有一份从未被调用的 `BlockField.AddTouchArea()` 死实现，`topOnly` 分支用的是同一组错误数值，
+属于「两份几何、其中一份是错的」的误导源。
+
+### 10.3 修复
+
+| 文件 | 改动 |
+|---|---|
+| `scenes/blocks/block_fragile.tscn` | 感应区 `size = (1,0.5)`、`position = (0,-0.55)` → 覆盖 y ∈ [-0.8,-0.3]，**跨过顶面 -0.5**；补 `load_steps=3` 头，保留原 uid、零 PNG、无注释 |
+| `scripts/csharp/gameplay/BlockField.cs` | 新增 `FragileCount` / `FragileTouchWiredCount` / `FragileBrokenCount` 三项可观测计数、`GetFirstFragile()` 冒烟查询；删除 `AddTouchArea()` 死代码 |
+| `scripts/csharp/gameplay/BlockField.cs` | 新增 `DeferredRemove()`，`BreakBlock` / `OpenTreasure` 改用它，去掉物理回调里的同步 `RemoveChild`（否则 Godot 报 `Removing a CollisionObject node during a physics callback is not allowed`） |
+| `scripts/csharp/core/GameRoot.cs` | `--smoke` 4.5~5.4s 新增脆弱块阶段：传送到可踩脆弱块上方 0.6 格、不注入输入、靠真实物理落下；新增 `fragile_break_ok` 断言与 4 个报告字段 |
+| `tools/MapSeedProbe.cs` | 10 组种子追加 `FragileTouchWiredCount == FragileCount && FragileBrokenCount == 0` |
+| `tools/check_project.py` | 新增 6 条检查；感应区那条是**几何行为断言**（解析 position/size 验证跨过 y=-0.5），不锁死具体数值 |
+| `docs/self-check.json` | 重新生成 |
+
+修复后同一命令：`fragile_broken=1` / `fragile_blocks_left=261`（262→261）/ `fragile_break_ok=true` / `result=PASS`，
+且原先那条物理回调 ERROR 归零。
+
+### 10.4 验证结果（全部实跑）
+
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `dotnet build ShanhaiSpiritsSurvivors.csproj --nologo` | **0 警告 0 错误** |
+| 2 | `python tools/check_project.py` | **91/91 PASS**（原 85 + 新增 6）→ `docs/self-check.json` |
+| 3 | headless `--editor --quit` | exit 0，**0 ERROR**（改过 `.tscn`，单独验导入） |
+| 4 | `res://scenes/Main.tscn -- --smoke` | exit 0，**17/17 断言 PASS**，运行时 **0 ERROR** |
+| 5 | `-- --smoke`（开始页 → 主场景） | exit 0，**PASS** |
+| 6 | Whitebox 120f | exit 0，0 ERROR，`blocks=263 / paths=3/3 / slime=1 slime_grouped=1` |
+| 7 | StartPage 120f | exit 0，0 ERROR |
+| 8 | `CSharpToolchainProbe.cs` | `ok=1 engine=4.7.2-stable` |
+| 9 | `MapSeedProbe.cs` | **10/10 `fail=0`**，每种子 `fragile=N/N fragile_ok=1` |
+
+固定种子 `20261113`：`fragile=2 fragile_wired=2 fragile_broken=1`，`[BLOCKS] fragile broken (37,7)`。
+
+`godot-code-review`：无 Critical。本轮按清单核对了 C# `partial` / PascalCase、信号接线（`BodyEntered` 只连一次、
+lambda 捕获的是值类型参数）、`QueueFree` 而非 `Free`、`.tscn` 头 `format=3` / 无注释 / 未手写 UID、
+冒烟注入只在 `SmokeMode` 生效。Improvement 已处理：物理回调内同步移除碰撞体改延迟释放、
+删除带错误几何的 `AddTouchArea()` 死代码。
+
+### 10.5 边界
+
+- **弹跳块 / 宝箱块的 `Touch` 感应区仍是「整块 1×1、完全埋在方块内部」**，本次只修脆弱木板，未动那两个行为；
+  若之后要修，应沿用同样的「跨过顶面」思路并各自补回归断言。
+- 白箱默认种子 `20261112` 该图 `fragile=0`（没有脆弱木板），`wired == count` 仍成立；
+  踩碎验证用固定种子 `20261113`，该图有 2 块。
+- `scenes/StartPage.tscn` 是用户自己的改动：未改、未提交，提交时继续排除。
+- 版本保持 `0.0003`，未升版、未打 tag、未 push。

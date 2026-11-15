@@ -171,6 +171,41 @@ check("MAP-009 白箱图例列出粘液块与出现概率",
       "BlockField.Tint(BlockType.Slime)" in cs("tools/WhiteboxRoot.cs")
       and "粘液 1%" in cs("tools/WhiteboxRoot.cs"))
 check("MAP-005 多种子探针存在", (ROOT / "tools" / "MapSeedProbe.cs").exists())
+
+# ---------------------------------------------------------------- 5c. BUGFIX-FRAGILE 脆弱木板
+fragile_tscn = read(ROOT / "scenes" / "blocks" / "block_fragile.tscn")
+
+def fragile_touch_crosses_top(tscn):
+    # 方块 1×1、中心 (0,0) → 顶面 y = -0.5。感应区必须「跨过」-0.5：
+    # 完全埋在方块内部时，站在顶面的玩家碰撞体全在上方，BodyEntered 永不触发（踩不碎）。
+    # 这里算几何而不是锁死具体数值，后续调整感应区尺寸只要仍跨顶面就保持 PASS。
+    try:
+        seg = tscn.split('id="touch_rect"')[1]
+        sy = float(seg.split("size = Vector2(1, ")[1].split(")")[0])
+        py = float(seg.split("position = Vector2(0, ")[1].split(")")[0])
+    except (IndexError, ValueError):
+        return False
+    return (py - sy * 0.5) < -0.5 < (py + sy * 0.5)
+
+check("BUGFIX-FRAGILE 感应区跨过方块顶面（几何行为断言，非锁死数值）",
+      bool(fragile_tscn) and fragile_touch_crosses_top(fragile_tscn)
+      and "[gd_scene load_steps=3 format=3" in fragile_tscn
+      and ".png" not in fragile_tscn and "collision_mask = 1" in fragile_tscn)
+check("BUGFIX-FRAGILE 生成 / 接线 / 碎块三项计数可观测",
+      all(k in field for k in ("FragileCount", "FragileTouchWiredCount", "FragileBrokenCount"))
+      and "FragileTouchWiredCount++" in field and "FragileBrokenCount++" in field)
+check("BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（DeferredRemove 统一延迟释放）",
+      "DeferredRemove(n)" in field and field.count("DeferredRemove(n)") == 2
+      and "{ RemoveChild(n); n.QueueFree(); }" not in field)
+check("BUGFIX-FRAGILE 冒烟用真实自由落下验证踩碎（传送 + 断言 + 报告字段）",
+      "GetFirstFragile" in field and "SmokeTeleportToFragile" in root_cs
+      and "fragile_break_ok" in root_cs and "fragile_broken" in root_cs
+      and "_fragileBrokenBefore" in root_cs)
+check("BUGFIX-FRAGILE 多种子探针校验感应区接线完整",
+      "field.FragileTouchWiredCount == field.FragileCount" in probe_cs)
+check("BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchArea 死代码已删）",
+      "AddTouchArea" not in field and 'GetNodeOrNull<Area2D>("Touch")' in field)
+
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
 check("白箱保留（与游戏共用移动内核）",

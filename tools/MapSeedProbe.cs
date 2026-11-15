@@ -5,7 +5,8 @@ using ShanhaiSpiritsSurvivors;
 /// 多种子回归探针（临时验证用，不进游戏场景）。
 /// Run: godot --headless --path . --script res://tools/MapSeedProbe.cs
 /// 按多个种子 Build 地图，检查 MAP-005~008 的达标线不是只对固定种子成立；
-/// MAP-009 追加「粘液块数量 / 分组计数」以及移动内核黏跳纯逻辑的确定性断言。
+/// MAP-009 追加「粘液块数量 / 分组计数」以及移动内核黏跳纯逻辑的确定性断言；
+/// BUGFIX-FRAGILE 追加「脆弱木板感应区接线数 == 生成数、Build 后无残留碎块」。
 /// </summary>
 public partial class MapSeedProbe : SceneTree
 {
@@ -34,6 +35,9 @@ public partial class MapSeedProbe : SceneTree
             bool slimeOk = field.SlimeCount >= 1
                            && field.SlimeCount <= GameDefs.BlockSlimeMaxCount
                            && field.SlimeGroupedCount == field.SlimeCount;   // 分组数 == 类型数才算内核认得出
+            // BUGFIX-FRAGILE：每块脆弱木板都必须成功接上 Touch.BodyEntered，否则踩上去不会碎。
+            bool fragileOk = field.FragileTouchWiredCount == field.FragileCount
+                             && field.FragileBrokenCount == 0;
             bool ok = ratio >= GameDefs.BlockVerticalClearRatio
                       && field.SingleBlockRatio <= GameDefs.BlockSingleRatioMax
                       && field.HasPathToTop
@@ -42,7 +46,8 @@ public partial class MapSeedProbe : SceneTree
                       && field.PathCount <= GameDefs.BackbonePathMax
                       && field.IsGroundContinuous()
                       && field.OneWayCount > 0
-                      && slimeOk;
+                      && slimeOk
+                      && fragileOk;
             if (!ok) fail++;
             GD.Print($"[MAP_PROBE] seed={seed} blocks={field.BlockCount} " +
                      $"vertical_clear={field.VerticalClearCount}/{field.VerticalClearTotal} ({ratio:P1}) " +
@@ -51,6 +56,7 @@ public partial class MapSeedProbe : SceneTree
                      $"paths={field.ReachablePathCount}/{field.PathCount} " +
                      $"pruned={field.VerticalClearPruned} oneway={field.OneWayCount} " +
                      $"slime={field.SlimeCount}/{field.SlimeGroupedCount} slime_ok={(slimeOk ? 1 : 0)} " +
+                     $"fragile={field.FragileCount}/{field.FragileTouchWiredCount} fragile_ok={(fragileOk ? 1 : 0)} " +
                      $"ok={(ok ? 1 : 0)}");
             field.Free();
         }

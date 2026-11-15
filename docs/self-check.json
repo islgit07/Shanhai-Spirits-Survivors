@@ -284,6 +284,36 @@
       "detail": ""
     },
     {
+      "name": "BUGFIX-FRAGILE 感应区跨过方块顶面（几何行为断言，非锁死数值）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BUGFIX-FRAGILE 生成 / 接线 / 碎块三项计数可观测",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（DeferredRemove 统一延迟释放）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BUGFIX-FRAGILE 冒烟用真实自由落下验证踩碎（传送 + 断言 + 报告字段）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BUGFIX-FRAGILE 多种子探针校验感应区接线完整",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchArea 死代码已删）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "Build 可重复调用时清空净空标记 _reserved",
       "ok": true,
       "detail": ""
