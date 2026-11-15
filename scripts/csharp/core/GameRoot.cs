@@ -30,6 +30,10 @@ public partial class GameRoot : Node2D
 	public int PlatformCount;
 	public bool GroundContinuous;
 	public bool PlayerGrounded;
+	public float VerticalClearRatio;   // MAP-005：上下隔开 2 格的方块占比
+	public int VerticalClearCount;
+	public int VerticalClearTotal;
+	public int OneWayCount;
 
 	private float _smokeTimer;
 	private bool _jumpInjected, _releaseInjected;
@@ -103,6 +107,10 @@ public partial class GameRoot : Node2D
 		_blocks.Build(seed);
 		PlatformCount = _blocks.BlockCount;
 		GroundContinuous = _blocks.IsGroundContinuous();
+		VerticalClearRatio = _blocks.VerticalClearRatio;
+		VerticalClearCount = _blocks.VerticalClearCount;
+		VerticalClearTotal = _blocks.VerticalClearTotal;
+		OneWayCount = _blocks.OneWayCount;
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
@@ -246,6 +254,7 @@ public partial class GameRoot : Node2D
 			["player_jumped"] = _smokeMinY < _smokeStartPos.Y - 0.5f,
 			["player_drop_through"] = _dropSkipped || _smokeMaxY > _dropPlatY + 0.5f,
 			["climb_logic_ok"] = climbHit && climbMissDir && climbMissFar,
+			["vertical_clear_80pct"] = VerticalClearRatio >= GameDefs.BlockVerticalClearRatio,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -256,6 +265,10 @@ public partial class GameRoot : Node2D
 			["result"] = ok ? "PASS" : "FAIL",
 			["platforms"] = PlatformCount,
 			["ground_continuous"] = GroundContinuous,
+			["vertical_clear"] = $"{VerticalClearCount}/{VerticalClearTotal}",
+			["vertical_clear_ratio"] = Math.Round(VerticalClearRatio, 4),
+			["vertical_clear_target"] = GameDefs.BlockVerticalClearRatio,
+			["oneway_blocks"] = OneWayCount,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

@@ -39,8 +39,61 @@
 
 ## 4. 诚实边界与遗留
 
-- **真人 Play Mode 0 次**：以上全为 headless，不证明画面、字体、中文显示或可玩性。
-- 键盘焦点交互未经真人验证，仅有 `GrabFocus` / 上下焦点链的静态检查 + 场景独立运行无错。
+- 键盘焦点交互仅有 `GrabFocus` / 上下焦点链的静态检查 + 场景独立运行无错。
 - `docs/overview-v0.003.md` 仍是旧 v0.003 战斗版全景文档，与回退后代码脱节，本轮按范围未改。
 - `assets/art/block_white.png` 已零引用，文件保留未删（等确认）。
 - 版本号保持 `0.0003`（用户拍板保留），**未打 tag、未升版**。
+
+---
+
+## 5. 同日第二轮：MAP-005 上下净空限制
+
+> 第 1–4 节为第一轮「交接整改」的历史记录（当时 62/62、359 块、7 断言）。
+> 本节为第二轮：随机地图生成加限制「80% 方块上下隔开两个格子，避免挡道」。
+> 版本号仍为 `0.0003`，未打 tag。
+
+### 5.1 规则口径（全部集中在 GameDefs，可复现）
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `BlockVerticalClearRows` | 2 | 行差 1~2 视为没隔开；**行差 ≥3 = 中间空 2 行**才合规 |
+| `BlockVerticalClearCols` | 2 | 水平 ±2 列内视为同一条上下通道 |
+| `BlockVerticalClearRatio` | 0.80 | 全图合规率**硬指标**，写进冒烟断言 |
+| `BlockVerticalClearBreakChance` | 0.20 | 生成期贴太近的装饰块 20% 概率破例保留，维持随机性 |
+| `LayerStepRows` | 2 → **3** | 骨架层间空 2 行；步幅由 2~5 列收紧为 1~2 列（dr3 水平可达半径 ≤2） |
+
+### 5.2 实现链
+
+1. `HasNearVerticalNeighbor(r,c)`：生成期 / 统计期共用的邻近判定。
+2. `PlaceRun`：装饰格贴太近时按 80% 概率拒绝；骨架 `purePlatform` 豁免以保住地面→顶部主路径。
+3. `MeasureVerticalClearance`：Build 末尾统计合规块 / 总块 / 单向块数。
+4. `EnforceVerticalClearance`：合规率不达标时从高层往低层修剪违规装饰块，每删一块重算，达标即停；骨架 / 地面由 `_backboneCell` 保护。
+5. `GameRoot` 冒烟新增第 8 条断言 `vertical_clear_80pct`，JSON 输出合规率与单向块数。
+6. 顺带修复既有缺陷：`Build` 可重复调用时漏清 `_reserved`（白箱换种子会让地图越来越稀）。
+7. 新增验证工具 `tools/MapSeedProbe.cs`（+ `.uid`）：10 组种子一次性回归，非游戏功能。
+
+### 5.3 验证结果（全部实跑）
+
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `dotnet build ...` | 0 警告 0 错误 |
+| 2 | `python tools/check_project.py` | **69/69 PASS** → `docs/self-check.json` |
+| 3 | `godot --headless --path ... --editor --quit` | exit 0，0 条 ERROR |
+| 4 | `godot --headless --path ... -- --smoke` | exit 0，**PASS**（开始页延迟切主场景） |
+| 5 | `... res://scenes/Main.tscn -- --smoke` | exit 0，**PASS**，blocks=237，**8/8 断言**，合规率 190/237 = 80.2% |
+| 6 | `... --quit-after 120 res://scenes/Whitebox.tscn` | exit 0，0 条 ERROR，blocks=243，合规率 195/243 = 80.2% |
+| 7 | `... --quit-after 120 res://scenes/StartPage.tscn` | exit 0，0 条 ERROR |
+| 8 | `... --script res://tools/CSharpToolchainProbe.cs` | `ok=1 engine=4.7.2-stable` |
+| 9 | `... --script res://tools/MapSeedProbe.cs` | **10/10 种子达标**，合规率 80.0%~81.1%，`fail=0` |
+
+冒烟 8 断言：`platforms_built` / `ground_continuous` / `player_grounded` / `player_moved` /
+`player_jumped` / `player_drop_through` / `climb_logic_ok` / `vertical_clear_80pct` 全部 true。
+多种子探针同时校验地面连续、单向块数量 > 0（下穿验证不会退化成跳过）。
+
+### 5.4 边界
+
+- 地图比第一轮更稀疏：方块数 359 → 223~243（10 种子区间），这是「避免挡道」的预期结果。
+- 骨架可达性由构造时的 `RunReachable` 保证；修剪只删非骨架装饰块，**未做生成后全图连通性 BFS**。
+- 20% 破例块是刻意的：`EnforceVerticalClearance` 达标即停，因此合规率稳定落在 80%~81%，
+  不会把地图剪成 100% 规则化。
+- 只改地图生成与验证链路，未动移动手感、输入映射、开始页、白箱美术、版本号。

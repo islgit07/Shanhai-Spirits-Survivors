@@ -44,10 +44,14 @@ public interface IBounceable
 /// row 3..26 = 自由随机区：run 撒点（长度 1~5 / 空档 2~4）+ 构造式可达性保证
 /// （每个放下的块都有从地面起的跳跃通路：下方 1~3 行且水平距离随行差收紧 dr1≤4 / dr2≤3 / dr3≤2 列；
 /// 同行 ±4 列内有已放块可借道；两遍 左→右 / 右→左）。
-/// 结构 = 蛇形主路径骨架 + 随机装饰：先铺一条从地面到顶部的确定性攀爬路线（每隔 2~3 行
-/// 一段 3~4 格纯平台，水平步幅严格在跳跃可达内），装饰 run 只在骨架之外随机撒。
+/// 结构 = 蛇形主路径骨架 + 随机装饰：先铺一条从地面到顶部的确定性攀爬路线（每隔 3 行
+/// = 中间空 2 行，一段 3~4 格纯平台，水平步幅 ≤2 列严格在 dr3 跳跃可达内），装饰 run 在骨架之外随机撒。
 /// 大多数 run 是纯跳跃平台：整段至多一块特殊块（PickType 权重，约 83% run 无特殊块）。
 /// 弹跳块上方净空 BlockBounceHeadroomRows = 7 格，弹射航道不被上层块遮挡。
+/// MAP-005 上下净空：任意两块行差 1~2 且列差 ≤ BlockVerticalClearCols 视为贴太近（没隔开 2 格、
+/// 会挡道）。骨架层间距改为 3 行（中间空 2 行）；装饰块生成期按 (1 - BreakChance) 概率拒绝
+/// 贴太近的格子，20% 破例保留随机性；Build 末尾统计全局合规率，不足 BlockVerticalClearRatio
+/// 时修剪违规装饰块补齐（骨架 / 地面受保护）。冒烟断言合规率 ≥ BlockVerticalClearRatio。
 /// 单向平台按 run 成段出现（BlockOneWayChance 为 run 命中率），段长连排分布见 GameDefs.OneWayLen*：
 /// 2~3 格连排常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）。保留 DROP-001 下穿与 CLIMB-001 台沿上攀。
 /// 方块行为：Fragile = 顶面感应 → 碎；Bounce = 整块感应 → IBounceable.Bounce()；
@@ -61,6 +65,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     private readonly bool[,] _alive = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _reachable = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _reserved = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
+    private readonly bool[,] _backboneCell = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly Node2D?[,] _nodes = new Node2D[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly Sprite2D?[,] _visuals = new Sprite2D[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _jellyBusy = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
@@ -89,6 +94,14 @@ public partial class BlockField : Node2D, IBlockGeometry
     }
 
     public int BlockCount { get; private set; }
+    /// <summary>MAP-005：Build 后统计的上下净空合规块数 / 总块数 / 合规率。</summary>
+    public int VerticalClearCount { get; private set; }
+    public int VerticalClearTotal { get; private set; }
+    public float VerticalClearRatio { get; private set; }
+    /// <summary>单向平台数量（冒烟下穿验证需要至少一块，纯验证用）。</summary>
+    public int OneWayCount { get; private set; }
+    /// <summary>MAP-005 兜底修剪掉的装饰块数（达标即停）。</summary>
+    public int VerticalClearPruned { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -110,12 +123,18 @@ public partial class BlockField : Node2D, IBlockGeometry
         Array.Clear(_oneWay);
         Array.Clear(_alive);
         Array.Clear(_reachable);
+        Array.Clear(_reserved);   // 可重复 Build：净空标记也必须清，否则换种子后地图越来越稀
+        Array.Clear(_backboneCell);
         Array.Clear(_nodes);
         Array.Clear(_visuals);
         Array.Clear(_jellyBusy);
         _backbone.Clear();
         _rng.Seed = Rng.DeriveSeed64(seedValue, "blocks");
         BlockCount = 0;
+        VerticalClearCount = 0;
+        VerticalClearTotal = 0;
+        VerticalClearRatio = 1f;
+        VerticalClearPruned = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -143,17 +162,21 @@ public partial class BlockField : Node2D, IBlockGeometry
                 }
         }
 
+        EnforceVerticalClearance();   // 统计 MAP-005 合规率，不达标则修剪装饰块补齐，再实例化节点
+
         for (int r = 0; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
                 if (_alive[r, c]) SpawnNode(r, c);
 
-        GD.Print($"[BLOCKS] blocks={BlockCount} ground_continuous={IsGroundContinuous()}");
+        GD.Print($"[BLOCKS] blocks={BlockCount} ground_continuous={IsGroundContinuous()} " +
+                 $"vertical_clear={VerticalClearCount}/{VerticalClearTotal} ({VerticalClearRatio:P1}) " +
+                 $"pruned={VerticalClearPruned} oneway={OneWayCount}");
 
     }
 
     /// <summary>
-    /// 蛇形主路径骨架（伪随机核心）：每隔 2~3 行一段 3~4 格纯平台，左右交替推进。
-    /// 垂直步幅 dr=2/3 对应水平可达 ≤3/≤2 列（与 CellReachable 收紧规则一致），
+    /// 蛇形主路径骨架（伪随机核心）：每隔 3 行（中间空 2 行 = MAP-005）一段 3~4 格纯平台，左右交替推进。
+    /// 层间距 dr=3 对应水平可达 ≤2 列（与 CellReachable 收紧规则一致），故步幅 1~2 列；
     /// 加上平台自身长度重叠，保证相邻两段之间一定跳得过去；撞墙折返。
     /// </summary>
     private void BuildBackbone()
@@ -167,11 +190,13 @@ public partial class BlockField : Node2D, IBlockGeometry
             int len = _rng.RandiRange(3, 4);
             c = Mathf.Clamp(c, 0, GameDefs.BlockCols - len);
             PlaceRun(r, c, len, purePlatform: true);
+            for (int k = 0; k < len && c + k < GameDefs.BlockCols; k++)
+                _backboneCell[r, c + k] = true;   // 兜底修剪时不删主路径骨架
             _backbone.Add((r, c, c + len - 1));
-            int dr = GameDefs.LayerStepRows;   // 原则⑤：层间距固定 2 格
+            int dr = GameDefs.LayerStepRows;   // 原则⑤：层间空 2 行
             r += dr;
             if (r >= GameDefs.BlockRows) break;
-            int step = _rng.RandiRange(2, 3 + len - 2);
+            int step = _rng.RandiRange(1, 2);   // dr=3 的水平可达半径 ≤2 列
             int next = c + (right ? step : -step);
             if (next < 1 || next + len > GameDefs.BlockCols - 1)
             {
@@ -238,6 +263,9 @@ public partial class BlockField : Node2D, IBlockGeometry
             if (c >= GameDefs.BlockCols) break;
             if (_reserved[r, c]) continue;     // 下方块的净空区不放块（原则②）
             if (InSpawnZone(r, c)) continue;   // 出生净空区不放块
+            // MAP-005：上下没隔开 2 格的装饰块按概率拒绝，避免挡道；骨架段豁免（必要通路）。
+            if (!purePlatform && HasNearVerticalNeighbor(r, c)
+                && _rng.Randf() >= GameDefs.BlockVerticalClearBreakChance) continue;
             var t = k == specialAt ? special : BlockType.Normal;
             bool oneWay = t == BlockType.Normal && k >= oneWayStart && k < oneWayStart + oneWayLen;
             SetCell(r, c, t, oneWay);
@@ -268,16 +296,17 @@ public partial class BlockField : Node2D, IBlockGeometry
 
     /// <summary>
     /// 原则⑤（MAP-004）：骨架跳跃走廊。玩家从下层骨架平台跳到上层时经过的格子：
-    /// 每段骨架平台上方 1~2 行（层间距 2 → 中间行 + 落点行）、水平方向平台两端
-    /// 各外扩 3 列（dr=2 的可达半径）。装饰块落入走廊会挡跳跃路线，直接拒绝。
+    /// 每段骨架平台上方 1~2 行（层间距 3 → 中间 2 行；落点行 dr=3 不算走廊）、
+    /// 水平方向平台两端各外扩 3 列（保守值，dr=3 的 CellReachable 半径是 2）。
+    /// 装饰块落入走廊会挡跳跃路线，直接拒绝。
     /// </summary>
     private bool InJumpCorridor(int r, int c)
     {
         foreach (var (row, c0, c1) in _backbone)
         {
             int dr = row - r;
-            if (dr is < 1 or > GameDefs.LayerStepRows) continue;   // 只看平台上方 1..2 行
-            int reach = 3;   // dr=2 对应的水平可达半径（与 CellReachable 一致）
+            if (dr is < 1 or >= GameDefs.LayerStepRows) continue;   // 只看层间 1..2 行
+            int reach = 3;   // 保守外扩（CellReachable 的 dr=3 半径是 2）
             if (c >= c0 - reach && c <= c1 + reach) return true;
         }
         return false;
@@ -357,6 +386,72 @@ public partial class BlockField : Node2D, IBlockGeometry
         int rows = t == BlockType.Bounce ? GameDefs.BlockBounceHeadroomRows : GameDefs.BlockHeadroomRows;
         for (int i = 1; i <= rows && r + i < GameDefs.BlockRows; i++)
             _reserved[r + i, c] = true;
+    }
+
+    /// <summary>
+    /// MAP-005：该格上下 BlockVerticalClearRows 行内、水平 ±BlockVerticalClearCols 列内
+    /// 是否已有存活方块。行差 1~2 = 中间没空出 2 格 → 贴太近、会挡道；行差 ≥3 才合规。
+    /// 生成期只看已放块（自下而上），Build 末尾统计时看整张图（双向对称）。
+    /// </summary>
+    private bool HasNearVerticalNeighbor(int r, int c)
+    {
+        for (int dr = -GameDefs.BlockVerticalClearRows; dr <= GameDefs.BlockVerticalClearRows; dr++)
+        {
+            if (dr == 0) continue;   // 同行横排不算上下相邻
+            int rr = r + dr;
+            if (rr < 0 || rr >= GameDefs.BlockRows) continue;
+            int c0 = Math.Max(0, c - GameDefs.BlockVerticalClearCols);
+            int c1 = Math.Min(GameDefs.BlockCols - 1, c + GameDefs.BlockVerticalClearCols);
+            for (int cc = c0; cc <= c1; cc++)
+                if (_alive[rr, cc]) return true;
+        }
+        return false;
+    }
+
+    /// <summary>MAP-005：统计最终地图里「上下隔开 2 格」的方块占比，供日志与冒烟断言使用。</summary>
+    private void MeasureVerticalClearance()
+    {
+        int total = 0, clear = 0, oneWay = 0;
+        for (int r = 0; r < GameDefs.BlockRows; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+            {
+                if (!_alive[r, c]) continue;
+                total++;
+                if (_oneWay[r, c]) oneWay++;
+                if (!HasNearVerticalNeighbor(r, c)) clear++;
+            }
+        VerticalClearTotal = total;
+        VerticalClearCount = clear;
+        VerticalClearRatio = total == 0 ? 1f : (float)clear / total;
+        OneWayCount = oneWay;
+    }
+
+    /// <summary>
+    /// MAP-005 达标兜底：合规率低于 BlockVerticalClearRatio 时，从高层往低层移除
+    /// 「违规且非骨架」的装饰块；每移除一块重新统计（它周围的方块也会跟着恢复合规），达标即停。
+    /// 地面层与蛇形骨架受保护，主路径可达性不受影响；20% 随机破例只在预算内保留。
+    /// </summary>
+    private void EnforceVerticalClearance()
+    {
+        MeasureVerticalClearance();
+        if (VerticalClearRatio >= GameDefs.BlockVerticalClearRatio) return;
+
+        var candidates = new List<(int R, int C)>();
+        for (int r = GameDefs.BlockRows - 1; r > 0; r--)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && !_backboneCell[r, c] && HasNearVerticalNeighbor(r, c))
+                    candidates.Add((r, c));
+
+        foreach (var (r, c) in candidates)
+        {
+            if (VerticalClearRatio >= GameDefs.BlockVerticalClearRatio) break;
+            if (!_alive[r, c] || !HasNearVerticalNeighbor(r, c)) continue;
+            _alive[r, c] = false;
+            _reachable[r, c] = false;
+            BlockCount--;
+            VerticalClearPruned++;
+            MeasureVerticalClearance();
+        }
     }
 
     // ---------------------------------------------------------------- 节点

@@ -102,6 +102,21 @@ check("方块随机分布（run 长度/空档/类型权重，MAP-003）",
       "BlockRunMax" in field and "BlockGapMax" in field and "PickType" in field)
 check("自动上攀：地形导出可攀台沿（BlockField.GetLedges）", "GetLedges" in field)
 check("自动上攀：主角接入台沿（Master.SetLedges）", "SetLedges" in cs("gameplay/Master.cs"))
+check("MAP-005 上下净空常量（2 行 / 2 列 / 80% 达标 / 20% 破例）",
+      all(k in defs for k in ("BlockVerticalClearRows", "BlockVerticalClearCols",
+                              "BlockVerticalClearRatio", "BlockVerticalClearBreakChance"))
+      and "BlockVerticalClearRatio = 0.80f" in defs)
+check("MAP-005 生成期拒绝贴太近的装饰块（骨架豁免）",
+      "HasNearVerticalNeighbor" in field
+      and "BlockVerticalClearBreakChance" in field and "!purePlatform" in field)
+check("MAP-005 末尾统计合规率 + 冒烟断言 >= 80%",
+      "MeasureVerticalClearance" in field
+      and "vertical_clear_80pct" in cs("core/GameRoot.cs"))
+check("MAP-005 骨架层间距 3 行（中间空 2 格）", "LayerStepRows = 3" in defs)
+check("MAP-005 不达标时修剪装饰块（骨架 / 地面受保护）",
+      "EnforceVerticalClearance" in field and "_backboneCell" in field)
+check("MAP-005 多种子探针存在", (ROOT / "tools" / "MapSeedProbe.cs").exists())
+check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
 check("白箱保留（与游戏共用移动内核）",
       (ROOT / "scenes" / "Whitebox.tscn").exists()

@@ -189,6 +189,41 @@
       "detail": ""
     },
     {
+      "name": "MAP-005 上下净空常量（2 行 / 2 列 / 80% 达标 / 20% 破例）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-005 生成期拒绝贴太近的装饰块（骨架豁免）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-005 末尾统计合规率 + 冒烟断言 >= 80%",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-005 骨架层间距 3 行（中间空 2 格）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-005 不达标时修剪装饰块（骨架 / 地面受保护）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MAP-005 多种子探针存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Build 可重复调用时清空净空标记 _reserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "世界根保留相机跟随",
       "ok": true,
       "detail": ""
