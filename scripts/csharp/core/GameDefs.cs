@@ -47,6 +47,10 @@ public static class GameDefs
     //   ⑧ 完整登顶路径（MAP-007）：保证存在从地面 row 0 完整跳到最高有效层（row ≥ BlockTopReachMinRow）的可达通路。
     //   ⑨ 多条登顶路径（MAP-008）：每次生成 BackbonePathMin~BackbonePathMax 条独立蛇形骨架，
     //     各占一条列带；至少 1 条贯通到顶层，平时 2~3 条全部可达。
+    //   ⑩ 粘液块（MAP-009）：极小概率出现在 run 里的实心方块。站上去水平减速、按跳只弹起
+    //     极小高度随后被立刻黏回地面（"跳起来被黏住"）。全图数量硬上限 BlockSlimeMaxCount，
+    //     保证"出现概率非常小"可验证；另有「每图保底 1 块」（EnsureSlimePresence），
+    //     保证任何种子都能看到新方块、也能跑运行时行为断言，二者不冲突：1/200+ 块仍属极小概率。
     public const int BlockCols = 56;
     public const int BlockRows = 27;
     public const int LayerStepRows = 3;    // 骨架主路径层间距（行数）：3 = 中间空 2 行，与 MAP-005 一致
@@ -74,6 +78,7 @@ public static class GameDefs
     public const float BlockWeightBounce = 0.06f;    // 弹跳块：弹射 ≈5 格高
     public const float BlockWeightBuildable = 0.02f; // 可建筑块：占位
     public const float BlockWeightTreasure = 0.02f;  // 宝箱块：占位宝物
+    public const float BlockWeightSlime = 0.01f;     // MAP-009 粘液块：每 run 仅 1% 命中（整段至多一块，全图另有限量）
     public const float BlockOneWayChance = 0.30f;    // 每个 run 含「单向连排段」的概率（段长分布见 OneWayLen* 权重）
     // 单向平台连排长度分布（同一 run 内横排连续格数）：2~3 常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）
     public const float OneWayLen1Weight = 0.10f;
@@ -128,6 +133,24 @@ public static class GameDefs
     // 只在身体小部分探入方块边缘时触发（Celeste ≈ 半格以内），绝不长距离瞬移。
     public const float MasterCornerCorrectionMax = 0.45f;  // 允许修正的最大交叠深度（单位）
     public const float MasterCornerCorrectionSkin = 0.08f; // 修正后与方块的保留间隙
+
+    // ---------------------------------------------------------------- MAP-009 粘液块手感
+    // 「走上去会减速」= 水平顶速 × SlimeSpeedMul；「无法跳跃」= 按跳只给 SlimeHopSpeed 的极小上跳，
+    // 上升段用 SlimeHopGravity 弹起一点点，一旦到顶点就用 SlimeSnapGravity 立刻压回地面
+    // （视觉上像刚起跳就被黏住拽回去）。全部走 MoveTuning，白箱与游戏共用同一份内核。
+    public const string SlimeBlockGroup = "slime_block";  // 粘液块碰撞体组别：移动内核靠地板碰撞体识别脚下块
+    public const int BlockSlimeMaxCount = 3;             // 全图粘液块数量上限（"出现概率非常小"的可验证口径）
+    public const float SlimeSpeedMul = 0.35f;             // 粘液上水平顶速倍率（8 → 2.8 格/秒）
+    public const float SlimeAccelMul = 0.40f;             // 粘液上加/减速倍率（起步黏滞、松键也更滑）
+    public const float SlimeHopSpeed = 6.0f;              // 粘液上的起跳初速（正常 18.4，只弹起 ≈0.25 格）
+    public const float SlimeHopGravity = 60.0f;          // 粘液起跳上升段重力（略大于正常 50，压低最高点）
+    public const float SlimeSnapGravity = 900.0f;        // 顶点向下的黏回重力（正常 50 的 18 倍），瞬间压回
+    public const float SlimeSnapMaxFall = 16.0f;         // 黏回下压速度上限，防止过冲穿块
+    public const float SlimeSnapTime = 0.20f;            // 黏回状态最长持续（秒），兜底防卡在空中
+    // 验算：起跳帧 vy=-6 当帧位移 -0.1；随后半隐式积分 dt=1/60 → -5,-4,-3,-2,-1,0，
+    //       累计最高离地 = 0.1 + (5+4+3+2+1)/60 = 0.35 格；下一帧 g=900 立刻翻成 +15 拍回台面。
+    //       运行时因物理帧 delta 抖动实测约 0.37~0.38 格，故上限留到 0.45（仍 < 1 格 = 连一格都上不去）。
+    public const float SlimeHopApexMax = 0.45f;          // 粘液上允许的最大离地高度（冒烟 / 探针断言上限）
 
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;

@@ -7,7 +7,8 @@ namespace ShanhaiSpiritsSurvivors;
 /// <summary>
 /// 方块类型（方块地图）。
 /// Normal = 实心，最多；Fragile = 踩碎（本局不恢复）；Bounce = 触碰弹射 ≈5 格高；
-/// Buildable = 占位（行为后续版本实现）；Treasure = 触碰打开，掉落占位宝物。
+/// Buildable = 占位（行为后续版本实现）；Treasure = 触碰打开，掉落占位宝物；
+/// Slime = 粘液（MAP-009，出现概率非常小）：站上去减速 + 跳起被立刻黏回地面。
 /// </summary>
 public enum BlockType
 {
@@ -16,6 +17,7 @@ public enum BlockType
     Bounce,
     Buildable,
     Treasure,
+    Slime,
 }
 
 /// <summary>
@@ -56,6 +58,9 @@ public interface IBounceable
 /// 2~3 格连排常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）。保留 DROP-001 下穿与 CLIMB-001 台沿上攀。
 /// 方块行为：Fragile = 顶面感应 → 碎；Bounce = 整块感应 → IBounceable.Bounce()；
 /// Treasure = 整块感应 → 打开（移除碰撞，掉落占位宝物）；Buildable = 实心占位。
+/// MAP-009 粘液块：不靠触碰感应，而是把碰撞体加入 SlimeBlockGroup；PlatformMover 每帧读
+/// 地板碰撞体（与 DROP-001 下穿同一处判定），站上去就减速、起跳只弹极小高度后立刻黏回。
+/// 生成权重 BlockWeightSlime 极小，全图 SlimeCount 硬上限 BlockSlimeMaxCount。
 /// </summary>
 [GlobalClass]
 public partial class BlockField : Node2D, IBlockGeometry
@@ -72,6 +77,8 @@ public partial class BlockField : Node2D, IBlockGeometry
     private readonly RandomNumberGenerator _rng = new();
     private readonly List<(int Row, int C0, int C1)> _backbone = new();
     private readonly List<List<(int Row, int C0, int C1)>> _paths = new();
+    private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
+    private int _slimeBudget;   // 生成期已落地的粘液块数（硬上限，保证"出现概率非常小"）
 
     // ---------------------------------------------------------------- 场景预制体（编辑器可拖拽换贴图）
     [Export] public PackedScene? SceneSolid;
@@ -80,6 +87,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     [Export] public PackedScene? SceneBounce;
     [Export] public PackedScene? SceneBuildable;
     [Export] public PackedScene? SceneTreasure;
+    [Export] public PackedScene? SceneSlime;
     [Export] public PackedScene? SceneLootDrop;
 
     /// <summary>未在编辑器里拖场景时按路径加载（白箱在代码里 new BlockField() 也能用）。</summary>
@@ -91,6 +99,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         SceneBounce ??= GD.Load<PackedScene>("res://scenes/blocks/block_bounce.tscn");
         SceneBuildable ??= GD.Load<PackedScene>("res://scenes/blocks/block_buildable.tscn");
         SceneTreasure ??= GD.Load<PackedScene>("res://scenes/blocks/block_treasure.tscn");
+        SceneSlime ??= GD.Load<PackedScene>("res://scenes/blocks/block_slime.tscn");
         SceneLootDrop ??= GD.Load<PackedScene>("res://scenes/fx/loot_drop.tscn");
     }
 
@@ -112,6 +121,10 @@ public partial class BlockField : Node2D, IBlockGeometry
     /// <summary>MAP-008：生成的独立骨架通道数 / 顶端可达的通道数。</summary>
     public int PathCount { get; private set; }
     public int ReachablePathCount { get; private set; }
+    /// <summary>MAP-009：最终地图里的粘液块数量（0 ~ BlockSlimeMaxCount，冒烟/探针读取）。</summary>
+    public int SlimeCount { get; private set; }
+    /// <summary>MAP-009：实例化后确实挂上 SlimeBlockGroup 的碰撞体数（== SlimeCount 才说明移动内核能识别）。</summary>
+    public int SlimeGroupedCount { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -152,6 +165,9 @@ public partial class BlockField : Node2D, IBlockGeometry
         HasPathToTop = false;
         PathCount = 0;
         ReachablePathCount = 0;
+        SlimeCount = 0;
+        SlimeGroupedCount = 0;
+        _slimeBudget = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -183,6 +199,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         PruneIsolatedSingles();       // MAP-006：尽量少出现孤立单个方块（移除后只会让上下净空更宽松）
         MeasureVerticalClearance();   // 重新同步最终方块统计与单块率
         EnsureFullPathToTop();        // MAP-007：真实验证从地面到顶层的跳跃可达性
+        EnsureSlimePresence();        // MAP-009：保底 1 块粘液（只改类型，不动任何几何/净空/可达统计）
+        CountSlimeBlocks();           // 最终统计（修剪/补齐/保底之后），供冒烟与探针读取
 
         for (int r = 0; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -193,7 +211,8 @@ public partial class BlockField : Node2D, IBlockGeometry
                  $"singles={SingleBlockCount}/{VerticalClearTotal} ({SingleBlockRatio:P1}) " +
                  $"top_row={MaxReachableRow} path_to_top={HasPathToTop} " +
                  $"paths={ReachablePathCount}/{PathCount} " +
-                 $"pruned={VerticalClearPruned} oneway={OneWayCount}");
+                 $"pruned={VerticalClearPruned} oneway={OneWayCount} " +
+                 $"slime={SlimeCount} slime_grouped={SlimeGroupedCount}");
 
     }
 
@@ -392,7 +411,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         return false;
     }
 
-    /// <summary>特殊块类型按权重掷（普通 = 其余）。每个 run 掷一次；数值见 GameDefs。</summary>
+    /// <summary>特殊块类型按权重掷（普通 = 其余）。每个 run 掷一次；数值见 GameDefs。
+    /// MAP-009：粘液块权重极小，且整图数量受 BlockSlimeMaxCount 硬上限约束。</summary>
     private BlockType PickType()
     {
         float roll = _rng.Randf();
@@ -404,6 +424,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         if (roll < acc) return BlockType.Buildable;
         acc += GameDefs.BlockWeightTreasure;
         if (roll < acc) return BlockType.Treasure;
+        acc += GameDefs.BlockWeightSlime;
+        if (roll < acc && _slimeBudget < GameDefs.BlockSlimeMaxCount) return BlockType.Slime;
         return BlockType.Normal;
     }
 
@@ -416,6 +438,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         _reachable[r, c] = true;
         ReserveHeadroom(r, c, t);
         BlockCount++;
+        if (t == BlockType.Slime) _slimeBudget++;
     }
 
     /// <summary>原则②：可站立块上方保留净空（普通 2 格 / 弹跳块 7 格），生成自下而上，后续行不得占用。</summary>
@@ -453,6 +476,42 @@ public partial class BlockField : Node2D, IBlockGeometry
         bool left = c > 0 && _alive[r, c - 1];
         bool right = c + 1 < GameDefs.BlockCols && _alive[r, c + 1];
         return !left && !right;
+    }
+
+    /// <summary>
+    /// MAP-009：最终统计粘液块数量（在修剪 / 骨架补齐 / 保底之后调用）。
+    /// </summary>
+    private void CountSlimeBlocks()
+    {
+        int n = 0;
+        for (int r = 0; r < GameDefs.BlockRows; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && _type[r, c] == BlockType.Slime) n++;
+        SlimeCount = n;
+    }
+
+    /// <summary>
+    /// MAP-009 保底：出现概率非常小，但每局至少留 1 块，避免整图看不到新方块、也无法验证。
+    /// 只把一块「已存在的普通装饰块」改类型，不改 _alive / _oneWay / _reachable，
+    /// 因此 MAP-005 净空、MAP-006 单块率、MAP-007/008 可达路径的统计全部不受影响。
+    /// 严格避开：地面 row 0（GND-001 硬约束）、单向平台、骨架主路径（避免把唯一通路变成黏住跳不上去）。
+    /// 用 _rng 挑，保证同种子可复现。
+    /// </summary>
+    private void EnsureSlimePresence()
+    {
+        CountSlimeBlocks();
+        if (SlimeCount > 0) return;
+        var candidates = new List<(int R, int C)>();
+        for (int r = GameDefs.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && _type[r, c] == BlockType.Normal
+                    && !_oneWay[r, c] && !_backboneCell[r, c])
+                    candidates.Add((r, c));
+        if (candidates.Count == 0) return;
+        var (rr, cc) = candidates[_rng.RandiRange(0, candidates.Count - 1)];
+        _type[rr, cc] = BlockType.Slime;
+        _slimeBudget++;
+        GD.Print($"[BLOCKS] slime fallback placed at ({cc},{rr})");
     }
 
     /// <summary>MAP-005 / MAP-006：统计最终地图里「上下隔开 2 格」与「孤立单块」的方块占比，供日志与冒烟断言使用。</summary>
@@ -670,12 +729,20 @@ public partial class BlockField : Node2D, IBlockGeometry
             BlockType.Bounce => SceneBounce,
             BlockType.Buildable => SceneBuildable,
             BlockType.Treasure => SceneTreasure,
+            BlockType.Slime => SceneSlime,
             _ => SceneSolid,
         };
         if (scene == null) return;
         var body = scene.Instantiate<StaticBody2D>();
         body.Name = $"{t}_{c}_{r}";
         body.Position = BlockCenter(r, c);
+        // MAP-009：粘液块靠「地板碰撞体所在组」被移动内核识别，不挂触碰信号。
+        // 计数与 SlimeCount 一一对应；不等说明分组没挂上，移动内核会认不出脚下是粘液。
+        if (t == BlockType.Slime)
+        {
+            body.AddToGroup(SlimeGroup);
+            SlimeGroupedCount++;
+        }
         var visual = body.GetNodeOrNull<Sprite2D>("Visual");
         if (visual != null)
         {
@@ -703,6 +770,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         BlockType.Bounce => new Color(0.95f, 0.55f, 0.35f),
         BlockType.Buildable => new Color(0.55f, 0.62f, 0.72f),
         BlockType.Treasure => new Color(0.95f, 0.80f, 0.35f),
+        BlockType.Slime => new Color(0.36f, 0.78f, 0.42f),   // 黏液：荧光青绿，一眼可辨
         _ => Colors.White,
     };
 
@@ -840,6 +908,27 @@ public partial class BlockField : Node2D, IBlockGeometry
     public bool IsBlocked(int row, int col)
     {
         return _alive[row, col] && !_oneWay[row, col];
+    }
+
+    /// <summary>
+    /// MAP-009 冒烟测试用：取第一块「可站立」的粘液块（上方 2 格净空、非单向），
+    /// 返回中心 x 与可行走台面 y（块上缘），供「站在粘液上按跳 → 立刻被黏回」验证。
+    /// 只用于 --smoke 传送，不参与正常游戏流程。
+    /// </summary>
+    public bool GetFirstSlime(out float centerX, out float topY)
+    {
+        for (int r = 1; r < GameDefs.BlockRows; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && _type[r, c] == BlockType.Slime
+                    && !_oneWay[r, c] && CanStandOn(r, c))
+                {
+                    centerX = ColX(c) + 0.5f;
+                    topY = RowTopY(r) - 1f;
+                    return true;
+                }
+        centerX = 0f;
+        topY = 0f;
+        return false;
     }
 
     /// <summary>冒烟测试用：取第一块单向块（row ≥1）的中心 x 与可行走台面 y（块上缘），供「下 + 跳」下穿验证。</summary>

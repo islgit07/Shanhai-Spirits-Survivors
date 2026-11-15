@@ -42,6 +42,9 @@ public partial class GameRoot : Node2D
 	public bool HasPathToTop;
 	public int PathCount;
 	public int ReachablePathCount;
+	// MAP-009 粘液块统计（由 BlockField 读取，冒烟断言用）
+	public int SlimeCount;
+	public int SlimeGroupedCount;
 
 	private float _smokeTimer;
 	private bool _jumpInjected, _releaseInjected;
@@ -51,6 +54,10 @@ public partial class GameRoot : Node2D
 	private Vector2 _smokeStartPos;
 	private Vector2 _smokeMovedPos;   // 传送前的位置（player_moved 断言用，不受传送干扰）
 	private float _smokeMinY;
+	// MAP-009 冒烟阶段（3.2~4.4s）：传送到粘液块 → 测水平减速 → 按跳测「立刻被黏回」
+	private bool _slimeTeleported, _slimeSkipped, _slimeMoveReleased, _slimeJumpInjected, _slimeJumpReleased;
+	private bool _slimeLandedChecked, _slimeLanded;
+	private float _slimePlatY, _slimeApexY, _slimeGroundSpeed;
 
 	public override void _Ready()
 	{
@@ -132,6 +139,8 @@ public partial class GameRoot : Node2D
 		HasPathToTop = _blocks.HasPathToTop;
 		PathCount = _blocks.PathCount;
 		ReachablePathCount = _blocks.ReachablePathCount;
+		SlimeCount = _blocks.SlimeCount;
+		SlimeGroupedCount = _blocks.SlimeGroupedCount;
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
@@ -156,6 +165,17 @@ public partial class GameRoot : Node2D
 	{
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstOneWay(out float x, out float y)) return false;
+		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.05f);
+		Player.Velocity = Vector2.Zero;
+		Player.ResetMover();
+		return true;
+	}
+
+	/// <summary>MAP-009 冒烟测试用：把主角放到第一块可站立的粘液块上，供减速 / 黏跳验证。</summary>
+	private bool SmokeTeleportToSlime()
+	{
+		if (Player == null || !IsInstanceValid(Player)) return false;
+		if (!_blocks.GetFirstSlime(out float x, out float y)) return false;
 		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.05f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
@@ -244,7 +264,52 @@ public partial class GameRoot : Node2D
 			Input.ActionRelease("jump");
 			Input.ActionRelease("move_down");
 		}
-		if (_smokeTimer > 3.2f) FinishSmoke();
+		// @trace MAP-009 粘液块运行时验证：传送到粘液块 → 短按右移测地面顶速 → 按跳测黏回。
+		// 全程不注入水平输入到跳跃阶段，避免角色走出 1×1 粘液块导致断言失真。
+		if (_smokeTimer > 3.2f && !_slimeTeleported)
+		{
+			_slimeTeleported = true;
+			if (SmokeTeleportToSlime() && Player != null && IsInstanceValid(Player))
+			{
+				_slimePlatY = Player.GlobalPosition.Y;
+				_slimeApexY = _slimePlatY;
+				Input.ActionPress("move_right");
+				GD.Print("[SMOKE] 传送到粘液块 + move_right 注入");
+			}
+			else
+			{
+				_slimeSkipped = true;
+				GD.Print("[SMOKE] 粘液块验证跳过（传送失败）");
+			}
+		}
+		if (_slimeTeleported && !_slimeSkipped && !_slimeMoveReleased && _smokeTimer > 3.32f)
+		{
+			_slimeMoveReleased = true;
+			_slimeGroundSpeed = Player != null && IsInstanceValid(Player) ? Player.Velocity.X : 0f;
+			Input.ActionRelease("move_right");
+		}
+		if (_slimeTeleported && !_slimeSkipped && !_slimeJumpInjected && _smokeTimer > 3.4f)
+		{
+			_slimeJumpInjected = true;
+			Input.ActionPress("jump");
+			GD.Print("[SMOKE] 粘液块：jump 注入");
+		}
+		if (_slimeJumpInjected && !_slimeJumpReleased && _smokeTimer > 3.55f)
+		{
+			_slimeJumpReleased = true;
+			Input.ActionRelease("jump");
+		}
+		if (_slimeJumpInjected && !_slimeSkipped && _smokeTimer <= 4.0f
+			&& Player != null && IsInstanceValid(Player))
+			_slimeApexY = Mathf.Min(_slimeApexY, Player.GlobalPosition.Y);
+		if (_slimeJumpInjected && !_slimeSkipped && !_slimeLandedChecked && _smokeTimer > 4.0f)
+		{
+			_slimeLandedChecked = true;
+			_slimeLanded = Player != null && IsInstanceValid(Player)
+				&& Player.IsOnFloor()
+				&& Mathf.Abs(Player.GlobalPosition.Y - _slimePlatY) < 0.3f;
+		}
+		if (_smokeTimer > 4.4f) FinishSmoke();
 	}
 
 	private void FinishSmoke()
@@ -266,6 +331,12 @@ public partial class GameRoot : Node2D
 			new Vector2(-5.0f, -0.4f), 0.6f, 1.0f, climbLedge,
 			GameDefs.MasterClimbReachUp, GameDefs.MasterClimbReachDown,
 			GameDefs.MasterClimbEdgeBand, GameDefs.MasterClimbStep, out _);
+		// MAP-009：纯逻辑黏跳积分 + 粘液目标顶速（确定性断言，与运行时结果互为佐证）
+		MoveTuning tuning = MoveTuning.GameDefaults();
+		PlatformMover.SimulateSlimeHop(tuning, 1.0f / 60.0f,
+			out float slimeApexSim, out bool slimeSnapped);
+		float slimeTarget = PlatformMover.ComputeSlimeTargetSpeed(1.0f, tuning);
+		float slimeRise = _slimePlatY - _slimeApexY;   // 真实运行时最高离地高度（y-down 取反）
 		var assertions = new Dictionary<string, bool>
 		{
 			["platforms_built"] = PlatformCount > 0,
@@ -280,6 +351,17 @@ public partial class GameRoot : Node2D
 			["path_to_top_ok"] = HasPathToTop,
 			["multi_path_ok"] = ReachablePathCount >= GameDefs.BackbonePathMin,
 			["seed_ui_ok"] = SeedUiText() == UiSkin.SeedText(_currentSeed),
+			// MAP-009：数量 / 分组 / 减速 / 黏跳 / 黏回
+			["slime_blocks_ok"] = SlimeCount >= 1 && SlimeCount <= GameDefs.BlockSlimeMaxCount
+								  && SlimeGroupedCount == SlimeCount,
+			["slime_slow_ok"] = !_slimeSkipped
+								&& _slimeGroundSpeed <= GameDefs.MasterMoveSpeed * GameDefs.SlimeSpeedMul + 0.25f
+								&& Mathf.IsEqualApprox(slimeTarget, tuning.MoveSpeed * tuning.SlimeSpeedMul)
+								&& slimeTarget < tuning.MoveSpeed * 0.5f,
+			["slime_no_jump_ok"] = !_slimeSkipped && _slimeLanded
+								   && slimeRise > 0.02f && slimeRise <= GameDefs.SlimeHopApexMax,
+			["slime_snap_ok"] = slimeApexSim > 0.0f && slimeApexSim <= GameDefs.SlimeHopApexMax
+								&& slimeSnapped,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -302,6 +384,17 @@ public partial class GameRoot : Node2D
 			["seed"] = _currentSeed,
 			["seed_ui"] = SeedUiText(),
 			["oneway_blocks"] = OneWayCount,
+			// MAP-009 粘液块证据
+			["slime_blocks"] = $"{SlimeCount}/{GameDefs.BlockSlimeMaxCount}",
+			["slime_grouped"] = SlimeGroupedCount,
+			["slime_weight_per_run"] = GameDefs.BlockWeightSlime,
+			["slime_ground_speed"] = Math.Round(_slimeGroundSpeed, 3),
+			["slime_normal_top_speed"] = Math.Round(tuning.MoveSpeed, 3),
+			["slime_top_speed"] = Math.Round(slimeTarget, 3),
+			["slime_hop_rise"] = Math.Round(slimeRise, 3),
+			["slime_hop_rise_sim"] = Math.Round(slimeApexSim, 3),
+			["slime_hop_rise_max"] = GameDefs.SlimeHopApexMax,
+			["slime_landed_back"] = _slimeLanded,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

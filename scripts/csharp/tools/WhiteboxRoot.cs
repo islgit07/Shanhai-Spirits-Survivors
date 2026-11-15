@@ -216,7 +216,7 @@ public partial class WhiteboxRoot : Node2D
         BuildLegend();
 
         // 开发用：常驻显示当前地图种子（放在图例下方，避开右侧参数面板与左上图例）
-        _seedLabel = UiSkin.MakeSeedBadge(this, _seed, new Vector2(16f, 270f));
+        _seedLabel = UiSkin.MakeSeedBadge(this, _seed, new Vector2(16f, 314f));
     }
 
     // ---------------------------------------------------------------- 方块图例（常驻左上角）
@@ -227,7 +227,7 @@ public partial class WhiteboxRoot : Node2D
         {
             Color = new Color(0.07f, 0.08f, 0.13f, 0.88f),
             Position = new Vector2(16f, 16f),
-            Size = new Vector2(344f, 246f),
+            Size = new Vector2(344f, 290f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _ui.AddChild(panel);
@@ -235,7 +235,7 @@ public partial class WhiteboxRoot : Node2D
         var box = new VBoxContainer
         {
             Position = new Vector2(12f, 10f),
-            Size = new Vector2(320f, 226f),
+            Size = new Vector2(320f, 270f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         box.AddThemeConstantOverride("separation", 3);
@@ -248,8 +248,10 @@ public partial class WhiteboxRoot : Node2D
         AddLegendRow(box, BlockField.Tint(BlockType.Bounce), "弹跳块 —— 弹射 ≈4.8 格（果冻动画）");
         AddLegendRow(box, BlockField.Tint(BlockType.Buildable), "可建筑块 —— 占位（未来塔防改造点）");
         AddLegendRow(box, BlockField.Tint(BlockType.Treasure), "宝箱块 —— 触碰打开 · 掉占位宝物");
+        AddLegendRow(box, BlockField.Tint(BlockType.Slime), "粘液块 —— 走上去减速 · 跳起被立刻黏回");
         box.AddChild(UiSkin.MakeLabel("单向连排：2~3 常见 · 1/4 少见 · 5 极少见 · >5 不出现", 11, UiSkin.Jade));
-        box.AddChild(UiSkin.MakeLabel("特殊块/run：脆弱 7% · 弹跳 6% · 建筑 2% · 宝箱 2%", 11, UiSkin.Jade));
+        box.AddChild(UiSkin.MakeLabel("特殊块/run：脆弱 7% · 弹跳 6% · 建筑 2% · 宝箱 2% · 粘液 1%", 11, UiSkin.Jade));
+        box.AddChild(UiSkin.MakeLabel("粘液：全图 ≤3 块 · 每图保底 1 块 · 不占地面/骨架/单向", 11, UiSkin.Jade));
     }
 
     /// <summary>图例一行：色块 + 说明文字。</summary>

@@ -68,6 +68,14 @@ public sealed class MoveTuning
     public float ClimbCooldown = GameDefs.MasterClimbCooldown;
     /// <summary>自动上攀总开关（CLIMB-001）。默认取 GameDefs（当前整体关闭）；白箱可单独打开预调。</summary>
     public bool AutoClimbEnabled = GameDefs.MasterAutoClimbEnabled;
+    // MAP-009 粘液块：站在粘液上减速，起跳只弹起一点点后立刻被黏回地面。
+    public float SlimeSpeedMul = GameDefs.SlimeSpeedMul;
+    public float SlimeAccelMul = GameDefs.SlimeAccelMul;
+    public float SlimeHopSpeed = GameDefs.SlimeHopSpeed;
+    public float SlimeHopGravity = GameDefs.SlimeHopGravity;
+    public float SlimeSnapGravity = GameDefs.SlimeSnapGravity;
+    public float SlimeSnapMaxFall = GameDefs.SlimeSnapMaxFall;
+    public float SlimeSnapTime = GameDefs.SlimeSnapTime;
 
     public static MoveTuning GameDefaults() => new();
 
@@ -120,6 +128,10 @@ public sealed class MoveTuning
         ClimbReachUp = ClimbReachUp, ClimbReachDown = ClimbReachDown,
         ClimbEdgeBand = ClimbEdgeBand, ClimbStep = ClimbStep, ClimbCooldown = ClimbCooldown,
         AutoClimbEnabled = AutoClimbEnabled,
+        SlimeSpeedMul = SlimeSpeedMul, SlimeAccelMul = SlimeAccelMul,
+        SlimeHopSpeed = SlimeHopSpeed, SlimeHopGravity = SlimeHopGravity,
+        SlimeSnapGravity = SlimeSnapGravity, SlimeSnapMaxFall = SlimeSnapMaxFall,
+        SlimeSnapTime = SlimeSnapTime,
     };
 }
 
@@ -130,6 +142,9 @@ public sealed class MoveTuning
 /// @trace JUMP-002 终焉之莉莉式跳跃：变高跳(上升松键截断) + 顶点滞空 + 下落加重 + 下落限速。
 /// @trace DROP-001 类银式下穿：站在单向平台上「下 + 跳」穿层落下；实体地板不受影响。
 /// @trace CLIMB-001 终焉之莉莉式自动上攀：撞到上层单向平台边缘附近时，几何台沿探测并自动拉上台面。
+/// @trace MAP-009 粘液块：脚下地板在 SlimeBlockGroup 时水平减速；按跳只给极小上跳，
+///   随后 SlimeSnapGravity 把这点高度瞬间压回地面（"跳起来被立刻黏住回去"）。
+///   效果全在本内核里，Master / WhiteboxPlayer 零改动，保证「白箱手感 == 游戏手感」。
 /// </summary>
 public sealed class PlatformMover
 {
@@ -150,8 +165,11 @@ public sealed class PlatformMover
     private float _dropTimer;     // 下穿窗口倒计时：>0 期间与「单向平台层」的碰撞被关闭
     private float _climbCooldown; // 自动上攀冷却：>0 期间不触发下一次翻越（防抖）
     private bool _onOneWayFloor;  // 脚下地面是否单向平台（站立静止帧沿用上次结论）
+    private bool _onSlimeFloor;   // MAP-009：脚下地面是否粘液块（站立静止帧沿用上次结论）
+    private float _slimeSnap;     // MAP-009：>0 期间处于「黏回」窗口，用超大重力压回地面
     private List<Ledge> _ledges = new();   // 台沿列表（CLIMB-001）
     private IBlockGeometry? _geometry;     // 方块几何（转角修正用）
+    private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
 
     public bool Grounded { get; private set; }
     public bool JustJumped { get; private set; }
@@ -177,6 +195,9 @@ public sealed class PlatformMover
     {
         JustJumped = false;
         Grounded = body.IsOnFloor();
+        // MAP-009：本帧脚下是否粘液。站立静止帧（vy=0 无新滑动碰撞）沿用上次结论。
+        bool slimeFloor = _onSlimeFloor;
+        _slimeSnap = Mathf.Max(0.0f, _slimeSnap - dt);
 
         // 土狼时间 / 跳跃缓冲：默认 0 时退化成「必须站在地上且当帧按跳」，与旧行为完全一致
         _coyote = Grounded ? T.CoyoteTime : Mathf.Max(0.0f, _coyote - dt);
@@ -197,17 +218,25 @@ public sealed class PlatformMover
         if (_dropTimer > 0.0f) body.CollisionMask &= ~GameDefs.LayerOneWay;
         else body.CollisionMask |= GameDefs.LayerOneWay;
 
-        body.Velocity = new Vector2(ApplyHorizontal(body.Velocity.X, dirX, Grounded, dt), body.Velocity.Y);
+        // MAP-009：粘液块上（含黏回窗口）水平减速——顶速与加/减速同时降低。
+        bool slimeActive = slimeFloor || _slimeSnap > 0.0f;
+        body.Velocity = new Vector2(ApplyHorizontal(body.Velocity.X, dirX, Grounded, dt, slimeActive),
+            body.Velocity.Y);
 
         if (Grounded)
         {
             if (_buffer > 0.0f)
             {
-                body.Velocity = new Vector2(body.Velocity.X, -T.JumpSpeed);
-                _buffer = 0.0f; _coyote = 0.0f; JustJumped = true; _cutAvailable = true;
+                // 粘液上按跳：只给极小上跳（看得见"跳起来"），随即进入黏回窗口被压回去。
+                float jumpVy = slimeFloor ? -T.SlimeHopSpeed : -T.JumpSpeed;
+                body.Velocity = new Vector2(body.Velocity.X, jumpVy);
+                _buffer = 0.0f; _coyote = 0.0f; JustJumped = true;
+                _cutAvailable = !slimeFloor;                  // 黏跳不参与变高跳截断
+                if (slimeFloor) _slimeSnap = T.SlimeSnapTime;
             }
             else
             {
+                if (_slimeSnap > 0.0f) _slimeSnap = 0.0f;     // 已被黏回地面，窗口提前结束
                 body.Velocity = dropThrough
                     ? new Vector2(body.Velocity.X, 2.0f)    // 下穿：给一点向下初速，立即脱离台面
                     : new Vector2(body.Velocity.X, 0.0f);   // 贴地：不累积重力
@@ -215,10 +244,16 @@ public sealed class PlatformMover
         }
         else
         {
-            if (_buffer > 0.0f && _coyote > 0.0f)
+            if (_buffer > 0.0f && _coyote > 0.0f && _slimeSnap <= 0.0f)
             {
                 body.Velocity = new Vector2(body.Velocity.X, -T.JumpSpeed);
                 _buffer = 0.0f; _coyote = 0.0f; JustJumped = true; _cutAvailable = true;
+            }
+            else if (_slimeSnap > 0.0f)
+            {
+                // MAP-009 黏回：上升用略大重力压低最高点，一到顶点就用超大重力瞬间拽回地面。
+                body.Velocity = new Vector2(body.Velocity.X,
+                    ComputeSlimeVertical(body.Velocity.Y, dt, T));
             }
             else
             {
@@ -265,25 +300,66 @@ public sealed class PlatformMover
             JustJumped = false;
             Grounded = true;   // 本帧视为已上台，避免下一帧落地前的误判
             _onOneWayFloor = false;   // 翻上台沿后脚下地面类型未知，下帧落地判定刷新
+            _onSlimeFloor = false;
         }
     }
 
     /// <summary>
     /// 蔚蓝式水平运动：加速度逼近目标速度，反向输入 × TurnAccelMul（急转身）。
     /// 空中松开方向键时只以 AirDecel × EndTraction 轻减速（保留跳跃动量）。
+    /// MAP-009：slime = true 时顶速 × SlimeSpeedMul、加/减速 × SlimeAccelMul（走上去明显变慢）。
     /// </summary>
-    private float ApplyHorizontal(float current, float dirX, bool grounded, float dt)
+    private float ApplyHorizontal(float current, float dirX, bool grounded, float dt, bool slime)
     {
+        float speedMul = slime ? T.SlimeSpeedMul : 1.0f;
+        float accelMul = slime ? T.SlimeAccelMul : 1.0f;
         if (dirX != 0.0f)
         {
-            float target = dirX * T.MoveSpeed;
-            float accel = current * dirX < 0.0f
+            float target = dirX * T.MoveSpeed * speedMul;
+            float accel = (current * dirX < 0.0f
                 ? (grounded ? T.GroundAccel : T.AirAccel) * T.TurnAccelMul   // 反向 = 急转身
-                : (grounded ? T.GroundAccel : T.AirAccel);
+                : (grounded ? T.GroundAccel : T.AirAccel)) * accelMul;
             return Mathf.MoveToward(current, target, accel * dt);
         }
-        float decel = grounded ? T.GroundDecel : T.AirDecel * T.EndTraction;
+        float decel = (grounded ? T.GroundDecel : T.AirDecel * T.EndTraction) * accelMul;
         return Mathf.MoveToward(current, 0.0f, decel * dt);
+    }
+
+    /// <summary>
+    /// MAP-009 纯逻辑：黏回窗口内一帧的垂直速度积分（Step 与无头探针共用，保证验证的就是实跑逻辑）。
+    /// 上升段用 SlimeHopGravity 压低最高点；到顶点后用 SlimeSnapGravity 瞬间拽回；
+    /// 下压速度封顶 SlimeSnapMaxFall，防止一帧穿块。
+    /// </summary>
+    public static float ComputeSlimeVertical(float vy, float dt, MoveTuning t)
+    {
+        float g = vy < 0.0f ? t.SlimeHopGravity : t.SlimeSnapGravity;
+        float next = vy + g * dt;
+        return next > t.SlimeSnapMaxFall ? t.SlimeSnapMaxFall : next;   // 只封顶向下速度，上升段不受影响
+    }
+
+    /// <summary>MAP-009 纯逻辑：粘液块上的水平目标速度（减速倍率可直接断言）。</summary>
+    public static float ComputeSlimeTargetSpeed(float dirX, MoveTuning t)
+        => dirX * t.MoveSpeed * t.SlimeSpeedMul;
+
+    /// <summary>
+    /// MAP-009 纯逻辑：模拟一次完整黏跳，返回最高离地高度（y-down 取反）与窗口内是否被翻成向下速度。
+    /// 起跳帧的当帧位移也计入（Step 在 Grounded 分支直接给 vy，MoveAndSlide 立刻按它移动）。
+    /// Step / 无头冒烟 / 多种子探针共用这一份模型，避免三处积分口径漂移。
+    /// </summary>
+    public static void SimulateSlimeHop(MoveTuning t, float dt, out float apex, out bool snapped)
+    {
+        int steps = Mathf.CeilToInt(t.SlimeSnapTime / dt);
+        float vy = -t.SlimeHopSpeed;
+        float y = vy * dt;
+        apex = -y;
+        snapped = false;
+        for (int i = 0; i < steps; i++)
+        {
+            vy = ComputeSlimeVertical(vy, dt, t);
+            y += vy * dt;
+            apex = Mathf.Max(apex, -y);
+            if (vy > 0.0f) snapped = true;
+        }
     }
 
     /// <summary>
@@ -390,29 +466,36 @@ public sealed class PlatformMover
     }
 
     /// <summary>
-    /// 记录脚下地面类型（是否单向平台）：读本次 MoveAndSlide 的地板碰撞体。
-    /// 站立静止帧（vy=0 无新滑动碰撞）沿用上一次结论，保证「站着按 下+跳」可靠下穿。
+    /// 记录脚下地面类型（是否单向平台 / 是否粘液块）：读本次 MoveAndSlide 的地板碰撞体。
+    /// 站立静止帧（vy=0 无新滑动碰撞）沿用上一次结论，保证「站着按 下+跳」可靠下穿，
+    /// 也保证站在粘液块上不动时减速不会抖动。粘液块靠碰撞体组别识别（BlockField 实例化时加入）。
     /// </summary>
     private void UpdateFloorContact(CharacterBody2D body, bool onFloorNow)
     {
         if (!onFloorNow)
         {
             _onOneWayFloor = false;
+            _onSlimeFloor = false;
             return;
         }
+        bool found = false, oneWay = false, slime = false;
         for (int i = 0; i < body.GetSlideCollisionCount(); i++)
         {
             var ci = body.GetSlideCollision(i);
             if (ci.GetNormal().Y >= -0.7f) continue;   // 只看地板法线（朝上）
             if (ci.GetCollider() is PhysicsBody2D pb)
             {
-                _onOneWayFloor = (pb.CollisionLayer & GameDefs.LayerOneWay) != 0u;
-                return;
+                found = true;
+                if ((pb.CollisionLayer & GameDefs.LayerOneWay) != 0u) oneWay = true;
+                if (pb.IsInGroup(SlimeGroup)) slime = true;   // 跨块站立时任一粘液块都算
             }
         }
+        if (!found) return;   // 站立静止帧沿用上一次结论
+        _onOneWayFloor = oneWay;
+        _onSlimeFloor = slime;
     }
 
-    /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳 / 误翻越。</summary>
+    /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳 / 误翻越 / 残留黏滞。</summary>
     public void ResetWindows()
     {
         _coyote = 0.0f;
@@ -421,5 +504,7 @@ public sealed class PlatformMover
         _dropTimer = 0.0f;
         _climbCooldown = 0.0f;
         _onOneWayFloor = false;
+        _onSlimeFloor = false;
+        _slimeSnap = 0.0f;
     }
 }

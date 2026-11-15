@@ -130,6 +130,46 @@ check("开发用地图种子徽章（UiSkin + 游戏 / 白箱挂载 + 换种子�
       and "MakeSeedBadge" in cs("core/GameRoot.cs")
       and "RefreshSeed" in cs("tools/WhiteboxRoot.cs")
       and "seed_ui_ok" in cs("core/GameRoot.cs"))
+# ---------------------------------------------------------------- 5b. MAP-009 粘液块
+root_cs = cs("core/GameRoot.cs")
+probe_cs = read(ROOT / "tools" / "MapSeedProbe.cs")
+slime_tscn = read(ROOT / "scenes" / "blocks" / "block_slime.tscn")
+check("MAP-009 粘液块常量（1% / 组名 / 上限 3 / 减速 / 黏跳 / 黏回）",
+      all(k in defs for k in ("BlockWeightSlime", "SlimeBlockGroup", "BlockSlimeMaxCount",
+                              "SlimeSpeedMul", "SlimeAccelMul", "SlimeHopSpeed",
+                              "SlimeHopGravity", "SlimeSnapGravity", "SlimeSnapTime",
+                              "SlimeHopApexMax"))
+      and "BlockWeightSlime = 0.01f" in defs
+      and "BlockSlimeMaxCount = 3" in defs)
+check("MAP-009 粘液块预制场景（零 PNG / 实体碰撞层 / 运行时纯色）",
+      (ROOT / "scenes" / "blocks" / "block_slime.tscn").exists()
+      and ".png" not in slime_tscn
+      and "collision_layer = 1" in slime_tscn
+      and "modulate = Color(0.36, 0.78, 0.42, 1)" in slime_tscn)
+check("MAP-009 生成端：极低权重 + 硬上限 + 每图保底 1 块 + 最终统计",
+      "BlockType.Slime" in field and "BlockWeightSlime" in field
+      and "BlockSlimeMaxCount" in field and "EnsureSlimePresence" in field
+      and "CountSlimeBlocks" in field)
+check("MAP-009 实例化端：粘液碰撞体打组并计数（分组数 == 类型数）",
+      "AddToGroup(SlimeGroup)" in field and "SlimeGroupedCount++" in field
+      and "SlimeGroupedCount == field.SlimeCount" in probe_cs)
+check("MAP-009 移动内核：脚下组识别 + 减速 + 极小起跳 + 黏回重力",
+      "ComputeSlimeVertical" in mover and "ComputeSlimeTargetSpeed" in mover
+      and "SlimeSnapGravity" in mover and "_slimeSnap" in mover
+      and "IsInGroup(SlimeGroup)" in mover)
+check("MAP-009 冒烟：粘液块传送 + 数量/减速/黏跳/黏回四条断言",
+      "GetFirstSlime" in field and "SmokeTeleportToSlime" in root_cs
+      and all(k in root_cs for k in ("slime_blocks_ok", "slime_slow_ok",
+                                     "slime_no_jump_ok", "slime_snap_ok")))
+check("MAP-009 黏跳模型单一来源（移动内核供冒烟 / 探针共用）",
+      "SimulateSlimeHop" in mover and "SimulateSlimeHop" in root_cs
+      and "SimulateSlimeHop" in probe_cs)
+check("MAP-009 多种子探针校验粘液数量与分组 + 黏跳纯逻辑",
+      "field.SlimeCount" in probe_cs and "field.SlimeGroupedCount" in probe_cs
+      and "[SLIME_PROBE]" in probe_cs)
+check("MAP-009 白箱图例列出粘液块与出现概率",
+      "BlockField.Tint(BlockType.Slime)" in cs("tools/WhiteboxRoot.cs")
+      and "粘液 1%" in cs("tools/WhiteboxRoot.cs"))
 check("MAP-005 多种子探针存在", (ROOT / "tools" / "MapSeedProbe.cs").exists())
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
