@@ -243,8 +243,10 @@ check("工作区文本文件无 CRLF 残留", not crlf_files, ",".join(crlf_file
 ok_all = all(c["ok"] for c in checks)
 report = {"project": "山海幻灵", "version": VERSION, "result": "PASS" if ok_all else "FAIL",
           "checks": checks}
-(DOCS / "self-check.json").write_text(json.dumps(report, ensure_ascii=False, indent=2),
-                                      encoding="utf-8")
+# 显式 newline="\n"：Windows 上 write_text/open 默认会把 \n 翻成 \r\n，
+# 让本脚本自己产出的 docs/self-check.json 触发上面「无 CRLF 残留」检查（自检自伤）。
+with (DOCS / "self-check.json").open("w", encoding="utf-8", newline="\n") as f:
+    f.write(json.dumps(report, ensure_ascii=False, indent=2))
 for c in checks:
     print(("PASS " if c["ok"] else "FAIL ") + c["name"] + ("  | " + c["detail"] if c["detail"] else ""))
 print(f"\n{sum(c['ok'] for c in checks)}/{len(checks)} checks passed -> docs/self-check.json")

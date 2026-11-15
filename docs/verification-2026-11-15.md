@@ -245,6 +245,9 @@
 - 结果：`git update-index --really-refresh` + `git add --renormalize`（显式排除 `scenes/StartPage.tscn`）后确认
   **索引里本来就是 LF，行尾归一化没有产生任何内容 diff**，工作区只剩用户那份外部改动。
 - 新增静态检查 3 条：`.gitattributes` 规则、图片标 binary、工作区无 CRLF 残留。
+- 收尾修复：自检脚本原本用 `Path.write_text()` 写 `docs/self-check.json`，Windows 默认换行会把它写成 CRLF，
+  使新增的「无 CRLF 残留」检查在下一次运行时**自检自伤**（复跑实测 84/85 FAIL）。
+  已改为 `open(..., newline="\n")`；连续跑两次自检均 **85/85 PASS**、产物 CRLF 计数 0。
 
 ### 9.2 文档与路由卡同步（P0-2）
 
