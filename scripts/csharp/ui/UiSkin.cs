@@ -69,4 +69,54 @@ public static class UiSkin
         Size = rect.Size,
         MouseFilter = Control.MouseFilterEnum.Ignore,
     };
+
+    /// <summary>
+    /// 开发用地图种子徽章：常驻屏幕角落（默认右上角；传 topLeft 可指定固定位置避开白箱图例）。
+    /// 只显示当前地形种子，便于复现地图；不提供输入 / 切换功能。
+    /// 返回 Label，换种子时调用 RefreshSeed 更新。
+    /// </summary>
+    public static Label MakeSeedBadge(Node parent, int seed, Vector2? topLeft = null)
+    {
+        var layer = new CanvasLayer { Name = "DevSeedUi" };
+        parent.AddChild(layer);
+
+        const float W = 200f, H = 32f, M = 14f, T = 14f;
+        var bg = MakePanel(new Rect2(Vector2.Zero, new Vector2(W, H)),
+                           new Color(Ink.R, Ink.G, Ink.B, 0.82f));
+        bg.Name = "SeedBack";
+        var label = MakeLabel(SeedText(seed), 15, Gold);
+        label.Name = "SeedLabel";
+        label.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        if (topLeft.HasValue)
+        {
+            bg.Position = topLeft.Value;
+            label.Position = topLeft.Value + new Vector2(9f, 5f);
+            label.Size = new Vector2(W - 18f, H - 10f);
+        }
+        else
+        {
+            AnchorTopRight(bg, W, H, T, M);
+            AnchorTopRight(label, W - 18f, H - 10f, T + 5f, M + 9f);
+        }
+        layer.AddChild(bg);
+        layer.AddChild(label);
+        return label;
+    }
+
+    public static string SeedText(int seed) => $"SEED  {seed}";
+
+    public static void RefreshSeed(Label label, int seed) => label.Text = SeedText(seed);
+
+    private static void AnchorTopRight(Control c, float w, float h, float top, float rightMargin)
+    {
+        c.AnchorLeft = 1f;
+        c.AnchorRight = 1f;
+        c.AnchorTop = 0f;
+        c.AnchorBottom = 0f;
+        c.OffsetLeft = -rightMargin - w;
+        c.OffsetRight = -rightMargin;
+        c.OffsetTop = top;
+        c.OffsetBottom = top + h;
+    }
 }

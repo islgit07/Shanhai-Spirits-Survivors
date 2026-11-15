@@ -45,6 +45,8 @@ public static class GameDefs
     //   ⑦ 尽量少出现单个方块（MAP-006）：BlockRunMin = 2，生成后清理大部分孤立单块，
     //     孤立单块占比控制在 ≤ BlockSingleRatioMax。
     //   ⑧ 完整登顶路径（MAP-007）：保证存在从地面 row 0 完整跳到最高有效层（row ≥ BlockTopReachMinRow）的可达通路。
+    //   ⑨ 多条登顶路径（MAP-008）：每次生成 BackbonePathMin~BackbonePathMax 条独立蛇形骨架，
+    //     各占一条列带；至少 1 条贯通到顶层，平时 2~3 条全部可达。
     public const int BlockCols = 56;
     public const int BlockRows = 27;
     public const int LayerStepRows = 3;    // 骨架主路径层间距（行数）：3 = 中间空 2 行，与 MAP-005 一致
@@ -64,6 +66,9 @@ public static class GameDefs
     public const float BlockSingleRatioMax = 0.05f;      // 达标线：孤立单块占总块数 ≤ 5%
     // MAP-007：完整登顶路径（原则⑧）
     public const int BlockTopReachMinRow = 24;           // 从地面起跳可达的最高层下限（层间距 3 时顶层骨架在 row 24）
+    // MAP-008：多条登顶路径（原则⑨）
+    public const int BackbonePathMin = 2;                // 每次生成的独立骨架通道数下限
+    public const int BackbonePathMax = 3;                // 上限（至少 1 条贯通，平时 2~3 条全部可达）
     // 特殊块权重（每个 run 掷一次，整段纯平台概率 = 1 - 总和 ≈0.83，原则③）
     public const float BlockWeightFragile = 0.07f;   // 脆弱木板：踩碎
     public const float BlockWeightBounce = 0.06f;    // 弹跳块：弹射 ≈5 格高

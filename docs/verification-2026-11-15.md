@@ -116,3 +116,41 @@
 - `PruneIsolatedSingles`：清理非骨架孤立单块，并将单块率严格压在 ≤ 5%。
 - `EnsureFullPathToTop` + `ComputeTrueReachability`：按真实可站立净空（上方 2 格无实心块）与跳跃包络从地面 row 0 做 BFS 校验，若断路则自动补齐骨架段并清理遮挡。
 - 验证结果：静态自检 **71/71 PASS**；无头冒烟 **10/10 断言 PASS**（`blocks=199, vertical_clear=93.5%, singles=4.0%, max_reachable_row=26, path_to_top=true`）；`MapSeedProbe` 10 组种子全部达标（`fail=0`，单块率 1.4%~4.9%，最高可达行 24~26）。
+
+---
+
+## 7. 同日第五轮：MAP-008 多条登顶路径 + 开发用种子 UI
+
+### 7.1 多条登顶路径
+
+- `GameDefs` 新增 `BackbonePathMin = 2` / `BackbonePathMax = 3`。
+- `BuildBackbone()` 由单条蛇形骨架改为**每次随机 2~3 条独立骨架通道**：`BlockCols = 56` 按路径数均分成列带，每条通道只在自己的列带内左右交替推进、撞带边界折返，互不交叉；每条仍是「每隔 3 行（层间空 2 行）一段 3~4 格连排平台」，步幅 1~2 列匹配 dr3 跳跃可达半径。
+- `ComputeTrueReachability()` 在 BFS 后新增 `ReachablePathCount` 统计：每条通道的顶端段只要有可达块，即算一条贯通路径；`HasPathToTop` 硬保证 ≥1 条，`multi_path_ok` 断言要求 ≥2 条，`EnsureFullPathToTop()` 在条数不足时补齐所有骨架段并清理遮挡。
+- 实测 10 组种子：`paths=2/2` 或 `3/3`，全部通道贯通；固定种子 `blocks=216 / vertical_clear=94.4% / singles=2.8% / top_row=24 / paths=2/2`。
+
+### 7.2 开发用地图种子 UI
+
+- 复用 `UiSkin`（不新增脚本文件 / UID）：新增 `MakeSeedBadge(parent, seed, topLeft?)` / `SeedText(seed)` / `RefreshSeed(label, seed)`，用 `CanvasLayer` + `ColorRect` + `Label` 做常驻角落徽章，默认右上角锚定、可指定固定位置。
+- 游戏内：`GameRoot` 在 `BeginRun` 后创建徽章，显示本次 `TimeSeed()` / 冒烟固定种子；冒烟新增断言 `seed_ui_ok` 校验显示文本与种子一致，JSON 输出 `seed` / `seed_ui`。
+- 白箱：`WhiteboxRoot` 在图例下方 (16, 270) 显示种子，按 `T` 换地形时 `UiSkin.RefreshSeed` 同步刷新。**仅显示，不提供输入 / 手动指定种子**。
+
+### 7.3 验证结果（全部实跑）
+
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `dotnet build ...` | **0 警告 0 错误** |
+| 2 | `python tools/check_project.py` | **73/73 PASS** |
+| 3 | `godot --headless --path ... --editor --quit` | exit 0，0 ERROR |
+| 4 | `godot --headless --path ... -- --smoke` | exit 0，**PASS** |
+| 5 | `... res://scenes/Main.tscn -- --smoke` | exit 0，**12/12 断言 PASS**，含 `multi_path_ok` / `seed_ui_ok` |
+| 6 | `... --quit-after 120 res://scenes/Whitebox.tscn` | exit 0，0 ERROR，`paths=3/3` |
+| 7 | `... --quit-after 120 res://scenes/StartPage.tscn` | exit 0，0 ERROR |
+| 8 | `... --script res://tools/CSharpToolchainProbe.cs` | `ok=1 engine=4.7.2-stable` |
+| 9 | `... --script res://tools/MapSeedProbe.cs` | **10/10 达标 `fail=0`**，净空 89.0%~96.2%，单块 1.0%~3.1%，`paths=2/2 或 3/3`，最高行 24~26 |
+
+### 7.4 边界与遗留
+
+- `scenes/StartPage.tscn` 在本轮开始前已有**外部未提交改动**（Help 文案被改为「这是一条演示的文字」，Godot 编辑器同时补了 uid / unique_id 并省略默认 `focus_mode`）。本轮**未改动、未提交该文件**；静态自检相应从「锁死按键说明文案」改为「校验 Help 节点存在」。
+- 种子徽章的可见性由节点创建 + 文本断言 + 场景独立运行无错验证，未在图形界面里目视确认。
+- 顶层骨架落在 row 24（地图共 27 行，层间距 3 决定 `3 + 3k` 最远到 24）；BFS 实际可达最高行 24~26（有装饰块时更高）。
+- 版本号保持 `0.0003`，未升版、未打 tag。

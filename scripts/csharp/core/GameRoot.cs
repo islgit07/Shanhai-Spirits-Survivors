@@ -25,6 +25,8 @@ public partial class GameRoot : Node2D
 	private Camera2D _camera = null!;
 	private Sprite2D _backdrop = null!;
 	private BlockField _blocks = null!;
+	private int _currentSeed;
+	private Label _seedLabel = null!;
 
 	public Master? Player;
 	public int PlatformCount;
@@ -38,6 +40,8 @@ public partial class GameRoot : Node2D
 	public float SingleBlockRatio;
 	public int MaxReachableRow;
 	public bool HasPathToTop;
+	public int PathCount;
+	public int ReachablePathCount;
 
 	private float _smokeTimer;
 	private bool _jumpInjected, _releaseInjected;
@@ -80,6 +84,8 @@ public partial class GameRoot : Node2D
 		}
 
 		BeginRun(SmokeMode ? SmokeFixedSeed : TimeSeed());
+		_seedLabel = UiSkin.MakeSeedBadge(this, _currentSeed);   // 开发用：常驻显示当前地图种子，便于复现
+		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
 		GD.Print("[BOOT] 山海幻灵 v0.0003 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
 		if (SmokeMode) BeginSmoke();
@@ -100,10 +106,15 @@ public partial class GameRoot : Node2D
 
 	private static int TimeSeed() => (int)Time.GetUnixTimeFromSystem() & 0x7FFFFFFF;
 
+	/// <summary>种子徽章当前文本（节点可能尚未创建，做显式空值保护）。</summary>
+	private string SeedUiText() => _seedLabel != null && IsInstanceValid(_seedLabel)
+		? _seedLabel.Text : string.Empty;
+
 
 	/// <summary>开局：设相机缩放、按种子建地形、把主角复位到出生点。</summary>
 	private void BeginRun(int seed)
 	{
+		_currentSeed = seed;
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
@@ -119,6 +130,8 @@ public partial class GameRoot : Node2D
 		SingleBlockRatio = _blocks.SingleBlockRatio;
 		MaxReachableRow = _blocks.MaxReachableRow;
 		HasPathToTop = _blocks.HasPathToTop;
+		PathCount = _blocks.PathCount;
+		ReachablePathCount = _blocks.ReachablePathCount;
 
 		// 出生点在第一层地板上方（y-down：y 更小 = 更高）
 		Player!.GlobalPosition = new Vector2(0.0f,
@@ -265,6 +278,8 @@ public partial class GameRoot : Node2D
 			["vertical_clear_80pct"] = VerticalClearRatio >= GameDefs.BlockVerticalClearRatio,
 			["few_single_blocks"] = SingleBlockRatio <= GameDefs.BlockSingleRatioMax,
 			["path_to_top_ok"] = HasPathToTop,
+			["multi_path_ok"] = ReachablePathCount >= GameDefs.BackbonePathMin,
+			["seed_ui_ok"] = SeedUiText() == UiSkin.SeedText(_currentSeed),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -283,6 +298,9 @@ public partial class GameRoot : Node2D
 			["single_block_max"] = GameDefs.BlockSingleRatioMax,
 			["max_reachable_row"] = MaxReachableRow,
 			["path_to_top"] = HasPathToTop,
+			["paths"] = $"{ReachablePathCount}/{PathCount}",
+			["seed"] = _currentSeed,
+			["seed_ui"] = SeedUiText(),
 			["oneway_blocks"] = OneWayCount,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),

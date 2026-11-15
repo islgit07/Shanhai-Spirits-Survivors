@@ -121,6 +121,15 @@ check("MAP-006 尽量少出现单个方块（BlockRunMin=2 + PruneIsolatedSingle
 check("MAP-007 地面到顶层完整路径验证与兜底（EnsureFullPathToTop + ComputeTrueReachability）",
       "EnsureFullPathToTop" in field and "ComputeTrueReachability" in field
       and "path_to_top_ok" in cs("core/GameRoot.cs"))
+check("MAP-008 生成 2~3 条独立骨架路径（列带隔离 + 多路径断言）",
+      "BackbonePathMin = 2" in defs and "BackbonePathMax = 3" in defs
+      and "_paths" in field and "bandLeft" in field
+      and "multi_path_ok" in cs("core/GameRoot.cs"))
+check("开发用地图种子徽章（UiSkin + 游戏 / 白箱挂载 + 换种子刷新）",
+      "MakeSeedBadge" in cs("ui/UiSkin.cs")
+      and "MakeSeedBadge" in cs("core/GameRoot.cs")
+      and "RefreshSeed" in cs("tools/WhiteboxRoot.cs")
+      and "seed_ui_ok" in cs("core/GameRoot.cs"))
 check("MAP-005 多种子探针存在", (ROOT / "tools" / "MapSeedProbe.cs").exists())
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
@@ -142,7 +151,8 @@ start = cs("ui/StartPage.cs")
 start_tscn = read(ROOT / "scenes" / "StartPage.tscn")
 check("开始页键盘导航（grab_focus + 上下焦点链）",
       "GrabFocus" in start and "FocusNeighbor" in start)
-check("开始页基础按键说明", "A / D 移动" in start_tscn and "Help" in start_tscn)
+check("开始页 Help 节点保留（按键说明文案允许在编辑器里自由修改）",
+      'node name="Help" type="Label"' in start_tscn)
 check("--smoke 从开始页自动进游戏（不挂死）",
       "IsSmokeRequested" in start and "ChangeSceneToFile" in start)
 

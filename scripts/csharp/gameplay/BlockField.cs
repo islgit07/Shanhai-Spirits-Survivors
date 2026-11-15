@@ -71,6 +71,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     private readonly bool[,] _jellyBusy = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly RandomNumberGenerator _rng = new();
     private readonly List<(int Row, int C0, int C1)> _backbone = new();
+    private readonly List<List<(int Row, int C0, int C1)>> _paths = new();
 
     // ---------------------------------------------------------------- 场景预制体（编辑器可拖拽换贴图）
     [Export] public PackedScene? SceneSolid;
@@ -108,6 +109,9 @@ public partial class BlockField : Node2D, IBlockGeometry
     /// <summary>MAP-007：从地面层 BFS 跳跃可达的最高行号，以及是否具备完整登顶路径。</summary>
     public int MaxReachableRow { get; private set; }
     public bool HasPathToTop { get; private set; }
+    /// <summary>MAP-008：生成的独立骨架通道数 / 顶端可达的通道数。</summary>
+    public int PathCount { get; private set; }
+    public int ReachablePathCount { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -135,6 +139,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         Array.Clear(_visuals);
         Array.Clear(_jellyBusy);
         _backbone.Clear();
+        _paths.Clear();
         _rng.Seed = Rng.DeriveSeed64(seedValue, "blocks");
         BlockCount = 0;
         VerticalClearCount = 0;
@@ -145,6 +150,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         SingleBlockRatio = 0f;
         MaxReachableRow = 0;
         HasPathToTop = false;
+        PathCount = 0;
+        ReachablePathCount = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -185,41 +192,57 @@ public partial class BlockField : Node2D, IBlockGeometry
                  $"vertical_clear={VerticalClearCount}/{VerticalClearTotal} ({VerticalClearRatio:P1}) " +
                  $"singles={SingleBlockCount}/{VerticalClearTotal} ({SingleBlockRatio:P1}) " +
                  $"top_row={MaxReachableRow} path_to_top={HasPathToTop} " +
+                 $"paths={ReachablePathCount}/{PathCount} " +
                  $"pruned={VerticalClearPruned} oneway={OneWayCount}");
 
     }
 
     /// <summary>
-    /// 蛇形主路径骨架（伪随机核心）：每隔 3 行（中间空 2 行 = MAP-005）一段 3~4 格纯平台，左右交替推进。
-    /// 层间距 dr=3 对应水平可达 ≤2 列（与 CellReachable 收紧规则一致），故步幅 1~2 列；
-    /// 加上平台自身长度重叠，保证相邻两段之间一定跳得过去；撞墙折返。
+    /// MAP-008 多条蛇形主路径骨架：每次生成 BackbonePathMin~BackbonePathMax 条，
+    /// 每条独占一条列带（BlockCols 均分），带内左右交替推进、撞带边界折返，互不交叉。
+    /// 每条都是「每隔 3 行（中间空 2 行 = MAP-005）一段 3~4 格纯平台」；
+    /// 层间距 dr=3 对应水平可达 ≤2 列，故步幅 1~2 列，平台长度重叠保证相邻段一定跳得过去。
     /// </summary>
     private void BuildBackbone()
     {
-        int r = GameDefs.BlockHeadroomRows + 1;
-        bool right = _rng.Randf() < 0.5f;
-        int c = right ? _rng.RandiRange(2, 8)
-                      : _rng.RandiRange(GameDefs.BlockCols - 9, GameDefs.BlockCols - 3);
-        while (r < GameDefs.BlockRows)
+        int pathCount = _rng.RandiRange(GameDefs.BackbonePathMin, GameDefs.BackbonePathMax);
+        int band = GameDefs.BlockCols / pathCount;
+        for (int p = 0; p < pathCount; p++)
         {
-            int len = _rng.RandiRange(3, 4);
-            c = Mathf.Clamp(c, 0, GameDefs.BlockCols - len);
-            PlaceRun(r, c, len, purePlatform: true);
-            for (int k = 0; k < len && c + k < GameDefs.BlockCols; k++)
-                if (_alive[r, c + k]) _backboneCell[r, c + k] = true;   // 兜底修剪时不删主路径骨架
-            _backbone.Add((r, c, c + len - 1));
-            int dr = GameDefs.LayerStepRows;   // 原则⑤：层间空 2 行
-            r += dr;
-            if (r >= GameDefs.BlockRows) break;
-            int step = _rng.RandiRange(1, 2);   // dr=3 的水平可达半径 ≤2 列
-            int next = c + (right ? step : -step);
-            if (next < 1 || next + len > GameDefs.BlockCols - 1)
+            int bandLeft = p * band;
+            int bandRight = p == pathCount - 1 ? GameDefs.BlockCols - 1 : (p + 1) * band - 1;
+            var segments = new List<(int Row, int C0, int C1)>();
+
+            int r = GameDefs.BlockHeadroomRows + 1;
+            bool right = _rng.Randf() < 0.5f;
+            int c = right
+                ? _rng.RandiRange(bandLeft + 1, bandLeft + 4)
+                : _rng.RandiRange(Mathf.Max(bandLeft + 1, bandRight - 7),
+                                  Mathf.Max(bandLeft + 1, bandRight - 4));
+            while (r < GameDefs.BlockRows)
             {
-                right = !right;
-                next = c + (right ? step : -step);
+                int len = _rng.RandiRange(3, 4);
+                c = Mathf.Clamp(c, bandLeft, Mathf.Max(bandLeft, bandRight - len + 1));
+                PlaceRun(r, c, len, purePlatform: true);
+                for (int k = 0; k < len && c + k < GameDefs.BlockCols; k++)
+                    if (_alive[r, c + k]) _backboneCell[r, c + k] = true;   // 兜底修剪时不删主路径骨架
+                _backbone.Add((r, c, c + len - 1));
+                segments.Add((r, c, c + len - 1));
+
+                r += GameDefs.LayerStepRows;   // 原则⑤：层间空 2 行
+                if (r >= GameDefs.BlockRows) break;
+                int step = _rng.RandiRange(1, 2);   // dr=3 的水平可达半径 ≤2 列
+                int next = c + (right ? step : -step);
+                if (next < bandLeft + 1 || next + len - 1 > bandRight - 1)
+                {
+                    right = !right;
+                    next = c + (right ? step : -step);
+                }
+                c = Mathf.Clamp(next, bandLeft + 1, Mathf.Max(bandLeft + 1, bandRight - len));
             }
-            c = next;
+            if (segments.Count > 0) _paths.Add(segments);
         }
+        PathCount = _paths.Count;
     }
 
     private void PlaceRun(int r, int start, int len, bool purePlatform = false)
@@ -492,7 +515,8 @@ public partial class BlockField : Node2D, IBlockGeometry
     private void EnsureFullPathToTop()
     {
         ComputeTrueReachability();
-        if (HasPathToTop) return;
+        // 至少 1 条贯通是硬保证；平时要求全部 BackbonePathMin~Max 条都可达
+        if (HasPathToTop && ReachablePathCount >= GameDefs.BackbonePathMin) return;
 
         // 若因出生区豁免或极端修剪导致断路，把全部骨架段补齐（连排 3~4 格，绝不产生单块）
         foreach (var (row, c0, c1) in _backbone)
@@ -589,7 +613,20 @@ public partial class BlockField : Node2D, IBlockGeometry
                 }
             }
         }
-        HasPathToTop = MaxReachableRow >= GameDefs.BlockTopReachMinRow;
+        // MAP-008：每条独立骨架通道只要顶端段有可达块，即算一条贯通的登顶路径
+        ReachablePathCount = 0;
+        foreach (var segments in _paths)
+        {
+            if (segments.Count == 0) continue;
+            var top = segments[^1];
+            for (int c = top.C0; c <= top.C1 && c < GameDefs.BlockCols; c++)
+            {
+                if (!_reachable[top.Row, c]) continue;
+                ReachablePathCount++;
+                break;
+            }
+        }
+        HasPathToTop = MaxReachableRow >= GameDefs.BlockTopReachMinRow && ReachablePathCount >= 1;
     }
 
     /// <summary>

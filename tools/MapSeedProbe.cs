@@ -20,6 +20,9 @@ public partial class MapSeedProbe : SceneTree
             bool ok = ratio >= GameDefs.BlockVerticalClearRatio
                       && field.SingleBlockRatio <= GameDefs.BlockSingleRatioMax
                       && field.HasPathToTop
+                      && field.ReachablePathCount >= GameDefs.BackbonePathMin
+                      && field.PathCount >= GameDefs.BackbonePathMin
+                      && field.PathCount <= GameDefs.BackbonePathMax
                       && field.IsGroundContinuous()
                       && field.OneWayCount > 0;
             if (!ok) fail++;
@@ -27,6 +30,7 @@ public partial class MapSeedProbe : SceneTree
                      $"vertical_clear={field.VerticalClearCount}/{field.VerticalClearTotal} ({ratio:P1}) " +
                      $"singles={field.SingleBlockCount}/{field.VerticalClearTotal} ({field.SingleBlockRatio:P1}) " +
                      $"top={field.MaxReachableRow} path={field.HasPathToTop} " +
+                     $"paths={field.ReachablePathCount}/{field.PathCount} " +
                      $"pruned={field.VerticalClearPruned} oneway={field.OneWayCount} ok={(ok ? 1 : 0)}");
             field.Free();
         }

@@ -33,6 +33,7 @@ public partial class WhiteboxRoot : Node2D
     private VBoxContainer _vbox = null!;
     private Label _metrics = null!;
     private Label _state = null!;
+    private Label _seedLabel = null!;
     private int _seed = DefaultSeed;
 
     public override void _Ready()
@@ -106,6 +107,7 @@ public partial class WhiteboxRoot : Node2D
         _blocks.Build(_seed);
         _player.Respawn();
         _player.SetLedges(_blocks.GetLedges());   // CLIMB-001 换地形后刷新台沿
+        UiSkin.RefreshSeed(_seedLabel, _seed);    // 开发用：换地形后同步显示新种子
         RefreshMetrics();
     }
 
@@ -212,6 +214,9 @@ public partial class WhiteboxRoot : Node2D
             new Color(0.62f, 0.66f, 0.78f)));
 
         BuildLegend();
+
+        // 开发用：常驻显示当前地图种子（放在图例下方，避开右侧参数面板与左上图例）
+        _seedLabel = UiSkin.MakeSeedBadge(this, _seed, new Vector2(16f, 270f));
     }
 
     // ---------------------------------------------------------------- 方块图例（常驻左上角）
