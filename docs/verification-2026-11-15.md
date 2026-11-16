@@ -835,3 +835,46 @@ JSON 带版本号与迁移钩子、先校验余额再变更、`GetNode` 全在 `
 版本保持 `0.0005`，未升版、未打新 tag、未 push；README 由用户维护、本轮未改。
 局内随从领取/合成、魂魄真实掉落、跟随 AI、技能设计均未实现（逐块推进）。
 `project.godot` 的用户格式改动未碰、未提交；StartPage.tscn 本轮按用户授权修改，Help 文案原样保留。
+
+## 19. 小插曲：局内 ESC 暂停菜单（2026-11-16，v0.0005）
+
+### 19.1 需求与决策
+用户要求「游戏内加一个按 ESC 出现 UI，里面有继续 / 设置 / 退出」。决策留档
+`docs/decisions/2026-11-16-pause-menu.md`：选 `godot-ui` 的 pause menu overlay + `input-handling` 的
+`_UnhandledInput` 原生 ESC；否决新增 Input Map action（不碰用户未提交的 `project.godot`）、
+`_input` 抢事件、纯代码拼 UI、真关窗、设置页塞未点名配置项。
+
+### 19.2 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/ui/PauseMenu.cs` (+uid) | `CanvasLayer` 脚本：ESC 事件过滤、暂停状态、继续/设置/返回/退出、焦点环、独立冒烟九项断言 |
+| `scenes/ui/PauseMenu.tscn` | 场景版式：`process_mode=3` + 半透遮罩 + 居中面板 + 三按钮 + 设置占位页；SystemFont/StyleBoxFlat 子资源 |
+| `scenes/Main.tscn` | 实例挂载 `PauseMenu`，默认隐藏；不入侵 GameRoot 代码 |
+| `tools/check_project.py` | EXPECTED_CS 23→24；新增 7e 段五项静态检查（场景/ProcessMode/输入/边界/冒烟） |
+
+### 19.3 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `godot --headless --path ... --editor --quit` | exit 0，0 ERROR；新 `.cs.uid` 已生成 |
+| 3 | `tools/check_project.py` | **148/148 PASS** |
+| 4 | `Main.tscn -- --pause-smoke` | exit 0，**9/9 PASS**，0 ERROR |
+| 5 | `Main.tscn -- --smoke` | exit 0，**26/26 PASS**（原有断言全绿） |
+| 6 | 开始页 → 选择 → 游戏 整链 `-- --smoke` | exit 0，**26/26 PASS** |
+
+暂停冒烟证据（`PAUSE_SMOKE_JSON`）：`initial_hidden`、`esc_open`、`settings_page`、`settings_back`、
+`resume`、`esc_toggle`、`esc_event_filter`（按下开/松开不误触/再按关）、`focus_ready`、
+`quit_to_start_target` 全 true；`process_mode_always=true`，`quit_target=res://scenes/StartPage.tscn`。
+
+### 19.4 代码审查（`godot-code-review`）
+无 Critical / Improvement 遗留。对照清单：单一职责（只管暂停菜单，无战斗/存档耦合）、
+`GetNode<T>()` 全部在 `_Ready()` 缓存且逐层下钻、`partial` + PascalCase、无热路径 GetNode、
+`_UnhandledInput` 让 UI 先消费、暂停节点 `ProcessMode=Always`、按钮 `FocusMode.All` 且焦点成环、
+信号在 `_Ready()` 接、`CallDeferred` 只用于可见性切换后的抓焦点。
+有意偏离：ESC 用原生键码而非 Input Map action（用户 `project.godot` 未提交，手柄映射后续统一做，
+同项目已有的白箱热键偏离惯例）。
+
+### 19.5 范围边界
+版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
+`project.godot` 与 `StartPage.tscn` 的用户改动未碰、未提交。
+「设置」仅占位页；手柄暂停键、读数持久化等功能都未实现。

@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 23",
+      "name": "C# 脚本数量 = 24",
       "ok": true,
-      "detail": "23 个"
+      "detail": "24 个"
     },
     {
       "name": "零 GDScript",
@@ -690,6 +690,31 @@
     },
     {
       "name": "随从第3块：只在局外生效——界面无局内跟随/战斗逻辑，技能仍未实现",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "暂停菜单：场景由 tscn 摆版式并挂进 Main（CanvasLayer + 遮罩 + 继续/设置/退出）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "暂停菜单：ProcessMode=Always 才能在暂停时继续收 UI 输入",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "暂停菜单：ESC 走 _UnhandledInput 原生按键，不改 Input Map / 不抢 UI 导航",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "暂停菜单：继续=恢复 / 退出=回开始页（不关窗）/ 设置=占位页不越界",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "暂停菜单：按钮焦点环 + 打开抓焦点 + 独立冒烟九项断言（含真 ESC 事件过滤）",
       "ok": true,
       "detail": ""
     },

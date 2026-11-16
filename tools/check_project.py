@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 23
+EXPECTED_CS = 24
 checks = []
 
 
@@ -560,6 +560,37 @@ check("随从第3块：GameRoot 冒烟新增存档/升级树断言与证据",
 check("随从第3块：只在局外生效——界面无局内跟随/战斗逻辑，技能仍未实现",
       not any(k in upgrade_cs for k in ("_PhysicsProcess", "Velocity", "Attack("))
       and "Skill" not in upgrade_cs)
+
+# ---------------------------------------------------------------- 7e. PAUSE-001 局内暂停菜单（小插曲）
+pause_cs = cs("ui/PauseMenu.cs")
+pause_tscn = read(ROOT / "scenes" / "ui" / "PauseMenu.tscn")
+main_tscn = read(ROOT / "scenes" / "Main.tscn")
+check("暂停菜单：场景由 tscn 摆版式并挂进 Main（CanvasLayer + 遮罩 + 继续/设置/退出）",
+      (ROOT / "scenes" / "ui" / "PauseMenu.tscn").exists()
+      and 'res://scenes/ui/PauseMenu.tscn' in main_tscn
+      and 'name="PauseLayer" type="CanvasLayer"' in pause_tscn
+      and 'name="Dim" type="ColorRect"' in pause_tscn
+      and all(f'text = "{t}"' in pause_tscn for t in ("继续", "设置", "退出", "返回")))
+check("暂停菜单：ProcessMode=Always 才能在暂停时继续收 UI 输入",
+      "process_mode = 3" in pause_tscn
+      and "ProcessMode = ProcessModeEnum.Always" in pause_cs)
+check("暂停菜单：ESC 走 _UnhandledInput 原生按键，不改 Input Map / 不抢 UI 导航",
+      "public override void _UnhandledInput" in pause_cs
+      and "key.Keycode != Key.Escape" in pause_cs
+      and "SetInputAsHandled" in pause_cs
+      and "InputMap." not in pause_cs and '"_input"' not in pause_cs)
+check("暂停菜单：继续=恢复 / 退出=回开始页（不关窗）/ 设置=占位页不越界",
+      "GetTree().Paused = false" in pause_cs
+      and 'StartScenePath = "res://scenes/StartPage.tscn"' in pause_cs
+      and "ChangeSceneToFile(StartScenePath)" in pause_cs
+      and "GetTree().Quit()" not in pause_cs
+      and "设置项后续补充。" in pause_tscn)
+check("暂停菜单：按钮焦点环 + 打开抓焦点 + 独立冒烟九项断言（含真 ESC 事件过滤）",
+      "FocusNeighborTop" in pause_cs and "FocusNeighborBottom" in pause_cs
+      and "GrabFocus" in pause_cs and "PAUSE_SMOKE_JSON_BEGIN" in pause_cs
+      and all(k in pause_cs for k in ("initial_hidden", "esc_open", "settings_page",
+                                      "settings_back", "resume", "esc_toggle",
+                                      "esc_event_filter", "focus_ready", "quit_to_start_target")))
 
 # ---------------------------------------------------------------- 8. 版本一致
 # README 由用户自己维护（2026-11-16 用户明确「最外层 README 我来写，你不用动」），
