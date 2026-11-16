@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 18
+EXPECTED_CS = 23
 checks = []
 
 
@@ -487,6 +487,79 @@ check("随从第2块：GameRoot 读 meta 选本命、实例化实体、冒烟断
 check("随从第2块：跟随 AI / 技能 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("_PhysicsProcess", "Velocity", "Skill", "Attack"))
       and "Follow" not in spirit_root)
+
+# ---------------------------------------------------------------- 7d. 随从系统第 3 块（养成界面 + 存档）
+save_cs = cs("gameplay/SaveGame.cs")
+save_data_cs = cs("gameplay/SaveData.cs")
+tree_cs = cs("gameplay/UpgradeTreeDef.cs")
+tree_cat_cs = cs("gameplay/UpgradeCatalog.cs")
+upgrade_cs = cs("ui/UpgradeScreen.cs")
+upgrade_tscn = read(ROOT / "scenes" / "ui" / "UpgradeScreen.tscn")
+start_scene = read(ROOT / "scenes" / "StartPage.tscn")
+upgrades_dir = ROOT / "resources" / "upgrades"
+tree_cards = {sid: read(upgrades_dir / f"{sid}.tres")
+              for sid in ("zhulong", "taotie", "qiongqi")}
+check("随从第3块：JSON 单槽存档（user:// + 版本字段 + 迁移），不用 Resource 存玩家数据",
+      'SavePath = "user://shanhai_save.json"' in save_cs
+      and "SaveVersion = 1" in save_cs
+      and "public int Version { get; set; }" in save_data_cs
+      and "JsonSerializer.Deserialize" in save_cs and "JsonSerializer.Serialize" in save_cs
+      and "Migrate(" in save_cs and "autoload" not in pg.lower())
+check("随从第3块：存档先校验余额再扣费（不会白加属性），写盘后丢缓存可重读验证",
+      "if (Data.Souls < GameDefs.GrowthStepCost) return false;" in save_cs
+      and "saveNow: false" in save_cs and "ResetCache()" in save_cs and "ResetToDefault()" in save_cs
+      and "file.StoreString(json)" in save_cs
+      and "TryUpgradeGrowth" in save_cs and "TryUpgradeNode" in save_cs)
+check("随从第3块：局外成长四项（等级/血量/攻击/敏捷）各有基值/步长/上限，写进存档",
+      all(f"GrowthBase{name}" in defs for name in ("Level", "Hp", "Attack", "Agility"))
+      and all(f"GrowthStep{name}" in defs for name in ("Level", "Hp", "Attack", "Agility"))
+      and "GrowthMaxStep" in defs and "public enum GrowthStat" in save_data_cs
+      and all(f"public int {p} {{ get; set; }}" in save_data_cs for p in ("Level", "Hp", "Attack", "Agility")))
+check("随从第3块：UpgradeTreeDef 是 [GlobalClass] Resource，平行数组存二叉树 + 合法校验",
+      "[GlobalClass]" in tree_cs and "partial class UpgradeTreeDef : Resource" in tree_cs
+      and all(f"public {typ}[] {p} {{ get; set; }}" in tree_cs
+              for typ, p in (("string", "NodeIds"), ("string", "NodeNames"),
+                             ("int", "NodeHpBonus"), ("int", "NodeCost"),
+                             ("int", "NodeLeft"), ("int", "NodeRight")))
+      and "IsValid(out string reason)" in tree_cs and "ParentOf(int index)" in tree_cs
+      and "IsUnlocked(int index)" in tree_cs)
+check("随从第3块：三本命各一张升级树卡，节点全加血量占位、结构互不相同且合法",
+      all('script_class="UpgradeTreeDef"' in txt and f'SpiritId = "{sid}"' in txt
+          and "NodeHpBonus = PackedInt32Array(" in txt and "NodeLeft = PackedInt32Array(" in txt
+          and "NodeRight = PackedInt32Array(" in txt for sid, txt in tree_cards.items())
+      and len(set(txt.split("NodeHpBonus =")[1].split("\n")[0] for txt in tree_cards.values())) == 3
+      and "NodeDamage" not in tree_cs and "NodeSkill" not in tree_cs)
+check("随从第3块：UpgradeCatalog 扫目录自动发现（加卡零代码）+ 缺卡代码兜底 + 重复告警",
+      "public static class UpgradeCatalog" in tree_cat_cs
+      and 'TreesDir = "res://resources/upgrades"' in tree_cat_cs
+      and "DirAccess.Open" in tree_cat_cs and "ListDirBegin" in tree_cat_cs
+      and "CreateFallback" in tree_cat_cs and "重复 SpiritId" in tree_cat_cs)
+check("随从第3块：升级界面场景存在（标题/魂魄/页签/双面板/返回），脚本三本命页签+树+养成+冒烟齐全",
+      (ROOT / "scenes" / "ui" / "UpgradeScreen.tscn").exists()
+      and 'text = "养成"' in upgrade_tscn
+      and '"Souls" type="Label"' in upgrade_tscn
+      and '"Tabs" type="HBoxContainer"' in upgrade_tscn
+      and '"HeroPanel" type="VBoxContainer"' in upgrade_tscn
+      and '"GrowthPanel" type="VBoxContainer"' in upgrade_tscn
+      and '"Back" type="Button"' in upgrade_tscn
+      and "UpgradeScreen.cs" in upgrade_tscn
+      and "SpiritCatalog.All" in upgrade_cs and "UpgradeCatalog.Tree" in upgrade_cs
+      and "Enum.GetValues<GrowthStat>()" in upgrade_cs
+      and "GrowthStat.Level" in upgrade_cs
+      and "UPGRADE_SMOKE_JSON_BEGIN" in upgrade_cs
+      and all(k in upgrade_cs for k in ("hero_node_upgrade_ok", "growth_upgrade_ok", "save_roundtrip_ok")))
+check("随从第3块：开始页新增养成入口，Help 只校验节点存在（文案用户自管，不锁死）",
+      '"Upgrade" type="Button"' in start_scene
+      and '"Help" type="Label"' in start_scene
+      and "res://scenes/ui/UpgradeScreen.tscn" in start_cs
+      and "OnUpgrade" in start_cs and '"Upgrade"' in start_cs)
+check("随从第3块：GameRoot 冒烟新增存档/升级树断言与证据",
+      '"save_loaded_ok"' in spirit_root and '"upgrade_trees_ok"' in spirit_root
+      and all(k in spirit_root for k in ("save_souls", "save_version",
+                                          "upgrade_tree_ids", "upgrade_tree_nodes")))
+check("随从第3块：只在局外生效——界面无局内跟随/战斗逻辑，技能仍未实现",
+      not any(k in upgrade_cs for k in ("_PhysicsProcess", "Velocity", "Attack("))
+      and "Skill" not in upgrade_cs)
 
 # ---------------------------------------------------------------- 8. 版本一致
 # README 由用户自己维护（2026-11-16 用户明确「最外层 README 我来写，你不用动」），

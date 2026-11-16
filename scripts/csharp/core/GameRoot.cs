@@ -44,6 +44,9 @@ public partial class GameRoot : Node2D
 	public SpiritPet? Companion => _companion;
 	private int _currentSeed;
 	private Label _seedLabel = null!;
+	// 随从系统第 3 块：单槽存档 + 升级树目录（数据底座，冒烟里也要验证）。
+	private SaveData _save = null!;
+	public SaveData Save => _save;
 
 	public Master? Player;
 	public int PlatformCount;
@@ -128,6 +131,12 @@ public partial class GameRoot : Node2D
 		// 随从系统第 1 块：打印已发现的本命随从目录（定义卡自动扫描，加卡零代码）。
 		_spirits = SpiritCatalog.All;
 		GD.Print($"[BOOT] spirits={_spirits.Count} ids=[{string.Join(",", _spirits.Select(s => s.Id))}]");
+
+		// 随从系统第 3 块：读单槽存档 + 校验升级树目录（只读，不在游戏内改魂魄/加点）。
+		_save = SaveGame.LoadOrCreate();
+		bool treesValid = _spirits.Count >= 3
+			&& _spirits.All(s => UpgradeCatalog.Tree(s.Id).IsValid(out _));
+		GD.Print($"[BOOT] save souls={_save.Souls} growth=[{string.Join(",", _spirits.Select(s => $"{s.Id}:{SaveGame.Growth(s.Id).Value(GrowthStat.Level)}"))}] trees_valid={treesValid}");
 
 		// 随从系统第 2 块：读取选择页写入的本命 Id，从 tscn 实例化本命灵兽。
 		// 直接以 Main.tscn 起（如 --smoke 单场景测试）时无 meta：兜底取目录第一只，保证实体仍存在。
@@ -543,6 +552,11 @@ public partial class GameRoot : Node2D
 									&& _companion.SpiritId == _chosenSpirit.Id
 									&& _companion.TexturePath.EndsWith("/pet.png")
 									&& _companion.AppliedTint == _chosenSpirit.Tint,
+			// 随从系统第 3 块：存档已加载（单槽 JSON + 版本号）+ 三本命树结构合法且互不相同
+			["save_loaded_ok"] = _save != null && _save.Version == SaveGame.SaveVersion
+								 && SaveGame.HasSave,
+			["upgrade_trees_ok"] = _spirits.Count >= 3 && UpgradeCatalog.All.Count >= 3
+								   && _spirits.All(s => UpgradeCatalog.Tree(s.Id).IsValid(out _)),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -603,6 +617,11 @@ public partial class GameRoot : Node2D
 			["fate_companion_id"] = _companion?.SpiritId ?? "",
 			["fate_companion_texture"] = _companion?.TexturePath ?? "",
 			["fate_companion_tint"] = _companion != null ? _companion.AppliedTint.ToHtml(false) : "",
+			// 随从系统第 3 块证据（单槽存档 + 升级树目录）
+			["save_souls"] = _save?.Souls ?? -1,
+			["save_version"] = _save?.Version ?? -1,
+			["upgrade_tree_ids"] = string.Join(",", UpgradeCatalog.All.Keys.OrderBy(k => k, StringComparer.Ordinal)),
+			["upgrade_tree_nodes"] = string.Join(",", _spirits.Select(s => $"{s.Id}:{UpgradeCatalog.Tree(s.Id).NodeCount}")),
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeTreeDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/csharp/gameplay/UpgradeTreeDef.cs" id="1_tree"]
+
+[resource]
+script = ExtResource("1_tree")
+SpiritId = "zhulong"
+DisplayName = "烛龙"
+NodeIds = PackedStringArray("root", "left", "right", "left_left", "right_right")
+NodeNames = PackedStringArray("龙躯", "左目", "右目", "烛照", "昼夜")
+NodeHpBonus = PackedInt32Array(10, 15, 15, 20, 20)
+NodeCost = PackedInt32Array(30, 45, 45, 60, 60)
+NodeLeft = PackedInt32Array(1, 3, -1, -1, -1)
+NodeRight = PackedInt32Array(2, -1, 4, -1, -1)
+MaxLevelPerNode = 3

@@ -778,3 +778,60 @@ C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
 ### 17.5 范围边界
 版本保持 `0.0005`，未升版、未打新 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交；
 README 由用户自己维护，本轮未改。跟随 AI / 技能 / 本命升级仍未实现。
+
+## 18. 随从系统第 3 块：升级界面基础版 + 单槽存档（2026-11-16，v0.0005）
+
+### 18.1 需求与拆分
+用户给出 v0.0005 完整蓝图（魂魄加点 / 主角二叉树 / 随从局外养成 / 局内吸血鬼式领取合成 / 存档），
+明确「可以拆开来做」。本轮做**第 3 块：升级界面基础版**——数据底座 + 能打开的界面 + 魂魄→加点→存盘闭环。
+决策留档 `docs/decisions/2026-11-16-upgrade-system.md`（含四项现场拍板口径）。
+
+### 18.2 实现选择
+- **选**：JSON 单槽存档（user:// + version + 迁移钩子）；每本命一张 `UpgradeTreeDef.tres`
+  平行数组存二叉树（ Inspector 可编辑、加卡零代码）；开始页「养成」按钮 → `UpgradeScreen.tscn`，
+  顶部三本命页签 + 左主角树 + 右随从局外养成（等级/血量/攻击/敏捷）；魂魄唯一货币、默认 300。
+- **否决**：Resource/.tres 存玩家数据（加载会执行脚本，不安全）；autoload；硬编码 enum 树；
+  本块做局内领取/合成或战斗掉落（第四/五块）；本块让局外属性作用于战斗（项目尚无 HP 概念，会假实现）。
+
+### 18.3 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/SaveData.cs` (+uid) | `GrowthStat` 枚举 + `SpiritGrowth`（四项基值/步长/上限）+ `SaveData`（Version/Souls/HeroNodes/Growth） |
+| `scripts/csharp/gameplay/SaveGame.cs` (+uid) | 单槽 JSON 存档：读档/建档/迁移钩子/补齐新随从槽/自动写盘/魂魄与加点与养成的原子扣费 |
+| `scripts/csharp/gameplay/UpgradeTreeDef.cs` (+uid) | `[GlobalClass]` 树定义卡：平行数组二叉树、前置解锁、IsValid 结构自检、缺卡兜底 |
+| `scripts/csharp/gameplay/UpgradeCatalog.cs` (+uid) | 扫 `resources/upgrades/*.tres` 按 SpiritId 索引，加卡零代码、缺卡兜底、重复告警 |
+| `resources/upgrades/{zhulong,taotie,qiongqi}.tres` | 三本命各 5 节点二叉树，初期全加血量、结构与耗费互异 |
+| `scripts/csharp/ui/UpgradeScreen.cs` (+uid) / `.tscn` | 养成界面：三本命页签 + 主角树（缩进层级）+ 四项局外养成 + 魂魄栏 + 自动冒烟 |
+| `scenes/StartPage.tscn` / `scripts/csharp/ui/StartPage.cs` | 新增「养成」按钮（保留用户 Help 文案原样，只下移避让）+ 跳转接线 |
+| `scripts/csharp/core/GameDefs.cs` | 魂魄初值 300 + 局外成长四项基值/步长/上限/耗费常量 |
+| `scripts/csharp/core/GameRoot.cs` | 启动读档 + 树校验日志；冒烟加 `save_loaded_ok` / `upgrade_trees_ok` 与 4 个证据字段 |
+| `tools/check_project.py` | EXPECTED_CS 18→23；新增 7d 段（存档/树卡/目录/界面/入口/边界） |
+
+### 18.4 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **143/143 PASS** |
+| 3 | 编辑器无头导入 | exit 0，0 ERROR，5 个新 `.uid` 生成，注册到 `UpgradeTreeDef` 全局类 |
+| 4 | `UpgradeScreen.tscn --smoke` | exit 0，**6/6 PASS**，0 ERROR |
+| 5 | `Main.tscn --smoke` | exit 0，**26/26 PASS**（新增 2 条），0 ERROR |
+| 6 | 开始页 → 选择 → 游戏 整链 `--smoke` | exit 0，**26/26 PASS**，0 ERROR |
+| 7 | `MapSeedProbe` | 10 组种子 `fail=0` |
+
+升级界面冒烟证据（`UPGRADE_SMOKE_JSON`）：`souls_before=300 → after=222`、
+`tree_count=3 ids=[qiongqi,taotie,zhulong]`、`hero_node=root level=1`、
+`growth_level=2`、`reloaded_hero=1 / reloaded_growth=2`（写盘→丢缓存→重读一致）。
+主场景证据：`save_version=1`、`upgrade_tree_nodes=qiongqi:5,taotie:5,zhulong:5`。
+真存档文件核对：`%APPDATA%\Godot\app_userdata\山海幻灵\shanhai_save.json` 含
+`Version/Souls/HeroNodes/Growth` 四段，三本命各自一份成长；冒烟结束已复位到 300 魂、零加点。
+
+### 18.5 代码审查
+`godot-code-review`：无 Critical 遗留。审查中发现并修掉一处「扣魂 + 加点」两次写盘且存在中间态的问题，
+改为内部 `TrySpendSouls(cost, saveNow:false)`，复合操作一次落盘。其余：零 autoload、静态工具范式一致、
+JSON 带版本号与迁移钩子、先校验余额再变更、`GetNode` 全在 `_Ready()` 缓存、动态节点 `QueueFree`、
+页签从目录生成零代码；C# `partial` / PascalCase / 零 GDScript 基线保持。
+
+### 18.6 范围边界
+版本保持 `0.0005`，未升版、未打新 tag、未 push；README 由用户维护、本轮未改。
+局内随从领取/合成、魂魄真实掉落、跟随 AI、技能设计均未实现（逐块推进）。
+`project.godot` 的用户格式改动未碰、未提交；StartPage.tscn 本轮按用户授权修改，Help 文案原样保留。

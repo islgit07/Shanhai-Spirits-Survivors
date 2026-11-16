@@ -1,0 +1,68 @@
+[gd_scene load_steps=2 format=3 uid="uid://bupgradex7k2ma"]
+
+[ext_resource type="Script" path="res://scripts/csharp/ui/UpgradeScreen.cs" id="1_upgrade"]
+
+[node name="UpgradeScreen" type="Control" unique_id=1822339001]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_upgrade")
+
+[node name="Title" type="Label" parent="." unique_id=1720093441]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 30.0
+offset_right = 700.0
+offset_bottom = 86.0
+text = "养成"
+
+[node name="Souls" type="Label" parent="." unique_id=1099228113]
+layout_mode = 0
+offset_left = 780.0
+offset_top = 36.0
+offset_right = 1120.0
+offset_bottom = 80.0
+text = "魂魄：0"
+
+[node name="Tabs" type="HBoxContainer" parent="." unique_id=1944008112]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 100.0
+offset_right = 1120.0
+offset_bottom = 156.0
+theme_override_constants/separation = 16
+
+[node name="HeroPanel" type="VBoxContainer" parent="." unique_id=1334520918]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 180.0
+offset_right = 600.0
+offset_bottom = 620.0
+theme_override_constants/separation = 10
+
+[node name="GrowthPanel" type="VBoxContainer" parent="." unique_id=1557200449]
+layout_mode = 0
+offset_left = 640.0
+offset_top = 180.0
+offset_right = 1120.0
+offset_bottom = 620.0
+theme_override_constants/separation = 10
+
+[node name="Back" type="Button" parent="." unique_id=1455223018]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 640.0
+offset_right = 240.0
+offset_bottom = 692.0
+text = "返回"
+
+[node name="Hint" type="Label" parent="." unique_id=1209881045]
+layout_mode = 0
+offset_left = 264.0
+offset_top = 650.0
+offset_right = 1120.0
+offset_bottom = 686.0
+text = ""

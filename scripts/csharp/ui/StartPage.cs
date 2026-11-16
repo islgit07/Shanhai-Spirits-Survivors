@@ -6,8 +6,8 @@ namespace ShanhaiSpiritsSurvivors;
 /// <summary>
 /// 开始页（主菜单）：键鼠双通道。
 /// 鼠标点击按钮；或 ↑/↓ 切换焦点、Enter/Space 确认（走 Godot 内置 ui_* 动作，不新增映射）。
-/// 四个按钮：开始 / 设置 / 图鉴 / 退出；设置与图鉴尚未实装，先打日志占位。
-/// 「开始」先进本命选择页 SpiritSelect.tscn，选完再进 Main.tscn。
+/// 五个按钮：开始 / 养成 / 设置 / 图鉴 / 退出；设置与图鉴尚未实装，先打日志占位。
+/// 「开始」先进本命选择页 SpiritSelect.tscn，选完再进 Main.tscn；「养成」进升级界面 UpgradeScreen.tscn。
 /// --smoke 时也走这条链（选择页会自动选第一只），整条链路无头可验证。
 /// 节点、焦点链与按键说明在 StartPage.tscn 里摆好，本脚本只负责连信号、跳转与版本号。
 /// </summary>
@@ -15,6 +15,8 @@ public partial class StartPage : Control
 {
     /// <summary>「开始」按钮先跳到本命选择页；选完由 SpiritSelect 跳进游戏场景。</summary>
     [Export] private string _gameScenePath = "res://scenes/ui/SpiritSelect.tscn";
+    /// <summary>「养成」按钮跳到升级界面（v0.0005 随从系统第 3 块）。</summary>
+    [Export] private string _upgradeScenePath = "res://scenes/ui/UpgradeScreen.tscn";
 
     private Button[] _buttons = null!;
 
@@ -22,14 +24,16 @@ public partial class StartPage : Control
     {
         _buttons = new[]
         {
-            GetNode<Button>("Start"), GetNode<Button>("Setting"),
-            GetNode<Button>("Library"), GetNode<Button>("Exit"),
+            GetNode<Button>("Start"), GetNode<Button>("Upgrade"),
+            GetNode<Button>("Setting"), GetNode<Button>("Library"),
+            GetNode<Button>("Exit"),
         };
 
         _buttons[0].Pressed += OnStart;
-        _buttons[1].Pressed += OnSetting;
-        _buttons[2].Pressed += OnLibrary;
-        _buttons[3].Pressed += OnExit;
+        _buttons[1].Pressed += OnUpgrade;
+        _buttons[2].Pressed += OnSetting;
+        _buttons[3].Pressed += OnLibrary;
+        _buttons[4].Pressed += OnExit;
 
         // 上下焦点链（首尾循环），让键盘导航不依赖几何推断。
         int n = _buttons.Length;
@@ -64,6 +68,12 @@ public partial class StartPage : Control
     private void OnStart()
     {
         GetTree().ChangeSceneToFile(_gameScenePath);
+    }
+
+    private void OnUpgrade()
+    {
+        GD.Print($"[START] 养成 → {_upgradeScenePath}");
+        GetTree().ChangeSceneToFile(_upgradeScenePath);
     }
 
     private void OnSetting()

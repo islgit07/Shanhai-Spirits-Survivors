@@ -175,4 +175,20 @@ public static class GameDefs
     public const float CameraSmooth = 6.0f;
     public const string BackdropArt = "bg_dusk";
     public static readonly Color BackdropTint = new(1.00f, 0.95f, 0.84f);
+
+    // ---------------------------------------------------------------- v0.0005 成长 / 存档（第 3 块）
+    // 魂魄 = 怪物死亡掉落物（用户定义：「金币换了个名字」）。本块无战斗，
+    // 存档预置一笔初始魂魄供开发期加点；真实掉落在第五块接入。
+    public const int InitialSouls = 300;
+    // 随从局外成长：本命各自继承存档的初始数值，只在局外界面升级；局内玩法留后续块。
+    public const int GrowthBaseLevel = 1;
+    public const int GrowthBaseHp = 100;
+    public const int GrowthBaseAttack = 10;
+    public const int GrowthBaseAgility = 5;
+    public const int GrowthStepLevel = 1;     // 初始等级每次 +1
+    public const int GrowthStepHp = 10;       // 初始血量每次 +10
+    public const int GrowthStepAttack = 2;    // 初始攻击每次 +2
+    public const int GrowthStepAgility = 2;   // 初始敏捷每次 +2
+    public const int GrowthMaxStep = 20;      // 单项最多加 20 级（防无限点）
+    public const int GrowthStepCost = 50;     // 每加一级消耗魂魄
 }
