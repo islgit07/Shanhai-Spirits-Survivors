@@ -83,7 +83,7 @@ public static class GameDefs
     // 踩中只启动闪烁：碰撞 / 实体格 / 计数全部不动，玩家闪烁期间仍可站立；
     // 闪烁按 Cycles 次 木色↔白色 交替，结束后回调才判碎、摘实体格、释放节点。
     public const float FragileBlinkDuration = 1.5f;  // 闪烁总时长（秒），也是玩家可站立的宽限
-    public const int FragileBlinkCycles = 2;         // 完整闪烁次数（4 次变色 / 1.5 秒，单次 0.375s）
+    public const int FragileBlinkCycles = 3;         // 完整闪烁次数（6 次变色 / 1.5 秒，单次 0.25s）
     public const float BlockOneWayChance = 0.30f;    // 每个 run 含「单向连排段」的概率（段长分布见 OneWayLen* 权重）
     // 单向平台连排长度分布（同一 run 内横排连续格数）：2~3 常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）
     public const float OneWayLen1Weight = 0.10f;

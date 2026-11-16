@@ -875,7 +875,7 @@ public partial class BlockField : Node2D, IBlockGeometry
 
     /// <summary>
     /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 2 次「木色 ↔ 白色」闪烁
-    /// （同时轻微膨胀/回弹强调崩裂），满 1.5 秒后回调 FinishFragileBreak 才真正碎掉。
+    /// 只改颜色、绝不动 scale，满 1.5 秒后回调 FinishFragileBreak 才真正碎掉。
     /// Tween 宿主是 visual：换种子 Build 释放整张地图时 tween 自动失效，
     /// 回调不会打到已释放节点；回调内部再做 _blinking 状态校验。
     /// </summary>
@@ -889,18 +889,14 @@ public partial class BlockField : Node2D, IBlockGeometry
 
         Color baseTint = Tint(BlockType.Fragile);
         Color flashTint = Colors.White;
-        Vector2 baseScale = visual.Scale;
         float half = GameDefs.FragileBlinkDuration / (GameDefs.FragileBlinkCycles * 2f);
         var tw = visual.CreateTween();
         for (int i = 0; i < GameDefs.FragileBlinkCycles; i++)
         {
+            // 只改颜色，绝不动 scale —— 闪完必须原尺寸消失，不要放大/回弹。
             tw.TweenProperty(visual, "modulate", flashTint, half)
                 .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
-            tw.Parallel().TweenProperty(visual, "scale", baseScale * 1.12f, half)
-                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
             tw.TweenProperty(visual, "modulate", baseTint, half)
-                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
-            tw.Parallel().TweenProperty(visual, "scale", baseScale, half)
                 .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
         }
         tw.TweenCallback(Callable.From(() => FinishFragileBreak(r, c, body)));

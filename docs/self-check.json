@@ -394,12 +394,17 @@
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 时长 1.5 秒 + 2 次白闪（GameDefs 常量）",
+      "name": "FRAGILE-BLINK 时长 1.5 秒 + 3 次白闪（GameDefs 常量）",
       "ok": true,
       "detail": ""
     },
     {
       "name": "FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束回调才判碎",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 只闪颜色、绝不缩放（无 scale / parallel 补间）",
       "ok": true,
       "detail": ""
     },

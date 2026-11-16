@@ -542,7 +542,7 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
 
 - **选**：踩中当帧判碎（碰撞失效、`FragileBrokenCount` +1，冒烟语义与时序不变），
   视觉节点多活 `FragileBlinkDuration = 1.0s`，由绑定在 `Sprite2D` 上的一次性 Tween
-  做 `FragileBlinkCycles = 3` 次「木色 ↔ 白色」交替（同步轻微膨胀/回弹），到时 `QueueFree`。
+  做 `FragileBlinkCycles = 3` 次「木色 ↔ 白色」交替，到时 `QueueFree`。
 - **否决**：① 踩上后仍能站 1 秒再碎 —— 改变「踩碎」判定与冒烟时序，而需求只要求视觉不立刻消失；
   ② AnimationPlayer 资源动画 —— 一次性程序化效果用它过重；③ 全局 Timer —— Tween 宿主为 visual，
   换种子重建地图时自动失效，不会有游离回调打到已释放节点。
@@ -614,3 +614,16 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
   `_blinking` 双守卫（`_alive && !_blinking`）防重复；Tween 宿主随节点释放自动停止，
   回调内再做状态校验；C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
 - 范围：版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。
+
+### 14.7 当前视觉口径：纯颜色闪 3 次，零缩放（覆盖 14.6 的次数 / 视觉参数）
+
+- 用户指出上一版有放大效果：「不要放大，只要闪烁，闪烁改成 3 次」。
+- **选**：`BlinkThenFree()` 删掉全部 `scale` 补间与 `Parallel()`，循环里只剩两条 `modulate` 补间
+  （木色 → `Colors.White` → 木色）；`FragileBlinkCycles = 3`，1.5 秒总时长不变（单次变色 0.25s）。
+- **否决**：保留微弱缩放折中 —— 用户明确不要放大；缩放是弹跳块 `Jelly()` 的职责，脆弱块不该复用。
+- 静态自检新增行为锁：`BlinkThenFree` 方法体内不得出现 `"scale"` / `Parallel`，且恰好两条 `modulate` 补间。
+- 判定语义不变：闪烁期间仍是实体可站，闪完才 `FinishFragileBreak()` 判碎释放。
+- 验证：`dotnet build` 0 警告 0 错误；自检 **113/113 PASS**；`Main.tscn --smoke` **20/20 PASS**、0 ERROR，
+  证据 `fragile_blink_cycles=3 / fragile_standable_during_blink=true / blink_started=1 / blink_finished=1`；
+  开始页入口冒烟 PASS、0 ERROR。
+- 版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。

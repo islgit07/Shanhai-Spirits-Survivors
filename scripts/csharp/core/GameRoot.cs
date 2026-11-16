@@ -435,10 +435,10 @@ public partial class GameRoot : Node2D
 								   && FragileTouchWiredCount == FragileCount
 								   && _blocks.FragileBrokenCount > _fragileBrokenBefore
 								   && _blocks.BlockCount < _fragileBlocksBefore,
-			// FRAGILE-BLINK：踩上只启动闪烁（1.5 秒 / 2 次白闪），此时还没碎
+			// FRAGILE-BLINK：踩上只启动闪烁（1.5 秒 / 3 次白闪，纯颜色无缩放），此时还没碎
 			["fragile_blink_ok"] = _fragileBlinkSeen
 								   && Mathf.IsEqualApprox(GameDefs.FragileBlinkDuration, 1.5f)
-								   && GameDefs.FragileBlinkCycles == 2,
+								   && GameDefs.FragileBlinkCycles == 3,
 			// 闪烁期间方块仍是实体、玩家仍站在上面
 			["fragile_standable_during_blink"] = _fragileStoodDuringBlink,
 			// 闪烁结束后才判碎、才释放（不是立刻消失，也不是永远留着）

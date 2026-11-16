@@ -284,17 +284,22 @@ check("BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchA
 _gamedefs = cs("core/GameDefs.cs")
 _blink_body = read(ROOT / "scripts" / "csharp" / "gameplay" / "BlockField.cs")
 _blink_root = cs("core/GameRoot.cs")
-check("FRAGILE-BLINK 时长 1.5 秒 + 2 次白闪（GameDefs 常量）",
+check("FRAGILE-BLINK 时长 1.5 秒 + 3 次白闪（GameDefs 常量）",
       "FragileBlinkDuration = 1.5f" in _gamedefs
-      and "FragileBlinkCycles = 2" in _gamedefs)
+      and "FragileBlinkCycles = 3" in _gamedefs)
 check("FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束回调才判碎",
       "BlinkThenFree(r, c, _nodes[r, c], _visuals[r, c])" in _start_body
       and "visual.CreateTween()" in _blink_body
       and "Colors.White" in _blink_body and "警示红" not in _blink_body
       and '"modulate", flashTint' in _blink_body
       and '"modulate", baseTint' in _blink_body
-      and "tw.Parallel()" in _blink_body
       and "FinishFragileBreak(r, c, body)" in _blink_body)
+_blink_method = fragile_method_body(field, "BlinkThenFree", "Jelly")
+check("FRAGILE-BLINK 只闪颜色、绝不缩放（无 scale / parallel 补间）",
+      bool(_blink_method)
+      and '"scale"' not in _blink_method
+      and "Parallel" not in _blink_method
+      and _blink_method.count('"modulate"') == 2)
 check("FRAGILE-BLINK 闪烁期间方块仍是实体、可站立（不动碰撞 / 不计数 / 不摘 _alive）",
       bool(_start_body) and bool(_finish_body)
       and all(op not in _start_body for op in (
@@ -315,7 +320,7 @@ check("FRAGILE-BLINK 起止计数可观测 + 冒烟验证闪时可站 / 闪完�
       and "_fragileBlocksBefore" in _blink_root
       and "fragile_blink_duration" in _blink_root)
 check("FRAGILE-BLINK 白箱图例同步为闪时可站 / 1.5 秒后才碎",
-      "白闪 2 次 / 1.5 秒后才碎（闪时可站立）" in cs("tools/WhiteboxRoot.cs"))
+      "白闪 3 次 / 1.5 秒后才碎（闪时可站立）" in cs("tools/WhiteboxRoot.cs"))
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
