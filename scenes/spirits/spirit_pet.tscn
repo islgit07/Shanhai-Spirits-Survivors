@@ -1,10 +1,23 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritPet.cs" id="1_pet"]
 [ext_resource type="Texture2D" uid="uid://dgh8vnkawjl32" path="res://assets/art/pet.png" id="2_tex"]
+[ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritFollow.cs" id="3_follow"]
 
-[node name="SpiritPet" type="Node2D"]
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_pet"]
+radius = 0.31
+height = 0.88
+
+[node name="SpiritPet" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 7
 script = ExtResource("1_pet")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_pet")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_tex")
+
+[node name="Follow" type="Node" parent="."]
+script = ExtResource("3_follow")

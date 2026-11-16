@@ -42,6 +42,9 @@ public partial class GameRoot : Node2D
 	private SpiritPet? _companion;
 	public SpiritDef? ChosenSpirit => _chosenSpirit;
 	public SpiritPet? Companion => _companion;
+	// SPIRIT-FOLLOW：场上随从实体队伍（本命 + 局内领取的队友），由 SpiritFollowGroup 统一生成与跟随。
+	private SpiritFollowGroup _spiritGroup = null!;
+	public SpiritFollowGroup SpiritGroup => _spiritGroup;
 	private int _currentSeed;
 	private Label _seedLabel = null!;
 	// 随从系统第 3 块：单槽存档 + 升级树目录（数据底座，冒烟里也要验证）。
@@ -107,6 +110,7 @@ public partial class GameRoot : Node2D
 		_camera = GetNode<Camera2D>("Camera2D");
 		_blocks = GetNode<BlockField>("BlockField");
 		Player = GetNode<Master>("Player/CharacterBody2D");
+		_spiritGroup = GetNode<SpiritFollowGroup>("SpiritFollowGroup");
 
 		// Backdrop 在 Main.tscn 里摆（Sprite2D ← 贴图 / 色调在编辑器里调）；缺失时代码兜底生成
 		_backdrop = _camera.GetNodeOrNull<Sprite2D>("Backdrop");
@@ -146,20 +150,14 @@ public partial class GameRoot : Node2D
 		string chosenId = GetTree().HasMeta(SpiritCatalog.ChosenIdMeta)
 			? GetTree().GetMeta(SpiritCatalog.ChosenIdMeta).AsString() : "";
 		_chosenSpirit = SpiritCatalog.Find(chosenId) ?? _spirits.FirstOrDefault();
-		if (_chosenSpirit != null)
-		{
-			var petScene = GD.Load<PackedScene>(SpiritPetScenePath);
-			if (petScene != null)
-			{
-				_companion = petScene.Instantiate<SpiritPet>();
-				_companion.Setup(_chosenSpirit);
-				AddChild(_companion);
-				// 跟随 AI 属后续块，本块只把实体摆在主角右上方固定偏移，证明「选中即生成、按卡换色」。
-				_companion.GlobalPosition = Player.GlobalPosition + new Vector2(1.6f, -0.9f);
-				GD.Print($"[FATE] companion spawned id={_chosenSpirit.Id} tint={_chosenSpirit.Tint} scene={SpiritPetScenePath}");
-			}
-			else GD.PushError($"[FATE] 无法加载随从场景 {SpiritPetScenePath}");
-		}
+		// SPIRIT-FOLLOW：实体生成与跟随交给 SpiritFollowGroup（本命 = 槽位 0，队友按领取顺序排在后面）。
+		_spiritGroup.Bind(Player!);
+		_spiritGroup.Refresh();
+		_companion = _spiritGroup.Primary;
+		if (_chosenSpirit != null && _companion != null)
+			GD.Print($"[FATE] companion spawned id={_chosenSpirit.Id} tint={_chosenSpirit.Tint} scene={SpiritPetScenePath} followers={_spiritGroup.Followers}");
+		else
+			GD.PushError("[FATE] 本命目录为空，无法生成随从实体");
 
 		if (SmokeMode) BeginSmoke();
 
@@ -185,10 +183,14 @@ public partial class GameRoot : Node2D
 
 
 	/// <summary>开局：设相机缩放、按种子建地形、把主角复位到出生点。</summary>
+	/// <summary>三选一领到新随从 / 合成后调用：同步场上实体（加人、换资质、重排槽位）。</summary>
+	public void RefreshCompanions() => _spiritGroup?.Refresh();
+
 	private void BeginRun(int seed)
 	{
 		_currentSeed = seed;
 		Companions.Clear();   // 当局临时：每次开局从空队伍开始，不碰局外存档
+		_spiritGroup?.Refresh();   // 重开一局：清掉上一局的队友实体，本命保留
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
@@ -561,6 +563,19 @@ public partial class GameRoot : Node2D
 								 && SaveGame.HasSave,
 			["upgrade_trees_ok"] = _spirits.Count >= 3 && UpgradeCatalog.All.Count >= 3
 								   && _spirits.All(s => UpgradeCatalog.Tree(s.Id).IsValid(out _)),
+			// SPIRIT-FOLLOW：本命实体在场上、有真实碰撞体、层规则正确；且实体永远不与主角同位
+			["follow_entity_ok"] = _spiritGroup != null && _spiritGroup.Primary != null
+								   && _chosenSpirit != null
+								   && _spiritGroup.Primary.SpiritId == _chosenSpirit.Id
+								   && _spiritGroup.Primary.GetNodeOrNull<CollisionShape2D>("CollisionShape2D")?.Shape != null
+								   && _spiritGroup.Primary.CollisionLayer == GameDefs.LayerSpirit
+								   && (_spiritGroup.Primary.CollisionMask & GameDefs.LayerActor) != 0u,
+			["follow_no_overlap_ok"] = _spiritGroup != null && _spiritGroup.Pets.Count > 0
+									   && _spiritGroup.Pets.All(p =>
+										   Mathf.Abs(p.GlobalPosition.X - Player!.GlobalPosition.X)
+											   >= (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f
+										   || Mathf.Abs(p.GlobalPosition.Y - Player!.GlobalPosition.Y)
+											   >= (GameDefs.SpiritBodyHeight + GameDefs.MasterSize.Y) * 0.5f),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -625,6 +640,11 @@ public partial class GameRoot : Node2D
 			["save_souls"] = _save?.Souls ?? -1,
 			["save_version"] = _save?.Version ?? -1,
 			["upgrade_tree_ids"] = string.Join(",", UpgradeCatalog.All.Keys.OrderBy(k => k, StringComparer.Ordinal)),
+			// SPIRIT-FOLLOW 证据（实体数量 / 本命 / 碰撞层）
+			["follow_pets"] = _spiritGroup?.Pets.Count ?? -1,
+			["follow_fate_id"] = _spiritGroup?.Primary?.SpiritId ?? "",
+			["follow_layers"] = _spiritGroup?.Primary != null
+				? $"layer={_spiritGroup.Primary.CollisionLayer} mask={_spiritGroup.Primary.CollisionMask}" : "",
 			["upgrade_tree_nodes"] = string.Join(",", _spirits.Select(s => $"{s.Id}:{UpgradeCatalog.Tree(s.Id).NodeCount}")),
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),

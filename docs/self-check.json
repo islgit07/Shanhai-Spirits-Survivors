@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 27",
+      "name": "C# 脚本数量 = 29",
       "ok": true,
-      "detail": "27 个"
+      "detail": "29 个"
     },
     {
       "name": "零 GDScript",
@@ -634,12 +634,47 @@
       "detail": ""
     },
     {
-      "name": "随从第2块：GameRoot 读 meta 选本命、实例化实体、冒烟断言与证据齐全",
+      "name": "随从第2块：GameRoot 读 meta 选本命、交给 SpiritFollowGroup 生成、冒烟断言与证据齐全",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "随从第2块：跟随 AI / 技能 / 本命升级仍未实现（逐块推进，不越界）",
+      "name": "随从跟随：随从是 CharacterBody2D + CollisionShape2D（有真实碰撞体，非纯贴图）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：角色碰撞分层（LayerActor / LayerSpirit），主角 mask 含 Spirit 才能踩在随从头上",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：参考 Boneraiser 的编队（黄金角个人落点 + 闲逛漂移 + 越远越快 + 死区停 + 呼吸）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：横板补充（跨层起跳 / 卡住自救 / 单向平台下穿 / 掉队瞬移）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：与主角让路 + AABB 硬分离（绝不叠在一起），被踩时停止移动",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：实体队伍 = 本命 + RunRoster 成员，Main 挂组、选卡后同步",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：--follow-smoke 七项断言（数量 / 收敛 / 不重叠 / 追赶 / 召回 / 层 / 碰撞体）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       "ok": true,
       "detail": ""
     },

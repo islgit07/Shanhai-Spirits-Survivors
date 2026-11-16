@@ -978,3 +978,74 @@ JSON 带版本号与迁移钩子、先校验余额再变更、`GetNode` 全在 `
 版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
 `project.godot` 用户改动未碰、未提交。右栏大区域目前仍是占位队伍列表，
 等用户以后自己设计具体内容；本轮没加任何设置项、技能或战斗逻辑。
+
+## 22. 随从跟随（SPIRIT-FOLLOW，2026-11-16，v0.0005）
+
+### 22.1 需求与拍板
+用户要求做随从跟随，参考 `D:\GameProjects\BoneraiserGodot` 的随从逻辑；随后追加两条硬约束：
+「是有碰撞体的，主角和随从不能叠在一起，以后加入敌人系统也是这一段逻辑」、
+「玩家可以踩在随从头上」。四问拍板：本命 + 队友都跟随 / **踩平台走** / 散点编队 / 轻避障。
+决策留档 `docs/decisions/2026-11-16-spirit-follow.md`。
+
+### 22.2 实现选择
+- **选**：随从改 `CharacterBody2D` + `CapsuleShape2D`（真实碰撞体）；新增 `LayerActor(4)` /
+  `LayerSpirit(8)` 两层；跟随逻辑独立成 `SpiritFollow` 组件；实体同步独立成 `SpiritFollowGroup`。
+- **参考 Boneraiser 并移植**：黄金角个人落点、闲逛漂移、呼吸浮动、越远越快追赶、死区停。
+- **横板补充**：跨层起跳、卡住自救跳、单向平台主动下穿、掉队/坠落瞬移。
+- **否决**：悬浮直飞（用户选踩平台）；随从之间硬碰撞（会互相卡死）；
+  `Area2D` 当碰撞体（站不住，踩不了头）；主角 mask 不含随从层（踩不上头）；
+  给队友编技能/数值（越界）。
+
+### 22.3 碰撞与「踩头」实现
+| 角色 | CollisionLayer | CollisionMask |
+|---|---|---|
+| 主角 | `LayerSolid \| LayerActor` (5) | `Solid \| OneWay \| Actor \| Spirit` (15) |
+| 随从 | `LayerSpirit` (8) | `Solid \| OneWay \| Actor` (7) |
+
+- 主角 layer 保留 `LayerSolid`：脆弱/弹跳/宝箱的 Area2D 用 `mask=1` 识别玩家，不能改。
+- 主角 mask 含 `LayerSpirit` → `IsOnFloor()` 能检测到随从 → **可以踩在随从头上**。
+- 随从 `ProcessPhysicsPriority = -10`（先于主角）；靠近主角 0.85 格内让路并给满速；
+  每帧 `SeparateFrom` 沿水平轴硬分离 → 永不与主角同位。
+- 被踩：头顶薄矩形形状查询命中 `LayerActor` → 水平速度归零、停止跟随，玩家离开后恢复。
+
+### 22.4 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/SpiritFollow.cs` (+uid) | 新增：平台跟随 AI（落点/漂移/呼吸/追赶/跳跃/下穿/自救/瞬移/让路/硬分离/被踩） |
+| `scripts/csharp/gameplay/SpiritFollowGroup.cs` (+uid) | 新增：本命 + `RunRoster` 实体同步、槽位重排、队友占位色、`--follow-smoke` |
+| `scripts/csharp/gameplay/SpiritPet.cs` | 改继承 `CharacterBody2D`；设层与碰撞体；新增 `SetupCompanion` / `UpdateCompanionStats` |
+| `scenes/spirits/spirit_pet.tscn` | 根改 `CharacterBody2D` + `CollisionShape2D`(Capsule 0.31/0.88) + `Follow` 子节点 |
+| `scripts/csharp/core/GameDefs.cs` | 新增 `LayerActor` / `LayerSpirit` 与 19 个跟随参数 |
+| `scripts/csharp/gameplay/Master.cs` | 碰撞层改用角色层（保留 `LayerSolid`，mask 含 `LayerSpirit`） |
+| `scripts/csharp/core/GameRoot.cs` | 随从生成改由 `SpiritFollowGroup`；新增 `RefreshCompanions`；冒烟加两条跟随断言与证据 |
+| `scripts/csharp/ui/CompanionOffer.cs` | 选卡成功后调用 `RefreshCompanions()`，场上实体立刻跟上 |
+| `scenes/Main.tscn` | 挂 `SpiritFollowGroup` 节点 |
+| `tools/check_project.py` | `EXPECTED_CS` 27→29；7f 段新增 7 项跟随检查；修正第 2 块两条旧检查 |
+
+### 22.5 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `godot --headless --editor --quit` | 0 ERROR；2 个新 `.cs.uid` 生成 |
+| 3 | `tools/check_project.py` | **163/163 PASS** |
+| 4 | `Main.tscn -- --follow-smoke` | **7/7 PASS**，连跑 3 次 `max_distance` = 1.327 / 2.873 / 2.847 |
+| 5 | `Main.tscn -- --smoke` | **PASS**，新增 `follow_entity_ok` / `follow_no_overlap_ok` 全 true |
+| 6 | 开始页 → 选择 → 游戏 整链 `-- --smoke` | **PASS**（含跟随断言） |
+| 7 | `--pause-smoke` / `--offer-smoke` | 均 **PASS**（未被改动破坏） |
+
+证据：`FOLLOW_SMOKE_JSON` 的 `fate_plus_roster / converge_near_player / never_overlap /
+catch_up_when_far / recall_when_lost / actor_layers / has_collision_body` 全 true；
+主冒烟 `follow_pets=1`、`follow_layers="layer=8 mask=7"`。
+
+### 22.6 代码审查（`godot-code-review`）
+无 Critical / Improvement 遗留。审查中修掉两处：
+1. `SpiritFollowGroup` 有个从未使用的 `_geometry` 字段（原计划轻避障用，物理碰撞已覆盖）→ 删除；
+2. 让路时速度仍按 `Base + dist×CatchUp` 算，主角冲过来时随从会被顶着走 → 让路分支直接给满速。
+其余：`GetParent<SpiritPet>()` 在 `_Ready` 缓存、节点路径逐层下钻、`QueueFree` 前先移出列表、
+`Bind` 幂等、`Refresh` 幂等、`async void` 冒烟有出口、无 autoload / 无静态可变状态、
+零技能零数值。有意偏离：呼吸浮动只动 Sprite（不动物理体），避免与落点互相拉扯。
+
+### 22.7 范围边界
+版本保持 `0.0005`，未升版、未打 tag、未 push；README 用户自管；
+`project.godot` 用户改动未碰、未提交。
+未实现：战斗、敌人、随从攻击、技能、真实掉落、随从之间的互推可视化。

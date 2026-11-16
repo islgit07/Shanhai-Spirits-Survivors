@@ -27,6 +27,38 @@ public static class GameDefs
     // 1 = 实体地板（GND-001，永不穿透）；2 = 单向平台（可从下方跳穿、可下穿）。角色 mask = 1|2。
     public const uint LayerSolid = 1u;
     public const uint LayerOneWay = 2u;
+    // SPIRIT-FOLLOW 角色碰撞层（2026-11-16）：地形之外的「角色」分两层，主角 / 随从 / 未来敌人共用一套规则。
+    //   LayerActor  = 主角与敌人：彼此互挡，也会挡住随从。
+    //   LayerSpirit = 随从：被主角与敌人挡住；彼此不硬碰（靠散点槽位 + 软分离，避免四只互相卡死）。
+    // 主角 layer 保留 LayerSolid：脆弱/弹跳/宝箱的 Area2D 用 mask=1 识别玩家，改掉会全部失联。
+    // 主角 mask 含 LayerSpirit，是为了「玩家可以踩在随从头上」——IsOnFloor 需要检测到随从的碰撞体。
+    public const uint LayerActor = 4u;
+    public const uint LayerSpirit = 8u;
+
+    // ---------------------------------------------------------------- 随从跟随（SPIRIT-FOLLOW）
+    // 参考 BoneraiserGodot 的随从编队：黄金角散布个人落点 + 闲逛漂移 + 越远越快追赶 + 死区停。
+    // 横板差异：本作随从踩平台走（有重力 / 跳跃 / 单向平台），不是俯视悬浮。
+    public const float SpiritBodyWidth = 0.62f;          // 碰撞体宽（略小于视觉 1 格，避免蹭墙）
+    public const float SpiritBodyHeight = 0.88f;         // 碰撞体高（主角 1.2，站在头上仍有一格空间）
+    public const float SpiritFollowBaseSpeed = 6.4f;     // 落点附近的最低速度
+    public const float SpiritFollowCatchUp = 3.0f;       // 每 1 格差距追加的速度（越远越快）
+    public const float SpiritFollowMaxSpeed = 16.0f;     // 追赶速度上限（不瞬移）
+    public const float SpiritFollowAccelGround = 80.0f;  // 地面加速（跟手）
+    public const float SpiritFollowAccelAir = 50.0f;     // 空中微调
+    public const float SpiritFollowJumpSpeed = 18.4f;    // 与主角满跳同高，保证能跟上层
+    public const float SpiritFollowStopRadius = 0.16f;   // 落点死区（小于此值不动，防抖）
+    public const float SpiritFollowAnchorMin = 1.05f;    // 个人落点最小半径
+    public const float SpiritFollowAnchorStep = 0.30f;   // 半径档距（每人远近不同）
+    public const float SpiritFollowAnchorFlatten = 0.38f;// 纵向压扁（横板不需要环绕一圈）
+    public const float SpiritFollowAnchorLift = 0.50f;   // 落点整体上浮（灵兽飘在肩上方）
+    public const float SpiritFollowWanderRange = 0.22f;  // 闲逛漂移幅度
+    public const float SpiritFollowJumpCooldown = 0.40f; // 两次跳跃最小间隔
+    public const float SpiritFollowDropTime = 0.18f;     // 主动下穿单向平台窗口
+    public const float SpiritFollowTeleportDist = 13.0f; // 掉队超过此距离 → 回到主角身边
+    public const float SpiritFollowStuckTime = 0.35f;    // 想走却走不动多久后自救跳
+    public const float SpiritAvoidRadius = 0.85f;        // 与主角小于此距离 → 让路（不叠）
+    public const float SpiritBobHeight = 0.07f;          // 视觉呼吸幅度（只动 Sprite，不动物理体）
+    public const string SpiritGroup = "spirit";          // 随从节点组（冒烟 / 查询用）
 
     // ---------------------------------------------------------------- 方块地图
     // 1×1 世界单位方块网格：列 = 世界 x（-24..+24）；行从 GroundY 向上逐格（row 0 = 地面层）。

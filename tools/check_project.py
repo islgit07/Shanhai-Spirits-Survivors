@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 27
+EXPECTED_CS = 29
 checks = []
 
 
@@ -443,6 +443,7 @@ check("随从系统：数据卡无技能/升级/跟随字段（技能由用户�
 # ---------------------------------------------------------------- 7c. 随从系统第 2 块（本命选择 + tscn 实体）
 pet_scene = read(ROOT / "scenes" / "spirits" / "spirit_pet.tscn")
 pet_cs = cs("gameplay/SpiritPet.cs")
+group_cs = cs("gameplay/SpiritFollowGroup.cs")
 select_cs = cs("ui/SpiritSelect.cs")
 select_tscn = read(ROOT / "scenes" / "ui" / "SpiritSelect.tscn")
 start_cs = read(ROOT / "scripts" / "csharp" / "ui" / "StartPage.cs")
@@ -457,12 +458,11 @@ check("随从第2块：spirit_pet.tscn 引用 pet.png + SpiritPet.cs，随从由
       (ROOT / "scenes" / "spirits" / "spirit_pet.tscn").exists()
       and "pet.png" in pet_scene and "SpiritPet.cs" in pet_scene
       and 'type="Sprite2D"' in pet_scene
-      and "pet.png" in pet_cs and "partial class SpiritPet : Node2D" in pet_cs
+      and "pet.png" in pet_cs and "partial class SpiritPet : CharacterBody2D" in pet_cs
       and "GD.Load<PackedScene>" in select_cs and "Instantiate<SpiritPet>()" in select_cs
-      and "GD.Load<PackedScene>(SpiritPetScenePath)" in spirit_root
-      and "petScene.Instantiate<SpiritPet>()" in spirit_root)
+      and "SpiritPetScenePath" in spirit_root and "Instantiate<SpiritPet>()" in group_cs)
 check("随从第2块：SpiritPet.Setup 套身份色 Tint 并按 pet.png 像素等比缩放（不拉伸）",
-      "_sprite.Modulate = def.Tint" in pet_cs
+      "_sprite.Modulate = tint" in pet_cs and "def.Tint" in pet_cs
       and "uniform" in pet_cs and "_worldHeight" in pet_cs
       and "displayHeight" in pet_cs and "AppliedTint" in pet_cs
       and "TexturePath" in pet_cs)
@@ -477,16 +477,61 @@ check("随从第2块：选择场景存在且含标题/提示/卡片容器/操作
       and 'text = "选择本命灵兽"' in select_tscn
       and "SpiritSelect.cs" in select_tscn
       and 'res://scenes/ui/SpiritSelect.tscn' in start_cs)
-check("随从第2块：GameRoot 读 meta 选本命、实例化实体、冒烟断言与证据齐全",
+check("随从第2块：GameRoot 读 meta 选本命、交给 SpiritFollowGroup 生成、冒烟断言与证据齐全",
       "SpiritCatalog.ChosenIdMeta" in spirit_root
       and "HasMeta" in spirit_root and "GetMeta" in spirit_root
+      and "SpiritGroup" in spirit_root and "RefreshCompanions" in spirit_root
       and '"fate_companion_ok"' in spirit_root and '"spirits_tints_ok"' in spirit_root
       and all(k in spirit_root for k in ("fate_chosen_id", "fate_chosen_name",
                                           "fate_companion_id", "fate_companion_texture",
                                           "fate_companion_tint", "spirits_tints")))
-check("随从第2块：跟随 AI / 技能 / 本命升级仍未实现（逐块推进，不越界）",
-      not any(k in pet_cs for k in ("_PhysicsProcess", "Velocity", "Skill", "Attack"))
-      and "Follow" not in spirit_root)
+
+# ---------------------------------------------------------------- 7f. SPIRIT-FOLLOW 随从跟随（2026-11-16）
+follow_cs = cs("gameplay/SpiritFollow.cs")
+group_cs = cs("gameplay/SpiritFollowGroup.cs")
+follow_defs = cs("core/GameDefs.cs")
+follow_master = cs("gameplay/Master.cs")
+follow_offer = cs("ui/CompanionOffer.cs")
+follow_main = read(ROOT / "scenes" / "Main.tscn")
+
+check("随从跟随：随从是 CharacterBody2D + CollisionShape2D（有真实碰撞体，非纯贴图）",
+      'name="SpiritPet" type="CharacterBody2D"' in pet_scene
+      and 'type="CollisionShape2D"' in pet_scene and "CapsuleShape2D" in pet_scene
+      and "partial class SpiritPet : CharacterBody2D" in pet_cs
+      and "CollisionLayer = GameDefs.LayerSpirit" in pet_cs
+      and "GameDefs.LayerActor" in pet_cs)
+check("随从跟随：角色碰撞分层（LayerActor / LayerSpirit），主角 mask 含 Spirit 才能踩在随从头上",
+      "public const uint LayerActor = 4u" in follow_defs
+      and "public const uint LayerSpirit = 8u" in follow_defs
+      and "CollisionLayer = GameDefs.LayerSolid | GameDefs.LayerActor" in follow_master
+      and "GameDefs.LayerSpirit" in follow_master)
+check("随从跟随：参考 Boneraiser 的编队（黄金角个人落点 + 闲逛漂移 + 越远越快 + 死区停 + 呼吸）",
+      "SlotOffset" in follow_cs and "2.39996f" in follow_cs
+      and "SpiritFollowCatchUp" in follow_cs and "SpiritFollowStopRadius" in follow_cs
+      and "_wander" in follow_cs and "SpiritBobHeight" in follow_cs
+      and "ProcessPhysicsPriority" in follow_cs)
+check("随从跟随：横板补充（跨层起跳 / 卡住自救 / 单向平台下穿 / 掉队瞬移）",
+      all(k in follow_cs for k in ("SpiritFollowJumpSpeed", "SpiritFollowStuckTime",
+                                   "SpiritFollowDropTime", "SpiritFollowTeleportDist")))
+check("随从跟随：与主角让路 + AABB 硬分离（绝不叠在一起），被踩时停止移动",
+      "SpiritAvoidRadius" in follow_cs and "SeparateFrom" in follow_cs
+      and "ProbeStoodOn" in follow_cs and "IsStoodOn" in follow_cs
+      and "LayerActor" in follow_cs and "SpiritBodyWidth" in follow_cs)
+check("随从跟随：实体队伍 = 本命 + RunRoster 成员，Main 挂组、选卡后同步",
+      'name="SpiritFollowGroup" type="Node2D"' in follow_main
+      and "SpiritFollowGroup.cs" in follow_main
+      and "RunRoster" in group_cs and "Primary" in group_cs and "Followers" in group_cs
+      and "GetNode<SpiritFollowGroup>" in spirit_root
+      and "RefreshCompanions" in spirit_root and "RefreshCompanions" in follow_offer)
+check("随从跟随：--follow-smoke 七项断言（数量 / 收敛 / 不重叠 / 追赶 / 召回 / 层 / 碰撞体）",
+      "FOLLOW_SMOKE_JSON_BEGIN" in group_cs
+      and all(k in group_cs for k in ("fate_plus_roster", "converge_near_player", "never_overlap",
+                                      "catch_up_when_far", "recall_when_lost", "actor_layers",
+                                      "has_collision_body")))
+check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
+      not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
+      and not any(k in follow_cs for k in ("Skill", "Attack", "Damage"))
+      and "Damage" not in spirit_root)
 
 # ---------------------------------------------------------------- 7d. 随从系统第 3 块（养成界面 + 存档）
 save_cs = cs("gameplay/SaveGame.cs")

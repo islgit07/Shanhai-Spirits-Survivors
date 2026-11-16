@@ -113,6 +113,7 @@ public partial class CompanionOffer : CanvasLayer
         string message = "";
         bool ok = roster != null && roster.TryApply(id, out message);
         GD.Print($"[OFFER] choose id={id} ok={ok} msg={message} roster={roster?.Count ?? -1}");
+        if (ok) GameRoot.Instance?.RefreshCompanions();   // 场上实体立刻跟上（加人 / 合成重排槽位）
         Close();
     }
 
