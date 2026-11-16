@@ -500,11 +500,17 @@ check("随从跟随：随从是 CharacterBody2D + CollisionShape2D（有真实�
       and "partial class SpiritPet : CharacterBody2D" in pet_cs
       and "CollisionLayer = GameDefs.LayerSpirit" in pet_cs
       and "GameDefs.LayerActor" in pet_cs)
-check("随从跟随：角色碰撞分层（LayerActor / LayerSpirit），主角 mask 含 Spirit 才能踩在随从头上",
+check("随从跟随：角色碰撞分层（Actor / Spirit / SpiritTop），主角只对头顶平台产生踩踏碰撞",
       "public const uint LayerActor = 4u" in follow_defs
       and "public const uint LayerSpirit = 8u" in follow_defs
+      and "public const uint LayerSpiritTop = 16u" in follow_defs
       and "CollisionLayer = GameDefs.LayerSolid | GameDefs.LayerActor" in follow_master
-      and "GameDefs.LayerSpirit" in follow_master)
+      and "GameDefs.LayerSpiritTop" in follow_master
+      and "| GameDefs.LayerSpirit;" not in follow_master)
+check("随从跟随：随从头顶有独立踩踏平台（StaticBody2D, layer 16），水平不挡主角走位",
+      'name="SpiritTop" type="StaticBody2D"' in pet_scene
+      and "collision_layer = 16" in pet_scene
+      and "RectangleShape2D" in pet_scene)
 check("随从跟随：参考 Boneraiser 的编队（黄金角个人落点 + 闲逛漂移 + 越远越快 + 死区停 + 呼吸）",
       "SlotOffset" in follow_cs and "2.39996f" in follow_cs
       and "SpiritFollowCatchUp" in follow_cs and "SpiritFollowStopRadius" in follow_cs
@@ -523,11 +529,17 @@ check("随从跟随：实体队伍 = 本命 + RunRoster 成员，Main 挂组、�
       and "RunRoster" in group_cs and "Primary" in group_cs and "Followers" in group_cs
       and "GetNode<SpiritFollowGroup>" in spirit_root
       and "RefreshCompanions" in spirit_root and "RefreshCompanions" in follow_offer)
-check("随从跟随：--follow-smoke 七项断言（数量 / 收敛 / 不重叠 / 追赶 / 召回 / 层 / 碰撞体）",
+check("随从跟随：让路 v2——前进方向通道让路 + 落点镜像身后 + 提前分离 + 让路跳",
+      "SpiritYieldLaneLength" in follow_cs and "SpiritYieldLaneHalfHeight" in follow_cs
+      and "_lastDirX" in follow_cs and "_facingX" in follow_cs
+      and "SpiritFacingHoldTime" in follow_cs and "dynamicSlot" in follow_cs
+      and "SpiritPushMargin" in follow_cs and "SpiritYieldJumpCooldown" in follow_cs
+      and "d.Y > halfH * 0.55f" in follow_cs)
+check("随从跟随：--follow-smoke 九项断言（数量/收敛/不重叠/追赶/让路不挡/踩头/召回/层/碰撞体）",
       "FOLLOW_SMOKE_JSON_BEGIN" in group_cs
       and all(k in group_cs for k in ("fate_plus_roster", "converge_near_player", "never_overlap",
-                                      "catch_up_when_far", "recall_when_lost", "actor_layers",
-                                      "has_collision_body")))
+                                      "catch_up_when_far", "yield_no_block", "ride_on_head",
+                                      "recall_when_lost", "actor_layers", "has_collision_body")))
 check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
       and not any(k in follow_cs for k in ("Skill", "Attack", "Damage"))

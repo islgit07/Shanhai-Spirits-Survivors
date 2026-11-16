@@ -29,6 +29,11 @@ public partial class SpiritFollow : Node
     private float _stuckTime;
     private float _dropTimer;
     private bool _onOneWayFloor;
+    // 让路系统状态（2026-11-16 优化）：朝向 / 滞回 / 让路跳跃冷却
+    private float _lastDirX = 1f;        // 主角最近一次有效移动方向（+1 右 / -1 左）
+    private float _facingX = 1f;         // 落点镜像基准：落点整体放到主角「身后」
+    private float _facingHoldT;          // 朝向翻转滞回倒计时
+    private float _yieldJumpCooldown;    // 让路跳跃冷却
 
     /// <summary>是否已接入跟随（UI 预览里保持 false，实体静止）。</summary>
     public bool Enabled { get; private set; }
@@ -59,6 +64,8 @@ public partial class SpiritFollow : Node
         _jumpCooldown = 0f;
         _stuckTime = 0f;
         _dropTimer = 0f;
+        _facingHoldT = 0f;
+        _yieldJumpCooldown = 0f;
         Enabled = true;
         SetPhysicsProcess(true);
     }
@@ -126,15 +133,43 @@ public partial class SpiritFollow : Node
         if (_pet.Sprite != null)
             _pet.Sprite.Position = new Vector2(0f, Mathf.Sin(_phase) * GameDefs.SpiritBobHeight);
 
-        Vector2 pos = _pet.GlobalPosition;
-        Vector2 wish = playerPos + _slotOffset + _wander;
+        // ---- 主角速度：判断它「在往哪走」。让路必须让到身后，否则会越让越挡。
+        Vector2 playerVel = _target is CharacterBody2D cb ? cb.Velocity : Vector2.Zero;
+        bool playerMoving = Mathf.Abs(playerVel.X) > GameDefs.SpiritYieldMinSpeed;
+        if (playerMoving) _lastDirX = Mathf.Sign(playerVel.X);
 
-        // ---- 让路：与主角太近时，落点改为「远离主角」方向（不叠在主角身上）
-        Vector2 away = pos - playerPos;
-        float avoid2 = GameDefs.SpiritAvoidRadius * GameDefs.SpiritAvoidRadius;
-        bool yielding = away.LengthSquared() < avoid2 && away.LengthSquared() > 0.0001f;
-        if (yielding)
-            wish = pos + away.Normalized() * GameDefs.SpiritAvoidRadius;
+        // ---- 落点朝向：主角持续往一边走时，整组落点镜像到「身后」（带滞回，防左右横跳）
+        _facingHoldT = Mathf.Max(0f, _facingHoldT - dt);
+        if (playerMoving && _lastDirX != _facingX && _facingHoldT <= 0f)
+        {
+            _facingX = _lastDirX;
+            _facingHoldT = GameDefs.SpiritFacingHoldTime;
+        }
+        Vector2 dynamicSlot = new Vector2(_slotOffset.X * -_facingX, _slotOffset.Y);
+
+        Vector2 pos = _pet.GlobalPosition;
+        Vector2 wish = playerPos + dynamicSlot + _wander;
+
+        // ---- 让路 v2：清空主角前进方向的「通道」。
+        // 旧版是「从主角径向退开」——主角向左走、随从也在左边时，径向退同样是向左，于是它一路退、
+        // 一路挡在主角前面。新版改成：主角前方通道内 → 让到身后；贴太近 → 径向兜底退开。
+        Vector2 relNow = pos - playerPos;
+        float ahead = relNow.X * _lastDirX;   // > 0 表示位于主角前进方向那一侧
+        bool inLane = playerMoving
+                      && ahead > -0.15f && ahead < GameDefs.SpiritYieldLaneLength
+                      && Mathf.Abs(relNow.Y) < GameDefs.SpiritYieldLaneHalfHeight;
+        bool yielding = false;
+        if (inLane)
+        {
+            wish = playerPos + new Vector2(-_lastDirX * 1.25f, -0.15f);   // 身后 1.25 格，略抬高
+            yielding = true;
+        }
+        else if (relNow.LengthSquared() < GameDefs.SpiritAvoidRadius * GameDefs.SpiritAvoidRadius
+                 && relNow.LengthSquared() > 0.0001f)
+        {
+            wish = pos + relNow.Normalized() * GameDefs.SpiritAvoidRadius;
+            yielding = true;
+        }
 
         float dx = wish.X - pos.X;
         float dy = wish.Y - pos.Y;
@@ -143,6 +178,7 @@ public partial class SpiritFollow : Node
         bool onFloor = _pet.IsOnFloor();
         _jumpCooldown = Mathf.Max(0f, _jumpCooldown - dt);
         _dropTimer = Mathf.Max(0f, _dropTimer - dt);
+        _yieldJumpCooldown = Mathf.Max(0f, _yieldJumpCooldown - dt);
 
         // 主动下穿单向平台：窗口内只关单向层，实体地板不受影响
         if (_dropTimer > 0f) _pet.CollisionMask &= ~GameDefs.LayerOneWay;
@@ -176,6 +212,13 @@ public partial class SpiritFollow : Node
         {
             vy = -GameDefs.SpiritFollowJumpSpeed;
             _jumpCooldown = GameDefs.SpiritFollowJumpCooldown;
+        }
+
+        // ---- 让路且贴得近：直接跳过去（从主角身体上方越过，比在脚下横向硬挤快得多）
+        if (yielding && onFloor && ahead < 0.95f && _yieldJumpCooldown <= 0f)
+        {
+            vy = -GameDefs.SpiritFollowJumpSpeed * 0.85f;
+            _yieldJumpCooldown = GameDefs.SpiritYieldJumpCooldown;
         }
 
         // ---- 卡住自救：想走却走不动（台沿 / 拐角）→ 跳一下
@@ -249,15 +292,20 @@ public partial class SpiritFollow : Node
     /// </summary>
     private void SeparateFrom(Vector2 playerPos)
     {
-        float halfW = (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f;
+        // 额外留 0.12 格余量：在真正撞上之前就推开，主角的物理碰撞基本碰不到随从。
+        float halfW = (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f + GameDefs.SpiritPushMargin;
         float halfH = (GameDefs.SpiritBodyHeight + GameDefs.MasterSize.Y) * 0.5f;
         Vector2 d = _pet.GlobalPosition - playerPos;
         if (Mathf.Abs(d.X) >= halfW || Mathf.Abs(d.Y) >= halfH) return;
 
+        // 主角在随从正上方（踩头 / 从头顶越过）时不横推，否则会把随从从脚下挤走、玩家会掉下来。
+        // y-down：主角在上方 → d.Y > 0。
+        if (d.Y > halfH * 0.55f) return;
+
         float push = halfW - Mathf.Abs(d.X) + 0.02f;
         float sign = d.X > 0.001f ? 1f
                    : d.X < -0.001f ? -1f
-                   : (_slotOffset.X >= 0f ? 1f : -1f);
+                   : -_lastDirX;   // 完全重合时推到主角身后
         _pet.GlobalPosition = new Vector2(_pet.GlobalPosition.X + sign * push, _pet.GlobalPosition.Y);
     }
 

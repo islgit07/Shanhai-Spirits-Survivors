@@ -27,11 +27,12 @@ public partial class Master : CharacterBody2D, IBounceable
 		AddToGroup("master");
 		// 角色碰撞（与随从 / 未来敌人共用一套规则）：
 		//   layer 保留 LayerSolid —— 脆弱 / 弹跳 / 宝箱方块用 Area2D(mask=1) 识别玩家，改掉会全部失联；
-		//   mask 含 LayerSpirit —— 玩家才能踩在随从头上（IsOnFloor 要检测到随从碰撞体）；
+		//   mask 含 LayerSpiritTop —— 玩家可以踩在随从头顶那块小平台上；
+		//   mask 不含 LayerSpirit —— 主角水平方向永远不被随从顶住（"随从挡路"的根治）；
 		//   mask 含 LayerActor  —— 敌人系统接入后，主角与敌人互相阻挡。
 		CollisionLayer = GameDefs.LayerSolid | GameDefs.LayerActor;
 		CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay
-			| GameDefs.LayerActor | GameDefs.LayerSpirit;
+			| GameDefs.LayerActor | GameDefs.LayerSpiritTop;
 		DustScene ??= GD.Load<PackedScene>("res://scenes/fx/dust_puff.tscn");
 		// Visual 在 Player.tscn 里摆（Sprite2D ← 贴图在编辑器里拖 PNG 替换）
 		_sprite = GetNodeOrNull<Sprite2D>("Visual");

@@ -34,6 +34,11 @@ public static class GameDefs
     // 主角 mask 含 LayerSpirit，是为了「玩家可以踩在随从头上」——IsOnFloor 需要检测到随从的碰撞体。
     public const uint LayerActor = 4u;
     public const uint LayerSpirit = 8u;
+    // LayerSpiritTop = 随从头顶的一小块踩踏平台（StaticBody2D）：
+    //   · 主角 mask 含它 → 能踩在随从头上；
+    //   · 主角 mask 不含 LayerSpirit → 水平方向永远不被随从顶住（避免"随从挡路"）；
+    //   · 随从本体仍然被主角挡住（随从 mask 含 LayerActor），所以它不会主动压到主角身上。
+    public const uint LayerSpiritTop = 16u;
 
     // ---------------------------------------------------------------- 随从跟随（SPIRIT-FOLLOW）
     // 参考 BoneraiserGodot 的随从编队：黄金角散布个人落点 + 闲逛漂移 + 越远越快追赶 + 死区停。
@@ -56,8 +61,14 @@ public static class GameDefs
     public const float SpiritFollowDropTime = 0.18f;     // 主动下穿单向平台窗口
     public const float SpiritFollowTeleportDist = 13.0f; // 掉队超过此距离 → 回到主角身边
     public const float SpiritFollowStuckTime = 0.35f;    // 想走却走不动多久后自救跳
-    public const float SpiritAvoidRadius = 0.85f;        // 与主角小于此距离 → 让路（不叠）
-    public const float SpiritBobHeight = 0.07f;          // 视觉呼吸幅度（只动 Sprite，不动物理体）
+    public const float SpiritAvoidRadius = 0.85f;         // 贴身兜底：与主角小于此距离 → 径向退开（不叠）
+    public const float SpiritYieldLaneLength = 1.90f;     // 让路通道：主角前进方向前方的长度（格）
+    public const float SpiritYieldLaneHalfHeight = 0.95f; // 让路通道半高（同一水平通道内才算挡路）
+    public const float SpiritYieldMinSpeed = 0.6f;        // 主角水平速度超过此值才算「在走」（才启用通道让路）
+    public const float SpiritYieldJumpCooldown = 0.90f;   // 让路跳跃最小间隔（防连跳）
+    public const float SpiritPushMargin = 0.12f;          // 硬分离额外余量：提前推开，物理上撞不到主角
+    public const float SpiritFacingHoldTime = 0.45f;      // 落点镜像到身后的朝向滞回（防左右横跳）
+    public const float SpiritBobHeight = 0.07f;           // 视觉呼吸幅度（只动 Sprite，不动物理体）
     public const string SpiritGroup = "spirit";          // 随从节点组（冒烟 / 查询用）
 
     // ---------------------------------------------------------------- 方块地图

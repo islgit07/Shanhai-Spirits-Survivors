@@ -89,21 +89,51 @@ public partial class SpiritFollowGroup : Node2D
         bool catchUpOk = _pets.All(p => p.GlobalPosition.DistanceTo(_player.GlobalPosition) < 4.5f);
         bool stillNoOverlap = _pets.All(p => !Overlaps(p.GlobalPosition, _player.GlobalPosition));
 
-        // 4) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
+        // 4) 挡路实测：主角与随从都放到第一层全覆盖地板正中（x=0，地面层上方两格恒空，
+        //    排除地形干扰），随从摆在主角正左方，按住左键 —— 主角应能正常走过去。
+        _player.GlobalPosition = new Vector2(0f, GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
+        _player.Velocity = Vector2.Zero;
+        await Frames(15);
+        SpiritPet blocker = _pets[0];
+        blocker.GlobalPosition = _player.GlobalPosition + new Vector2(-0.45f, 0f);
+        blocker.Velocity = Vector2.Zero;
+        await Frames(3);
+        float startX = _player.GlobalPosition.X;
+        Input.ActionPress("move_left");
+        await Frames(45);
+        Input.ActionRelease("move_left");
+        float yieldTravel = startX - _player.GlobalPosition.X;
+        bool yieldOk = yieldTravel > 2.0f;
+
+        // 5) 踩头：随从站地面，主角从正上方落下 → 应停在随从头顶平台，而不是落到地面
+        SpiritPet ridePet = _pets[0];
+        ridePet.GlobalPosition = new Vector2(3f, GameDefs.LayerY(0) - GameDefs.SpiritBodyHeight * 0.5f);
+        ridePet.Velocity = Vector2.Zero;
+        _player.GlobalPosition = new Vector2(3f, GameDefs.LayerY(0) - 3.2f);
+        _player.Velocity = Vector2.Zero;
+        await Frames(50);
+        bool rideOk = _player.IsOnFloor()
+                      && _player.GlobalPosition.Y < GameDefs.LayerY(0) - 1.0f   // 明显高于地面站姿
+                      && Mathf.Abs(_player.GlobalPosition.X - ridePet.GlobalPosition.X) < 0.6f;
+
+        // 6) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
         SpiritPet far = _pets[0];
         far.GlobalPosition = _player.GlobalPosition + new Vector2(20f, 0f);
         await Frames(6);
         bool recallOk = far.GlobalPosition.DistanceTo(_player.GlobalPosition) < 4.0f;
 
-        // 5) 角色碰撞规则：随从 layer=Spirit、mask 含 Actor/Solid；主角 mask 含 Spirit（才能踩头）
+        // 6) 角色碰撞规则：随从 layer=Spirit、mask 含 Actor/Solid；
+        //    主角只对 LayerSpiritTop（头顶平台）产生碰撞 —— 头上能踩、水平不被顶住。
         bool layersOk = _pets.All(p => p.CollisionLayer == GameDefs.LayerSpirit
                                        && (p.CollisionMask & GameDefs.LayerActor) != 0u
                                        && (p.CollisionMask & GameDefs.LayerSolid) != 0u)
-                        && (_player.CollisionMask & GameDefs.LayerSpirit) != 0u
+                        && (_player.CollisionMask & GameDefs.LayerSpiritTop) != 0u
+                        && (_player.CollisionMask & GameDefs.LayerSpirit) == 0u
                         && (_player.CollisionMask & GameDefs.LayerActor) != 0u;
 
-        // 6) 随从有真实碰撞体（不是纯贴图）
-        bool bodyOk = _pets.All(p => p.GetNodeOrNull<CollisionShape2D>("CollisionShape2D")?.Shape != null);
+        // 7) 随从有真实碰撞体 + 头顶踩踏平台（不是纯贴图）
+        bool bodyOk = _pets.All(p => p.GetNodeOrNull<CollisionShape2D>("CollisionShape2D")?.Shape != null
+                                     && p.GetNodeOrNull<StaticBody2D>("SpiritTop") != null);
 
         var assertions = new Dictionary<string, bool>
         {
@@ -111,6 +141,8 @@ public partial class SpiritFollowGroup : Node2D
             ["converge_near_player"] = convergeOk,
             ["never_overlap"] = noOverlapOk && stillNoOverlap,
             ["catch_up_when_far"] = catchUpOk,
+            ["yield_no_block"] = yieldOk,
+            ["ride_on_head"] = rideOk,
             ["recall_when_lost"] = recallOk,
             ["actor_layers"] = layersOk,
             ["has_collision_body"] = bodyOk,
@@ -127,6 +159,7 @@ public partial class SpiritFollowGroup : Node2D
             ["fate_id"] = Primary?.SpiritId ?? "",
             ["max_distance"] = _pets.Count > 0
                 ? (float)Math.Round(_pets.Max(p => p.GlobalPosition.DistanceTo(_player.GlobalPosition)), 3) : -1f,
+            ["yield_travel"] = (float)Math.Round(yieldTravel, 3),   // 挡路位形下主角按住左键 45 帧走出的距离
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");

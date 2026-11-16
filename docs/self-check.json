@@ -644,7 +644,12 @@
       "detail": ""
     },
     {
-      "name": "随从跟随：角色碰撞分层（LayerActor / LayerSpirit），主角 mask 含 Spirit 才能踩在随从头上",
+      "name": "随从跟随：角色碰撞分层（Actor / Spirit / SpiritTop），主角只对头顶平台产生踩踏碰撞",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：随从头顶有独立踩踏平台（StaticBody2D, layer 16），水平不挡主角走位",
       "ok": true,
       "detail": ""
     },
@@ -669,7 +674,12 @@
       "detail": ""
     },
     {
-      "name": "随从跟随：--follow-smoke 七项断言（数量 / 收敛 / 不重叠 / 追赶 / 召回 / 层 / 碰撞体）",
+      "name": "随从跟随：让路 v2——前进方向通道让路 + 落点镜像身后 + 提前分离 + 让路跳",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从跟随：--follow-smoke 九项断言（数量/收敛/不重叠/追赶/让路不挡/踩头/召回/层/碰撞体）",
       "ok": true,
       "detail": ""
     },
