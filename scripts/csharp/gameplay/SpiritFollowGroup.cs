@@ -105,18 +105,37 @@ public partial class SpiritFollowGroup : Node2D
         float yieldTravel = startX - _player.GlobalPosition.X;
         bool yieldOk = yieldTravel > 2.0f;
 
-        // 5) 踩头：随从站地面，主角从正上方落下 → 应停在随从头顶平台，而不是落到地面
+        // 5) 踩头：随从站地面，主角从正上方落下 → 应停在随从头顶平台，而不是落到地面。
+        //    先把这只随从的跟随暂停，否则它会追着空中的主角自己跑掉，测试不稳定。
+        await Frames(10);
         SpiritPet ridePet = _pets[0];
-        ridePet.GlobalPosition = new Vector2(3f, GameDefs.LayerY(0) - GameDefs.SpiritBodyHeight * 0.5f);
+        SpiritFollow? rideFollow = ridePet.GetNodeOrNull<SpiritFollow>("Follow");
+        rideFollow?.Disable();
+        // 位置贴着主角当前所在地面（地面层全覆盖、上方两格恒空），避免随机方块干扰
+        float rideX = Mathf.Clamp(_player.GlobalPosition.X + 1.2f, -20f, 20f);
+        ridePet.GlobalPosition = new Vector2(rideX, GameDefs.LayerY(0) - GameDefs.SpiritBodyHeight * 0.5f);
         ridePet.Velocity = Vector2.Zero;
-        _player.GlobalPosition = new Vector2(3f, GameDefs.LayerY(0) - 3.2f);
+        _player.GlobalPosition = new Vector2(rideX, GameDefs.LayerY(0) - 2.0f);
         _player.Velocity = Vector2.Zero;
         await Frames(50);
         bool rideOk = _player.IsOnFloor()
                       && _player.GlobalPosition.Y < GameDefs.LayerY(0) - 1.0f   // 明显高于地面站姿
                       && Mathf.Abs(_player.GlobalPosition.X - ridePet.GlobalPosition.X) < 0.6f;
+        rideFollow?.Enable(_player, 0);   // 恢复跟随
 
-        // 6) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
+        // 6) 静止不跳：玩家站地面不动 2.5 秒，随从不应原地连跳
+        //    （槽位纵向夹紧 + 跨层阈值 0.9 + 自救跳冷却，三处共同保证）
+        _player.GlobalPosition = new Vector2(0f, GameDefs.LayerY(0) - GameDefs.SpawnAboveGround);
+        _player.Velocity = Vector2.Zero;
+        SpiritFollow[] follows = _pets.Select(p => p.GetNodeOrNull<SpiritFollow>("Follow"))
+                                      .Where(f => f != null).ToArray()!;
+        await Frames(40);    // 先让它们落地归位
+        int jumpsBefore = follows.Sum(f => f.JumpCount);
+        await Frames(150);   // 2.5 秒静止
+        int idleJumps = follows.Sum(f => f.JumpCount) - jumpsBefore;
+        bool idleCalmOk = idleJumps <= 2;
+
+        // 7) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
         SpiritPet far = _pets[0];
         far.GlobalPosition = _player.GlobalPosition + new Vector2(20f, 0f);
         await Frames(6);
@@ -143,6 +162,7 @@ public partial class SpiritFollowGroup : Node2D
             ["catch_up_when_far"] = catchUpOk,
             ["yield_no_block"] = yieldOk,
             ["ride_on_head"] = rideOk,
+            ["idle_no_hopping"] = idleCalmOk,
             ["recall_when_lost"] = recallOk,
             ["actor_layers"] = layersOk,
             ["has_collision_body"] = bodyOk,
@@ -160,6 +180,7 @@ public partial class SpiritFollowGroup : Node2D
             ["max_distance"] = _pets.Count > 0
                 ? (float)Math.Round(_pets.Max(p => p.GlobalPosition.DistanceTo(_player.GlobalPosition)), 3) : -1f,
             ["yield_travel"] = (float)Math.Round(yieldTravel, 3),   // 挡路位形下主角按住左键 45 帧走出的距离
+            ["idle_jumps"] = idleJumps,                              // 玩家静止 2.5 秒内随从的主动起跳总数
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");

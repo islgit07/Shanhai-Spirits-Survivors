@@ -9,7 +9,7 @@ radius = 0.31
 height = 0.88
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_top"]
-size = Vector2(0.66, 0.1)
+size = Vector2(0.7, 0.36)
 
 [node name="SpiritPet" type="CharacterBody2D"]
 collision_layer = 8
@@ -29,6 +29,7 @@ collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="SpiritTop"]
 shape = SubResource("RectangleShape2D_top")
+one_way_collision = true
 
 [node name="Follow" type="Node" parent="."]
 script = ExtResource("3_follow")

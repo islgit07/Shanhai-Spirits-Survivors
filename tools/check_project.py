@@ -507,10 +507,19 @@ check("随从跟随：角色碰撞分层（Actor / Spirit / SpiritTop），主�
       and "CollisionLayer = GameDefs.LayerSolid | GameDefs.LayerActor" in follow_master
       and "GameDefs.LayerSpiritTop" in follow_master
       and "| GameDefs.LayerSpirit;" not in follow_master)
-check("随从跟随：随从头顶有独立踩踏平台（StaticBody2D, layer 16），水平不挡主角走位",
+check("随从跟随：头顶踩踏平台是单向碰撞（上方可踩、侧面不挡），且够厚防高速穿过",
       'name="SpiritTop" type="StaticBody2D"' in pet_scene
       and "collision_layer = 16" in pet_scene
-      and "RectangleShape2D" in pet_scene)
+      and "RectangleShape2D" in pet_scene
+      and "one_way_collision = true" in pet_scene)
+check("随从跟随：静止不连跳（槽位纵向夹紧 + 跨层阈值 + 自救跳冷却 + 让路跳需主角在动）",
+      "SpiritSlotLiftMax" in follow_defs and "SpiritJumpUpThreshold" in follow_defs
+      and "SpiritStuckJumpCooldown" in follow_defs
+      and "Mathf.Clamp(_slotOffset.Y" in follow_cs
+      and "dy < -GameDefs.SpiritJumpUpThreshold" in follow_cs
+      and "yielding && playerMoving" in follow_cs
+      and "Mathf.Abs(dx) > 1.0f" in follow_cs
+      and "JumpCount" in follow_cs)
 check("随从跟随：参考 Boneraiser 的编队（黄金角个人落点 + 闲逛漂移 + 越远越快 + 死区停 + 呼吸）",
       "SlotOffset" in follow_cs and "2.39996f" in follow_cs
       and "SpiritFollowCatchUp" in follow_cs and "SpiritFollowStopRadius" in follow_cs
@@ -535,11 +544,12 @@ check("随从跟随：让路 v2——前进方向通道让路 + 落点镜像身�
       and "SpiritFacingHoldTime" in follow_cs and "dynamicSlot" in follow_cs
       and "SpiritPushMargin" in follow_cs and "SpiritYieldJumpCooldown" in follow_cs
       and "d.Y > halfH * 0.55f" in follow_cs)
-check("随从跟随：--follow-smoke 九项断言（数量/收敛/不重叠/追赶/让路不挡/踩头/召回/层/碰撞体）",
+check("随从跟随：--follow-smoke 十项断言（数量/收敛/不重叠/追赶/让路/踩头/静止不跳/召回/层/碰撞体）",
       "FOLLOW_SMOKE_JSON_BEGIN" in group_cs
       and all(k in group_cs for k in ("fate_plus_roster", "converge_near_player", "never_overlap",
                                       "catch_up_when_far", "yield_no_block", "ride_on_head",
-                                      "recall_when_lost", "actor_layers", "has_collision_body")))
+                                      "idle_no_hopping", "recall_when_lost", "actor_layers",
+                                      "has_collision_body")))
 check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
       and not any(k in follow_cs for k in ("Skill", "Attack", "Damage"))

@@ -34,6 +34,7 @@ public partial class SpiritFollow : Node
     private float _facingX = 1f;         // 落点镜像基准：落点整体放到主角「身后」
     private float _facingHoldT;          // 朝向翻转滞回倒计时
     private float _yieldJumpCooldown;    // 让路跳跃冷却
+    private float _stuckJumpCooldown;    // 卡住自救跳冷却（原地连跳修复）
 
     /// <summary>是否已接入跟随（UI 预览里保持 false，实体静止）。</summary>
     public bool Enabled { get; private set; }
@@ -43,6 +44,9 @@ public partial class SpiritFollow : Node
 
     /// <summary>本帧是否被主角踩在头上。</summary>
     public bool IsStoodOn { get; private set; }
+
+    /// <summary>累计主动起跳次数（跨层 / 让路 / 自救），冒烟用「静止时不该连跳」。</summary>
+    public int JumpCount { get; private set; }
 
     public override void _Ready()
     {
@@ -66,6 +70,7 @@ public partial class SpiritFollow : Node
         _dropTimer = 0f;
         _facingHoldT = 0f;
         _yieldJumpCooldown = 0f;
+        _stuckJumpCooldown = 0f;
         Enabled = true;
         SetPhysicsProcess(true);
     }
@@ -145,7 +150,10 @@ public partial class SpiritFollow : Node
             _facingX = _lastDirX;
             _facingHoldT = GameDefs.SpiritFacingHoldTime;
         }
-        Vector2 dynamicSlot = new Vector2(_slotOffset.X * -_facingX, _slotOffset.Y);
+        // 纵向偏移夹紧：落在「站同一地面就够得到」的范围内，否则会一直被判定为要跨层 → 原地连跳。
+        Vector2 dynamicSlot = new Vector2(
+            _slotOffset.X * -_facingX,
+            Mathf.Clamp(_slotOffset.Y, -GameDefs.SpiritSlotLiftMax, GameDefs.SpiritSlotDropMax));
 
         Vector2 pos = _pet.GlobalPosition;
         Vector2 wish = playerPos + dynamicSlot + _wander;
@@ -179,6 +187,7 @@ public partial class SpiritFollow : Node
         _jumpCooldown = Mathf.Max(0f, _jumpCooldown - dt);
         _dropTimer = Mathf.Max(0f, _dropTimer - dt);
         _yieldJumpCooldown = Mathf.Max(0f, _yieldJumpCooldown - dt);
+        _stuckJumpCooldown = Mathf.Max(0f, _stuckJumpCooldown - dt);
 
         // 主动下穿单向平台：窗口内只关单向层，实体地板不受影响
         if (_dropTimer > 0f) _pet.CollisionMask &= ~GameDefs.LayerOneWay;
@@ -206,30 +215,37 @@ public partial class SpiritFollow : Node
             vy = Mathf.Min(vy + g * dt, GameDefs.MasterMaxFallSpeed);
         }
 
-        // ---- 跨层：目标明显在上方且水平够近 → 起跳（满跳高度与主角一致，保证跟得上）
-        bool wantUp = dy < -0.70f;
+        // ---- 跨层：目标在上方超过「准层高」且水平够近 → 起跳。
+        // 阈值 0.9 格 + 槽位纵向夹紧：站同一地面能对齐的目标永远不触发跳跃，根治原地连跳。
+        bool wantUp = dy < -GameDefs.SpiritJumpUpThreshold;
         if (onFloor && wantUp && Mathf.Abs(dx) < 2.4f && _jumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed;
             _jumpCooldown = GameDefs.SpiritFollowJumpCooldown;
+            JumpCount++;
         }
 
-        // ---- 让路且贴得近：直接跳过去（从主角身体上方越过，比在脚下横向硬挤快得多）
-        if (yielding && onFloor && ahead < 0.95f && _yieldJumpCooldown <= 0f)
+        // ---- 让路且贴得近：直接跳过去（从主角身体上方越过，比在脚下横向硬挤快得多）。
+        // 只在主角真的在移动时跳——玩家停下后继续让路跳会变成原地弹跳。
+        if (yielding && playerMoving && onFloor && ahead < 0.95f && _yieldJumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed * 0.85f;
             _yieldJumpCooldown = GameDefs.SpiritYieldJumpCooldown;
+            JumpCount++;
         }
 
-        // ---- 卡住自救：想走却走不动（台沿 / 拐角）→ 跳一下
-        if (onFloor && Mathf.Abs(dx) > 0.4f && Mathf.Abs(vx) < 0.6f)
+        // ---- 卡住自救：想走却走不动（台沿 / 拐角）→ 跳一下。
+        // 只在距离还远时触发，并拉长冷却：归位途中的微小卡顿不值得连跳。
+        if (onFloor && Mathf.Abs(dx) > 1.0f && Mathf.Abs(vx) < 0.6f)
         {
             _stuckTime += dt;
-            if (_stuckTime > GameDefs.SpiritFollowStuckTime && _jumpCooldown <= 0f)
+            if (_stuckTime > GameDefs.SpiritFollowStuckTime && _stuckJumpCooldown <= 0f)
             {
                 vy = -GameDefs.SpiritFollowJumpSpeed;
                 _jumpCooldown = GameDefs.SpiritFollowJumpCooldown;
+                _stuckJumpCooldown = GameDefs.SpiritStuckJumpCooldown;
                 _stuckTime = 0f;
+                JumpCount++;
             }
         }
         else _stuckTime = 0f;

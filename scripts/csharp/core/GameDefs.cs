@@ -68,6 +68,12 @@ public static class GameDefs
     public const float SpiritYieldJumpCooldown = 0.90f;   // 让路跳跃最小间隔（防连跳）
     public const float SpiritPushMargin = 0.12f;          // 硬分离额外余量：提前推开，物理上撞不到主角
     public const float SpiritFacingHoldTime = 0.45f;      // 落点镜像到身后的朝向滞回（防左右横跳）
+    // 原地跳修复（2026-11-16）：槽位的纵向偏移必须限制在「站在同一地面就够得到」的范围，
+    // 否则随从会认为目标永远在头顶 → 落地触发跨层跳 → 跳完落下再触发，形成原地连跳。
+    public const float SpiritSlotLiftMax = 0.45f;         // 落点最多高于主角中心多少（格）
+    public const float SpiritSlotDropMax = 0.10f;         // 落点最多低于主角中心多少（格）
+    public const float SpiritJumpUpThreshold = 0.90f;     // 目标高于自身超过此值才判定为「需要跨层」
+    public const float SpiritStuckJumpCooldown = 1.20f;   // 卡住自救跳的最小间隔（防原地连跳）
     public const float SpiritBobHeight = 0.07f;           // 视觉呼吸幅度（只动 Sprite，不动物理体）
     public const string SpiritGroup = "spirit";          // 随从节点组（冒烟 / 查询用）
 
