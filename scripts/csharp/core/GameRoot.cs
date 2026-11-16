@@ -114,7 +114,7 @@ public partial class GameRoot : Node2D
 		_seedLabel = UiSkin.MakeSeedBadge(this, _currentSeed);   // 开发用：常驻显示当前地图种子，便于复现
 		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
-		GD.Print("[BOOT] 山海幻灵 v0.0004 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
+		GD.Print("[BOOT] 山海幻灵 v0.0005 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
 		if (SmokeMode) BeginSmoke();
 
 		// 仅截图自检用：--shot 时 1.5 秒后存图并退出
@@ -491,7 +491,7 @@ public partial class GameRoot : Node2D
 		var report = new Dictionary<string, object>
 		{
 			["project"] = "山海幻灵",
-			["version"] = "0.0004",
+			["version"] = "0.0005",
 			["mode"] = "headless-smoke",
 			["result"] = ok ? "PASS" : "FAIL",
 			["platforms"] = PlatformCount,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0004 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0005 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0004"
+VERSION = "0.0005"
 EXPECTED_CS = 14
 checks = []
 
@@ -405,7 +405,9 @@ for gone in ["SpeciesDef", "OfferKind", "LegionUnit", "WildSpawner", "EssencePic
 # ---------------------------------------------------------------- 8. 版本一致
 readme = read(ROOT / "README.md")
 check("README 版本一致", f"v{VERSION}" in readme)
-check("README 记录找回路径", "5978a58" in readme and "docs/archive/v0.003" in readme)
+# 注：原「README 记录找回路径（5978a58 / docs/archive/v0.003）」检查已移除——
+# 远程提交 40c9ce1 简化了 README 更新说明并删掉 History 行，用户拍板按远程 README 为准，
+# 故不再要求 README 保留找回路径；归档事实仍在 docs/overview-v0.003.md 中记录。
 overview = read(DOCS / "overview-v0.003.md")
 # 不只验「文件存在」：旧战斗版 overview 也曾存在，必须验内容确实是 0.0003 回退后基线。
 check("overview 全景文档反映 0.0003 回退后基线（非旧战斗版）",

@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0004",
+  "version": "0.0005",
   "result": "PASS",
   "checks": [
     {
@@ -39,7 +39,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0004",
+      "name": "config/version = 0.0005",
       "ok": true,
       "detail": ""
     },
@@ -575,11 +575,6 @@
     },
     {
       "name": "README 版本一致",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "name": "README 记录找回路径",
       "ok": true,
       "detail": ""
     },
