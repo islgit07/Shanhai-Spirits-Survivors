@@ -83,10 +83,36 @@ check("自动上攀：翻越吸附写入移动内核（TryClimb + 移动后判�
       "TryClimb" in mover and "onFloorNow" in mover)
 check("自动上攀：攀爬参数常量（ClimbReachUp / ClimbEdgeBand / ClimbStep）",
       "MasterClimbReachUp" in defs and "MasterClimbEdgeBand" in defs and "MasterClimbStep" in defs)
-check("基础键鼠映射（4 action × 1 键，无手柄 / 无方向键）",
+check("基础键鼠映射（4 action × 1 键，键盘保留）",
       all(a + "={" in pg for a in ("move_left", "move_right", "move_down", "jump"))
-      and "InputEventJoypad" not in pg
       and pg.count('"physical_keycode"') == 4)
+# 手柄：键盘与手柄共用同一 action，游戏代码零改动（input-handling §5 推荐做法）。
+# 校验具体枚举值与方向，避免只有字符串「InputEventJoypad」出现的假阳性。
+def _action_events(action):
+    start = pg.find(action + "={")
+    end = pg.find("\n}\n", start)
+    return pg[start:end] if start >= 0 and end > start else ""
+
+_left_ev = _action_events("move_left")
+_right_ev = _action_events("move_right")
+_down_ev = _action_events("move_down")
+_jump_ev = _action_events("jump")
+check("手柄映射：move_left = 十字键左(13) + 左摇杆左(axis0,-1)",
+      '"button_index":13' in _left_ev and '"axis":0' in _left_ev and '"axis_value":-1.0' in _left_ev)
+check("手柄映射：move_right = 十字键右(14) + 左摇杆右(axis0,+1)",
+      '"button_index":14' in _right_ev and '"axis":0' in _right_ev and '"axis_value":1.0' in _right_ev)
+check("手柄映射：move_down = 十字键下(12) + 左摇杆下(axis1,+1)",
+      '"button_index":12' in _down_ev and '"axis":1' in _down_ev and '"axis_value":1.0' in _down_ev)
+check("手柄映射：jump = A 键(0)",
+      '"button_index":0' in _jump_ev)
+check("手柄映射：每个 action 的事件数（左/右/下 3 个，跳跃 2 个）",
+      _left_ev.count("Object(InputEvent") == 3
+      and _right_ev.count("Object(InputEvent") == 3
+      and _down_ev.count("Object(InputEvent") == 3
+      and _jump_ev.count("Object(InputEvent") == 2)
+check("手柄映射：事件类型为 Godot 4 joypad button / motion",
+      pg.count("Object(InputEventJoypadButton") == 4
+      and pg.count("Object(InputEventJoypadMotion") == 3)
 check("主角只有移动跳跃（Master 无 TakeDamage）",
       "TakeDamage" not in cs("gameplay/Master.cs"))
 

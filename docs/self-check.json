@@ -149,7 +149,37 @@
       "detail": ""
     },
     {
-      "name": "基础键鼠映射（4 action × 1 键，无手柄 / 无方向键）",
+      "name": "基础键鼠映射（4 action × 1 键，键盘保留）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：move_left = 十字键左(13) + 左摇杆左(axis0,-1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：move_right = 十字键右(14) + 左摇杆右(axis0,+1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：move_down = 十字键下(12) + 左摇杆下(axis1,+1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：jump = A 键(0)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：每个 action 的事件数（左/右/下 3 个，跳跃 2 个）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手柄映射：事件类型为 Godot 4 joypad button / motion",
       "ok": true,
       "detail": ""
     },

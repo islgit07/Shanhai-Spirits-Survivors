@@ -406,3 +406,57 @@ lambda 捕获的是值类型参数）、`QueueFree` 而非 `Free`、`.tscn` 头 
 
 按版本纪律打附注 tag `v0.0004`（tag 说明「优化地图生成」），连同 `master` 上全部本地提交推送 `origin`。
 `scenes/StartPage.tscn` 仍是用户自己的未提交改动，本次提交显式排除，不在推送范围内。
+
+---
+
+## 12. 同日第九轮：手柄支持（Input Map 补事件，游戏代码零改动）
+
+### 12.1 决策：这是「新增」而非「优化」
+
+此前输入是刻意极简的 4 action × 1 键（键盘）。用户拍板后按 `input-handling` §5 的推荐做法，
+把手柄事件**加进同一批 Input Map action**，键盘与手柄触发同一 action —— 消费端
+`Master.cs` / `WhiteboxPlayer.cs` 走 `Input.GetAxis()` / `IsActionJustPressed()` 高级 API，
+**游戏代码、移动内核、白箱代码一行未改**。
+
+- 选：只改 `project.godot` 的 `[input]`，4 个 action 补 joypad 事件，沿用现有 `deadzone=0.2`。
+- 否决：在 `Master` / `WhiteboxPlayer` 里直接读 `Input.GetJoy*` 原始值（重复实现、破坏白箱与游戏共用内核）。
+- 否决：新增 Autoload 输入管理器 / 事件总线（项目零 autoload 是刻意基线）。
+- 否决：改 `StartPage.tscn` 加手柄提示（该文件是用户自己的改动，且按键说明另处实现；`ui_*` 是 Godot 默认映射，本身就带手柄导航）。
+
+### 12.2 映射表
+
+| action | 键盘 | 十字键 | 左摇杆 |
+|---|---|---|---|
+| `move_left` | A (physical 65) | DpadLeft (13) | LeftX −1.0 |
+| `move_right` | D (physical 68) | DpadRight (14) | LeftX +1.0 |
+| `move_down` | S (physical 83) | DpadDown (12) | LeftY +1.0 |
+| `jump` | Space (physical 32) | A (0) | — |
+
+### 12.3 运行时探针（临时，跑完已删）
+
+写了一次性 `tools/JoyMapProbe.cs`，用 `InputEvent.IsActionPressed()` 纯查询验证：
+Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis）、`jump` 2 事件（key + btn）；
+7 个手柄事件全部命中自己的 action（`result=PASS fail=0`），反向检查 A 键不判成移动、摇杆左不判成 jump
+（无串味）。编译曾报 3 处签名问题（4.7 的 `ButtonIndex`/`Axis` 是枚举、`InputMap.EventIsActionPressed`
+不存在），改用 `InputEvent.IsActionPressed()` 后通过。探针与 `.uid` 已删除，仓库无残留。
+
+### 12.4 验证（全部实跑）
+
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **97/97 PASS**（新增 6 条手柄映射检查：枚举值 + 方向 + 事件数 + 类型） |
+| 3 | 编辑器导入 | 0 ERROR |
+| 4 | `Main.tscn --smoke` | **PASS，17/17 断言**，`version=0.0004`，运行时 0 ERROR |
+| 5 | 开始页 → `Main --smoke` | **PASS** |
+| 6 | 白箱 / 开始页各 120 帧 | 0 ERROR；白箱 `blocks=263 / paths=3/3 / slime=1 grouped=1` |
+| 7 | `CSharpToolchainProbe` | `ok=1 engine=4.7.2-stable` |
+| 8 | `MapSeedProbe` | 10 组种子 `fail=0` |
+
+### 12.5 代码审查
+
+`godot-code-review` 第 5 节 Input Handling 清单全过：action 全走 Input Map 名、无硬编码键码、
+连续移动在 `_physics_process`、无新增 autoload。无 Critical / Improvement。
+
+- 版本保持 `0.0004`，未升版、未打 tag、未 push。
+- `scenes/StartPage.tscn` 用户改动未碰、未提交、显式排除。
