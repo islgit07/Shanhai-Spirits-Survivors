@@ -627,3 +627,59 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
   证据 `fragile_blink_cycles=3 / fragile_standable_during_blink=true / blink_started=1 / blink_finished=1`；
   开始页入口冒烟 PASS、0 ERROR。
 - 版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。
+
+## 15. BOUNCE-JELLY：弹跳块蹦蹦床动态效果（2026-11-16）
+
+### 15.1 实现选择
+
+用户：「弹性的那个方块能做出蹦蹦床弹跳的那种动态效果吗，允许创意发挥」。
+
+- **选**：三段式动画，只动 `Visual` 子节点——① 踩沉压扁（横向 ×1.45 / 纵向 ×0.42、下沉 0.18、
+  亮黄高亮，0.08s）→ ② 过冲回弹（纵向 ×1.22、上抬 0.10、Back.Out，0.10s）
+  → ③ Elastic 余震颤回原样（0.36s）。另加程序化 `Line2D` 扁椭圆冲击环，从块面扩散淡出（0.32s）。
+  12 个表现参数集中在 `GameDefs`；Tween 分别绑定 visual / ring，换种子重建自动停。
+- **否决**：① AnimationPlayer + 关键帧资源——多一份 `.tres`，与现有 Tween 方案和零 PNG 白箱不一致；
+  ② 缩放/移动 `StaticBody2D`——会连带改碰撞形状，影响弹跳判定；③ GPUParticles2D——
+  gl_compatibility + 零 PNG 下 `Line2D` 更轻、更确定。
+
+### 15.2 过程中发现并修掉的两个既有 bug
+
+1. **弹跳块的 Touch 感应区整个埋在方块内部**（与当年脆弱木板踩不碎同一个坑）：站在顶面时玩家碰撞体
+   与感应区只在边界相切、`BodyEntered` 不触发 → 弹跳动画和弹射在真实踩踏下从来没发生。
+   修 `scenes/blocks/block_bounce.tscn`：新增 `touch_rect`，`position=(0,-0.55)`、`size=(1,0.5)`，跨过顶面。
+2. **弹射速度下一帧被贴地分支清零**：`Bounce()` 在 Step 后设 `vy=-22`，但下一帧 `IsOnFloor()` 仍为 true，
+   `PlatformMover.Step` 的贴地分支把 `vy` 置 0，player 根本飞不起来。
+   修：内核新增 `ApplyExternalLaunch()` + 一次性 `_externalLaunch` 空中标记；`Master` 与
+   `WhiteboxPlayer` 统一改走该入口（白箱 = 游戏）。
+
+### 15.3 改动文件
+
+`GameDefs.cs`（12 个 BOUNCE 常量）、`BlockField.cs`（`Jelly` 三段式 + `SpawnBounceRing` +
+`BounceJellyStartedCount` + `GetFirstBounce`）、`PlatformMover.cs`（外部弹射入口）、
+`Master.cs` / `WhiteboxPlayer.cs`（弹射统一走内核）、`scenes/blocks/block_bounce.tscn`（感应区）、
+`GameRoot.cs`（7.2~8.0s 弹跳冒烟阶段 + `bounce_jelly_ok`）、`WhiteboxRoot.cs` 图例、
+`tools/check_project.py`（8 条 BOUNCE-JELLY 静态断言）。
+
+### 15.4 验证（全部实跑）
+
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **121/121 PASS**（新增 8 条 BOUNCE-JELLY 检查） |
+| 3 | 编辑器无头导入 | exit 0，0 ERROR |
+| 4 | `Main.tscn --smoke` | exit 0，**PASS，21/21 断言**，运行时 0 ERROR |
+| 5 | 开始页 → `Main --smoke` | exit 0，**PASS**，0 ERROR |
+| 6 | `MapSeedProbe` | 10 组种子 `fail=0` |
+
+冒烟证据：`bounce_jelly_started=2`、`bounce_jelly_seen=true`、`bounce_skipped=false`、
+`bounce_launch_rise=3.2`；日志顺序 `bounce jelly start → bounce jelly start`（下落回来二次弹跳）。
+`bounce_launch_rise` 基准取传送之后，排除「瞬移上升」假阳性。
+
+### 15.5 代码审查
+
+`godot-code-review`：无 Critical。Tween 绑定 visual / ring，随节点释放自动停止；
+物理回调内不移除节点；环播完 `QueueFree`，零 PNG / 零新资源；
+`_jellyBusy` 防动画重播、不影响弹射；两个玩家统一走内核弹射入口；
+C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
+
+范围：版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。

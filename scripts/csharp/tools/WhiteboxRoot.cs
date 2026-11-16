@@ -249,7 +249,7 @@ public partial class WhiteboxRoot : Node2D
         AddLegendRow(box, BlockField.Tint(BlockType.Normal), "普通实心块 —— 四面实体");
         AddLegendRow(box, BlockField.Tint(BlockType.Normal, true), "单向平台 —— 下方可跳穿 · 站上 S+跳 下穿");
         AddLegendRow(box, BlockField.Tint(BlockType.Fragile), "脆弱木板 —— 踩上白闪 3 次 / 1.5 秒后才碎（闪时可站立）");
-        AddLegendRow(box, BlockField.Tint(BlockType.Bounce), "弹跳块 —— 弹射 ≈4.8 格（果冻动画）");
+        AddLegendRow(box, BlockField.Tint(BlockType.Bounce), "弹跳块 —— 弹射 ≈4.8 格（蹦蹦床压扁→回弹→余震 + 冲击环）");
         AddLegendRow(box, BlockField.Tint(BlockType.Buildable), "可建筑块 —— 占位（未来塔防改造点）");
         AddLegendRow(box, BlockField.Tint(BlockType.Treasure), "宝箱块 —— 触碰打开 · 掉占位宝物");
         AddLegendRow(box, BlockField.Tint(BlockType.Slime), "粘液块 —— 走上去减速 · 跳起被立刻黏回");

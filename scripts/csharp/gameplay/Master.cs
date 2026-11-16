@@ -65,7 +65,7 @@ public partial class Master : CharacterBody2D, IBounceable
 		if (BounceRequested)
 		{
 			BounceRequested = false;
-			Velocity = new Vector2(Velocity.X, -GameDefs.BounceSpeed);
+			_mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed);
 		}
 
 		// 表现层反馈：落地挤压 / 起跳拉伸 + 脚下灰尘（纯视觉，不碰物理）

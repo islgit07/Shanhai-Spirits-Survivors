@@ -92,6 +92,19 @@ public static class GameDefs
     public const float OneWayLen4Weight = 0.12f;
     public const float OneWayLen5Weight = 0.03f;
     public const float BounceSpeed = 22.0f;          // 弹跳块弹射初速（新重力下 ≈4.8 格高，保持旧弹射高度）
+    // BOUNCE-JELLY 蹦蹦床视觉参数：只作用于方块 Visual 子节点，碰撞形状 / 弹射速度 / 地图几何都不碰。
+    public const float BounceSquashTime = 0.08f;     // ① 下压：踩沉块面
+    public const float BounceReleaseTime = 0.10f;   // ② 回弹：纵向过冲拉长
+    public const float BounceSettleTime = 0.36f;    // ③ 余震：Elastic 衰减颤悠回原位
+    public const float BounceSquashX = 1.45f;       // 下压时横向鼓起倍率
+    public const float BounceSquashY = 0.42f;       // 下压时纵向压扁倍率
+    public const float BounceStretchX = 0.88f;      // 回弹时横向收窄倍率
+    public const float BounceStretchY = 1.22f;      // 回弹时纵向拉伸倍率
+    public const float BounceDipY = 0.18f;          // 下压时 Visual 下沉（世界单位）
+    public const float BounceLiftY = 0.10f;         // 回弹时 Visual 上冲（世界单位）
+    public const float BounceRingStart = 0.35f;     // 冲击环初始缩放
+    public const float BounceRingEnd = 1.60f;       // 冲击环扩散终点
+    public const float BounceRingTime = 0.32f;      // 冲击环扩散 + 淡出时长
 
 
     // ---------------------------------------------------------------- 主角移动手感

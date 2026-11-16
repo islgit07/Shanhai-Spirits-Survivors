@@ -74,6 +74,10 @@ public partial class GameRoot : Node2D
 	private float _fragilePlatY;
 	// FRAGILE-BLINK：闪烁期间玩家仍站在同一块上；闪烁结束后该块才判碎释放
 	private bool _fragileBlinkSeen, _fragileStandChecked, _fragileStoodDuringBlink;
+	// BOUNCE-JELLY 冒烟阶段（7.2~8.0s）：传送到弹跳块上方 → 自由落下 → 断言蹦蹦床动画与弹射都触发
+	private bool _bounceTeleported, _bounceSkipped, _bounceJellySeen;
+	private int _bounceJellyBefore;
+	private float _bounceStartY, _bounceMinY;
 
 	public override void _Ready()
 	{
@@ -206,6 +210,17 @@ public partial class GameRoot : Node2D
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstFragile(out float x, out float y)) return false;
 		_fragilePlatY = y;   // 冒烟断言「闪烁期间还站在同一块上」的台面基准
+		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.6f);
+		Player.Velocity = Vector2.Zero;
+		Player.ResetMover();
+		return true;
+	}
+
+	/// <summary>BOUNCE-JELLY 冒烟测试用：把主角放到第一块弹跳块上方 0.6 格，靠自由落下触发弹射与动画。</summary>
+	private bool SmokeTeleportToBounce()
+	{
+		if (Player == null || !IsInstanceValid(Player)) return false;
+		if (!_blocks.GetFirstBounce(out float x, out float y)) return false;
 		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.6f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
@@ -375,8 +390,31 @@ public partial class GameRoot : Node2D
 				&& _blocks.BlockCount == _fragileBlocksBefore;
 		}
 
-		// 7.0s 收尾：给 1.5 秒闪烁留足余量，再验「闪完才判碎 + 才释放」
-		if (_smokeTimer > 7.0f) FinishSmoke();
+		// @trace BOUNCE-JELLY：传送到弹跳块上方 → 真实落下触发 Jelly + 弹射，采样上升高度。
+		if (_smokeTimer > 7.2f && !_bounceTeleported)
+		{
+			_bounceTeleported = true;
+			_bounceJellyBefore = _blocks.BounceJellyStartedCount;
+			if (SmokeTeleportToBounce())
+			{
+				// 基准取传送之后：否则会把「瞬移上升」误算成弹射高度
+				_bounceStartY = Player != null && IsInstanceValid(Player) ? Player.GlobalPosition.Y : 0f;
+				_bounceMinY = _bounceStartY;
+				GD.Print("[SMOKE] 传送到弹跳块上方 + 自由落下");
+			}
+			else
+			{
+				_bounceSkipped = true;
+				GD.Print("[SMOKE] 弹跳块验证跳过（传送失败）");
+			}
+		}
+		if (_bounceTeleported && !_bounceSkipped && Player != null && IsInstanceValid(Player))
+			_bounceMinY = Mathf.Min(_bounceMinY, Player.GlobalPosition.Y);
+		if (!_bounceSkipped && !_bounceJellySeen && _blocks.BounceJellyStartedCount > _bounceJellyBefore)
+			_bounceJellySeen = true;
+
+		// 8.0s 收尾：闪烁与弹跳两段运行时证据都留足时间
+		if (_smokeTimer > 8.0f) FinishSmoke();
 	}
 
 	private void FinishSmoke()
@@ -445,6 +483,9 @@ public partial class GameRoot : Node2D
 			["fragile_blink_finished_ok"] = _fragileBlinkSeen
 											&& _blocks.FragileBlinkStartedCount > _fragileBlinkStartBefore
 											&& _blocks.FragileBlinkFinishedCount > _fragileBlinkFinishBefore,
+			// BOUNCE-JELLY：真实落下触发蹦蹦床动画，且玩家确实被弹起（跳过传送时不假阴性）
+			["bounce_jelly_ok"] = _bounceSkipped
+								  || (_bounceJellySeen && _bounceStartY - _bounceMinY > 1.0f),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -489,6 +530,11 @@ public partial class GameRoot : Node2D
 			["fragile_blink_duration"] = GameDefs.FragileBlinkDuration,
 			["fragile_blink_cycles"] = GameDefs.FragileBlinkCycles,
 			["fragile_standable_during_blink"] = _fragileStoodDuringBlink,
+			// BOUNCE-JELLY 蹦蹦床动画证据
+			["bounce_jelly_started"] = _blocks.BounceJellyStartedCount,
+			["bounce_jelly_seen"] = _bounceJellySeen,
+			["bounce_skipped"] = _bounceSkipped,
+			["bounce_launch_rise"] = Math.Round(_bounceStartY - _bounceMinY, 3),
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

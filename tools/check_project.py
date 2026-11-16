@@ -322,6 +322,54 @@ check("FRAGILE-BLINK 起止计数可观测 + 冒烟验证闪时可站 / 闪完�
 check("FRAGILE-BLINK 白箱图例同步为闪时可站 / 1.5 秒后才碎",
       "白闪 3 次 / 1.5 秒后才碎（闪时可站立）" in cs("tools/WhiteboxRoot.cs"))
 
+# ---------------------------------------------------------------- 5e. BOUNCE-JELLY 蹦蹦床动画
+_jelly_body = fragile_method_body(field, "Jelly", "SpawnBounceRing")
+_ring_body = fragile_method_body(field, "SpawnBounceRing", "OpenTreasure")
+check("BOUNCE-JELLY 三段式参数集中在 GameDefs（压缩 / 回弹 / 余震 / 冲击环）",
+      all(k in _gamedefs for k in (
+          "BounceSquashTime", "BounceReleaseTime", "BounceSettleTime",
+          "BounceSquashX", "BounceSquashY", "BounceStretchX", "BounceStretchY",
+          "BounceDipY", "BounceLiftY", "BounceRingStart", "BounceRingEnd", "BounceRingTime")))
+check("BOUNCE-JELLY 三段式：压扁 → 过冲回弹 → Elastic 余震 + 高亮回落",
+      bool(_jelly_body)
+      and all(k in _jelly_body for k in (
+          "BounceSquashTime", "BounceReleaseTime", "BounceSettleTime",
+          "Tween.TransitionType.Back", "Tween.TransitionType.Elastic",
+          '"position:y"', '"modulate"', "flashTint", "SpawnBounceRing(r, c)", "BounceJellyStartedCount++"))
+      and "if (visual == null || _jellyBusy[r, c]) return;" in _jelly_body)
+check("BOUNCE-JELLY 只动 Visual 子节点，碰撞 / 弹射 / 地图几何零改动",
+      bool(_jelly_body)
+      and "visual.CreateTween()" in _jelly_body
+      and all(op not in _jelly_body for op in (
+          "CollisionLayer", "CollisionMask", "GlobalPosition", "Velocity", "RemoveChild", "QueueFree")))
+check("BOUNCE-JELLY 冲击环是程序化 Line2D，零 PNG / 零新资源 / 播完自释放",
+      bool(_ring_body)
+      and "new Line2D" in _ring_body
+      and "ring.Points = points" in _ring_body
+      and '"modulate:a"' in _ring_body
+      and "SetParallel(true)" in _ring_body
+      and "Chain().TweenCallback" in _ring_body
+      and "ring.QueueFree" in _ring_body
+      and ".png" not in _ring_body)
+check("BOUNCE-JELLY 冒烟：真实落下触发动画 + 玩家被弹起（含跳过兜底）",
+      "GetFirstBounce" in field and "SmokeTeleportToBounce" in _blink_root
+      and "bounce_jelly_ok" in _blink_root
+      and "bounce_jelly_seen" in _blink_root
+      and "bounce_launch_rise" in _blink_root)
+check("BOUNCE-JELLY 白箱图例同步为蹦蹦床三段动画",
+      "蹦蹦床压扁→回弹→余震 + 冲击环" in cs("tools/WhiteboxRoot.cs"))
+_bounce_tscn = read(ROOT / "scenes" / "blocks" / "block_bounce.tscn")
+check("BOUNCE-JELLY 感应区跨过方块顶面（否则站在顶面永远触发不了弹跳）",
+      fragile_touch_crosses_top(_bounce_tscn)
+      and "collision_mask = 1" in _bounce_tscn and ".png" not in _bounce_tscn)
+_mover_cs = cs("gameplay/PlatformMover.cs")
+check("BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 两个玩家统一走内核",
+      "ApplyExternalLaunch" in _mover_cs
+      and "_externalLaunch" in _mover_cs
+      and "Grounded = body.IsOnFloor() && !launched" in _mover_cs
+      and all("_mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed)" in p
+              for p in (cs("gameplay/Master.cs"), cs("tools/WhiteboxPlayer.cs"))))
+
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
 check("白箱保留（与游戏共用移动内核）",

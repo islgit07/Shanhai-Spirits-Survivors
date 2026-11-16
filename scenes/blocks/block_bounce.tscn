@@ -1,7 +1,10 @@
-[gd_scene format=3 uid="uid://colyv5u6o77v"]
+[gd_scene load_steps=3 format=3 uid="uid://colyv5u6o77v"]
 
 [sub_resource type="RectangleShape2D" id="rect"]
 size = Vector2(1, 1)
+
+[sub_resource type="RectangleShape2D" id="touch_rect"]
+size = Vector2(1, 0.5)
 
 [node name="block_bounce" type="StaticBody2D"]
 collision_layer = 1
@@ -17,4 +20,5 @@ modulate = Color(0.95, 0.55, 0.35, 1)
 collision_mask = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Touch"]
-shape = SubResource("rect")
+position = Vector2(0, -0.55)
+shape = SubResource("touch_rect")

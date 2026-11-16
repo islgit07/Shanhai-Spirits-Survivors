@@ -81,7 +81,7 @@ public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
         if (BounceRequested)
         {
             BounceRequested = false;
-            Velocity = new Vector2(Velocity.X, -GameDefs.BounceSpeed);
+            _mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed);
         }
 
         if (_mover.JustJumped)

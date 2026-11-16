@@ -167,6 +167,7 @@ public sealed class PlatformMover
     private bool _onOneWayFloor;  // 脚下地面是否单向平台（站立静止帧沿用上次结论）
     private bool _onSlimeFloor;   // MAP-009：脚下地面是否粘液块（站立静止帧沿用上次结论）
     private float _slimeSnap;     // MAP-009：>0 期间处于「黏回」窗口，用超大重力压回地面
+    private bool _externalLaunch; // BOUNCE-JELLY：外部弹射后的一帧仍按空中处理，避免被贴地清零 Y
     private List<Ledge> _ledges = new();   // 台沿列表（CLIMB-001）
     private IBlockGeometry? _geometry;     // 方块几何（转角修正用）
     private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
@@ -186,6 +187,16 @@ public sealed class PlatformMover
     public void SetGeometry(IBlockGeometry geometry) => _geometry = geometry;
 
     /// <summary>
+    /// BOUNCE-JELLY：外部弹射（弹跳块）。在 Step 之后调用，设置上抛速度并标记下一帧仍按空中处理——
+    /// 否则下一帧 IsOnFloor() 还是 true，贴地分支会把 vy 直接清零，弹射永远飞不起来。
+    /// </summary>
+    public void ApplyExternalLaunch(CharacterBody2D body, float speed)
+    {
+        body.Velocity = new Vector2(body.Velocity.X, -Mathf.Abs(speed));
+        _externalLaunch = true;
+    }
+
+    /// <summary>
     /// 推进一步。
     /// jumpPressed = 本帧刚按下跳跃（用于起跳 / 写入缓冲）；
     /// jumpHeld = 跳跃键当前是否仍按住（用于变高跳：上升中松键即截断）；
@@ -194,7 +205,11 @@ public sealed class PlatformMover
     public void Step(CharacterBody2D body, float dirX, bool jumpPressed, bool jumpHeld, bool downHeld, float dt)
     {
         JustJumped = false;
-        Grounded = body.IsOnFloor();
+        // BOUNCE-JELLY：上一帧由弹跳块外部弹射过 → 本帧即便 IsOnFloor() 仍为 true 也按空中处理，
+        // 保证 -BounceSpeed 不被贴地分支清零；标记一次性消费。
+        bool launched = _externalLaunch;
+        _externalLaunch = false;
+        Grounded = body.IsOnFloor() && !launched;
         // MAP-009：本帧脚下是否粘液。站立静止帧（vy=0 无新滑动碰撞）沿用上次结论。
         bool slimeFloor = _onSlimeFloor;
         _slimeSnap = Mathf.Max(0.0f, _slimeSnap - dt);

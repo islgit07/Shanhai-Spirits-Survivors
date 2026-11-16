@@ -138,6 +138,8 @@ public partial class BlockField : Node2D, IBlockGeometry
     public int FragileBlinkStartedCount { get; private set; }
     /// <summary>FRAGILE-BLINK：闪烁结束、视觉节点已释放的碎块数。Started &gt; Finished 即「还没立刻消失」。</summary>
     public int FragileBlinkFinishedCount { get; private set; }
+    /// <summary>BOUNCE-JELLY：蹦蹦床视觉动画实际触发次数（Jelly 递增，Build 复位）。</summary>
+    public int BounceJellyStartedCount { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -194,6 +196,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         FragileBrokenCount = 0;
         FragileBlinkStartedCount = 0;
         FragileBlinkFinishedCount = 0;
+        BounceJellyStartedCount = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -903,21 +906,89 @@ public partial class BlockField : Node2D, IBlockGeometry
     }
 
     /// <summary>
-    /// 弹跳块果冻动画：被压扁（横向膨胀 ×1.35 / 纵向压扁 ×0.55）后弹性回弹，
-    /// 弹性缓动自带 1~2 次过冲抖动。动画期间重复触碰不重播，弹射不受影响。
+    /// BOUNCE-JELLY 蹦蹦床动画（三段式，只动 Visual 子节点）：
+    /// ① 踩沉压扁 + 亮黄高亮 → ② 纵向过冲拉长、块面上抬 → ③ Elastic 余震颤回原样。
+    /// 碰撞形状、弹射速度、地图几何一概不动；动画期间重复触碰不重播，弹射不受影响。
     /// </summary>
     private void Jelly(int r, int c)
     {
         var visual = _visuals[r, c];
         if (visual == null || _jellyBusy[r, c]) return;
         _jellyBusy[r, c] = true;
+        BounceJellyStartedCount++;
+        GD.Print($"[BLOCKS] bounce jelly start ({c},{r})");
+
         Vector2 baseScale = visual.Scale;
-        var tw = CreateTween();
-        tw.TweenProperty(visual, "scale", new Vector2(baseScale.X * 1.35f, baseScale.Y * 0.55f), 0.07f)
+        Vector2 basePos = visual.Position;
+        Color baseTint = Tint(BlockType.Bounce);
+        Color flashTint = new(1.0f, 0.95f, 0.55f, 1.0f);
+        // Tween 宿主是 visual：换种子 Build 释放节点时动画自动停止，不会打到已释放节点。
+        var tw = visual.CreateTween();
+
+        // ① 下压：网面被踩沉，横向鼓起、纵向压扁，同时闪一下亮黄
+        tw.TweenProperty(visual, "scale",
+                new Vector2(baseScale.X * GameDefs.BounceSquashX, baseScale.Y * GameDefs.BounceSquashY),
+                GameDefs.BounceSquashTime)
             .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
-        tw.TweenProperty(visual, "scale", baseScale, 0.5f)
+        tw.Parallel().TweenProperty(visual, "position:y", basePos.Y + GameDefs.BounceDipY,
+                GameDefs.BounceSquashTime)
+            .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+        tw.Parallel().TweenProperty(visual, "modulate", flashTint, GameDefs.BounceSquashTime);
+
+        // ② 回弹：纵向拉长过冲、块面上抬、高亮回落
+        tw.TweenProperty(visual, "scale",
+                new Vector2(baseScale.X * GameDefs.BounceStretchX, baseScale.Y * GameDefs.BounceStretchY),
+                GameDefs.BounceReleaseTime)
+            .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        tw.Parallel().TweenProperty(visual, "position:y", basePos.Y - GameDefs.BounceLiftY,
+                GameDefs.BounceReleaseTime)
+            .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+        tw.Parallel().TweenProperty(visual, "modulate", baseTint, GameDefs.BounceReleaseTime);
+
+        // ③ 余震：Elastic 自带数次衰减抖动，像蹦床网面颤悠着停住
+        tw.TweenProperty(visual, "scale", baseScale, GameDefs.BounceSettleTime)
+            .SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        tw.Parallel().TweenProperty(visual, "position:y", basePos.Y, GameDefs.BounceSettleTime)
             .SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
         tw.TweenCallback(Callable.From(() => _jellyBusy[r, c] = false));
+
+        SpawnBounceRing(r, c);
+    }
+
+    /// <summary>
+    /// BOUNCE-JELLY 冲击环：Line2D 程序化扁椭圆，从块面扩散并淡出。
+    /// 零 PNG / 零新资源 / 零碰撞；Tween 绑定环自身，播完 QueueFree。
+    /// </summary>
+    private void SpawnBounceRing(int r, int c)
+    {
+        var body = _nodes[r, c];
+        if (body == null || !IsInstanceValid(body)) return;
+
+        const int segments = 24;
+        var ring = new Line2D
+        {
+            Name = "BounceRing",
+            Position = new Vector2(0.0f, -0.35f),   // 块顶面上方一点
+            ZIndex = 5,
+            Width = 0.055f,
+            DefaultColor = new Color(1.0f, 0.90f, 0.55f, 0.9f),
+            Scale = Vector2.One * GameDefs.BounceRingStart,
+        };
+        var points = new Vector2[segments + 1];
+        for (int i = 0; i <= segments; i++)
+        {
+            float a = i * Mathf.Tau / segments;
+            points[i] = new Vector2(Mathf.Cos(a), Mathf.Sin(a) * 0.45f);   // 扁椭圆，像地面冲击波
+        }
+        ring.Points = points;
+        body.AddChild(ring);
+
+        var tw = ring.CreateTween().SetParallel(true);
+        tw.TweenProperty(ring, "scale", Vector2.One * GameDefs.BounceRingEnd, GameDefs.BounceRingTime)
+            .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+        tw.TweenProperty(ring, "modulate:a", 0.0f, GameDefs.BounceRingTime)
+            .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
+        tw.Chain().TweenCallback(Callable.From(ring.QueueFree));
     }
 
     /// <summary>宝箱块：触碰打开，移除碰撞，掉落占位宝物（内容后续版本设计）。</summary>
@@ -1023,6 +1094,26 @@ public partial class BlockField : Node2D, IBlockGeometry
         for (int r = 1; r < GameDefs.BlockRows - 1; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
                 if (_alive[r, c] && _type[r, c] == BlockType.Fragile
+                    && !_oneWay[r, c] && !_alive[r + 1, c] && CanStandOn(r, c))
+                {
+                    centerX = ColX(c) + 0.5f;
+                    topY = RowTopY(r) - 1f;
+                    return true;
+                }
+        centerX = 0f;
+        topY = 0f;
+        return false;
+    }
+
+    /// <summary>
+    /// BOUNCE-JELLY 冒烟测试用：取第一块「能从上方踩到」的弹跳块，返回中心 x 与台面 y。
+    /// 与 GetFirstFragile 同口径：正上方一格空且可站，保证自由落下触发真实感应与弹射。
+    /// </summary>
+    public bool GetFirstBounce(out float centerX, out float topY)
+    {
+        for (int r = 1; r < GameDefs.BlockRows - 1; r++)
+            for (int c = 0; c < GameDefs.BlockCols; c++)
+                if (_alive[r, c] && _type[r, c] == BlockType.Bounce
                     && !_oneWay[r, c] && !_alive[r + 1, c] && CanStandOn(r, c))
                 {
                     centerX = ColX(c) + 0.5f;

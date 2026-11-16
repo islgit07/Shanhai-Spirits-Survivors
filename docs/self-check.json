@@ -424,6 +424,46 @@
       "detail": ""
     },
     {
+      "name": "BOUNCE-JELLY 三段式参数集中在 GameDefs（压缩 / 回弹 / 余震 / 冲击环）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 三段式：压扁 → 过冲回弹 → Elastic 余震 + 高亮回落",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 只动 Visual 子节点，碰撞 / 弹射 / 地图几何零改动",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 冲击环是程序化 Line2D，零 PNG / 零新资源 / 播完自释放",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 冒烟：真实落下触发动画 + 玩家被弹起（含跳过兜底）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 白箱图例同步为蹦蹦床三段动画",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 感应区跨过方块顶面（否则站在顶面永远触发不了弹跳）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 两个玩家统一走内核",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "Build 可重复调用时清空净空标记 _reserved",
       "ok": true,
       "detail": ""
