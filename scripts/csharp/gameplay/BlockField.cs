@@ -6,7 +6,7 @@ namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// 方块类型（方块地图）。
-/// Normal = 实心，最多；Fragile = 踩碎（本局不恢复）；Bounce = 触碰弹射 ≈5 格高；
+/// Normal = 实心，最多；Fragile = 踩后闪烁再碎（闪烁期间仍可站立，本局不恢复）；Bounce = 触碰弹射 ≈5 格高；
 /// Buildable = 占位（行为后续版本实现）；Treasure = 触碰打开，掉落占位宝物；
 /// Slime = 粘液（MAP-009，出现概率非常小）：站上去减速 + 跳起被立刻黏回地面。
 /// </summary>
@@ -56,7 +56,7 @@ public interface IBounceable
 /// 时修剪违规装饰块补齐（骨架 / 地面受保护）。冒烟断言合规率 ≥ BlockVerticalClearRatio。
 /// 单向平台按 run 成段出现（BlockOneWayChance 为 run 命中率），段长连排分布见 GameDefs.OneWayLen*：
 /// 2~3 格连排常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）。保留 DROP-001 下穿与 CLIMB-001 台沿上攀。
-/// 方块行为：Fragile = 顶面感应 → 碎；Bounce = 整块感应 → IBounceable.Bounce()；
+/// 方块行为：Fragile = 顶面感应 → 闪烁 1.5 秒后碎（期间仍可站立）；Bounce = 整块感应 → IBounceable.Bounce()；
 /// Treasure = 整块感应 → 打开（移除碰撞，掉落占位宝物）；Buildable = 实心占位。
 /// MAP-009 粘液块：不靠触碰感应，而是把碰撞体加入 SlimeBlockGroup；PlatformMover 每帧读
 /// 地板碰撞体（与 DROP-001 下穿同一处判定），站上去就减速、起跳只弹极小高度后立刻黏回。
@@ -68,6 +68,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     private readonly BlockType[,] _type = new BlockType[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _oneWay = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _alive = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
+    private readonly bool[,] _blinking = new bool[GameDefs.BlockRows, GameDefs.BlockCols]; // 闪烁中：仍实体，防重复启动
     private readonly bool[,] _reachable = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _reserved = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _backboneCell = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
@@ -131,7 +132,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     public int FragileCount { get; private set; }
     /// <summary>BUGFIX-FRAGILE：成功接上 Touch.BodyEntered 的脆弱块数（== FragileCount 才说明感应链路接线完整）。</summary>
     public int FragileTouchWiredCount { get; private set; }
-    /// <summary>BUGFIX-FRAGILE：本局已被踩碎的脆弱块数（BreakBlock 递增，Build 复位）。</summary>
+    /// <summary>BUGFIX-FRAGILE：本局已碎的脆弱块数（闪烁结束时 FinishFragileBreak 递增，Build 复位）。</summary>
     public int FragileBrokenCount { get; private set; }
     /// <summary>FRAGILE-BLINK：已启动闪烁的碎块数（踩碎当帧 +1）。</summary>
     public int FragileBlinkStartedCount { get; private set; }
@@ -164,6 +165,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         Array.Clear(_type);
         Array.Clear(_oneWay);
         Array.Clear(_alive);
+        Array.Clear(_blinking);
         Array.Clear(_reachable);
         Array.Clear(_reserved);   // 可重复 Build：净空标记也必须清，否则换种子后地图越来越稀
         Array.Clear(_backboneCell);
@@ -816,7 +818,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         switch (_type[r, c])
         {
             case BlockType.Fragile:
-                BreakBlock(r, c);
+                StartFragileBlink(r, c);
                 break;
             case BlockType.Bounce:
                 Jelly(r, c);
@@ -839,48 +841,49 @@ public partial class BlockField : Node2D, IBlockGeometry
     }
 
     /// <summary>
-    /// 脆弱块：踩中当帧判碎（碰撞立即失效、统计 +1，本局不恢复），
-    /// 但视觉节点保留 FragileBlinkDuration 秒闪烁后再释放 —— FRAGILE-BLINK「不要立刻消失」。
+    /// FRAGILE-BLINK：踩中只启动闪烁 —— 碰撞、感应、_alive 全部不动，玩家仍可站在上面；
+    /// _blinking 标记防止闪烁期间重复触碰重启动画。真正的判碎交给闪烁结束回调。
     /// </summary>
-    private void BreakBlock(int r, int c)
+    private void StartFragileBlink(int r, int c)
     {
-        if (!_alive[r, c]) return;
-        _alive[r, c] = false;
-        _reachable[r, c] = false;
-        var n = _nodes[r, c];
-        var visual = _visuals[r, c];
-        _nodes[r, c] = null;
-        _visuals[r, c] = null;
-        if (IsInstanceValid(n) && n is StaticBody2D body)
-        {
-            // 物理回调里只改属性、不移除节点：关碰撞让玩家踩碎瞬间就失去支撑，
-            // 关感应避免闪烁期间重复触发。节点释放统一交给闪烁 Tween 末尾。
-            body.CollisionLayer = 0;
-            body.CollisionMask = 0;
-            var touch = body.GetNodeOrNull<Area2D>("Touch");
-            // 信号回调里直接写 monitoring 会被 Godot 拒绝（Function blocked during in/out signal），
-            // 必须 SetDeferred；同时 body 层已置 0、_alive 已 false，双保险不重复触发。
-            if (touch != null) touch.SetDeferred("monitoring", false);
-        }
-        BlockCount--;
-        FragileBrokenCount++;
-        BlinkThenFree(n, visual);
-        GD.Print($"[BLOCKS] fragile broken ({c},{r}) blink={GameDefs.FragileBlinkDuration}s");
+        if (!_alive[r, c] || _blinking[r, c]) return;
+        _blinking[r, c] = true;
+        FragileBlinkStartedCount++;
+        BlinkThenFree(r, c, _nodes[r, c], _visuals[r, c]);
+        GD.Print($"[BLOCKS] fragile blink start ({c},{r}) duration={GameDefs.FragileBlinkDuration}s");
     }
 
     /// <summary>
-    /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 3 次「木色 ↔ 白色」闪烁
-    /// （同时轻微膨胀/回弹强调崩裂），满 1 秒后 QueueFree 整个方块节点。
-    /// Tween 宿主是 visual：换种子 Build 释放整张地图时 tween 自动失效，
-    /// 回调不会打到已释放节点；结束回调里仍做一次 IsInstanceValid 兜底。
+    /// 闪烁结束才判碎：此时才把格子从实体/可达集合摘掉、统计 +1、释放节点。
+    /// 由 Tween 在 idle 帧回调（不是物理回调），QueueFree 仍是帧末延迟释放。
     /// </summary>
-    private void BlinkThenFree(Node2D? body, Sprite2D? visual)
+    private void FinishFragileBreak(int r, int c, Node2D? body)
     {
-        FragileBlinkStartedCount++;
+        if (!_blinking[r, c]) return;
+        _blinking[r, c] = false;
+        if (!_alive[r, c]) return;
+        _alive[r, c] = false;
+        _reachable[r, c] = false;
+        _nodes[r, c] = null;
+        _visuals[r, c] = null;
+        BlockCount--;
+        FragileBrokenCount++;
+        FragileBlinkFinishedCount++;
+        DeferredRemove(body);
+        GD.Print($"[BLOCKS] fragile broken ({c},{r}) after blink");
+    }
+
+    /// <summary>
+    /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 2 次「木色 ↔ 白色」闪烁
+    /// （同时轻微膨胀/回弹强调崩裂），满 1.5 秒后回调 FinishFragileBreak 才真正碎掉。
+    /// Tween 宿主是 visual：换种子 Build 释放整张地图时 tween 自动失效，
+    /// 回调不会打到已释放节点；回调内部再做 _blinking 状态校验。
+    /// </summary>
+    private void BlinkThenFree(int r, int c, Node2D? body, Sprite2D? visual)
+    {
         if (body == null || !IsInstanceValid(body) || visual == null || !IsInstanceValid(visual))
         {
-            FragileBlinkFinishedCount++;
-            DeferredRemove(body);
+            FinishFragileBreak(r, c, body);
             return;
         }
 
@@ -900,11 +903,7 @@ public partial class BlockField : Node2D, IBlockGeometry
             tw.Parallel().TweenProperty(visual, "scale", baseScale, half)
                 .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
         }
-        tw.TweenCallback(Callable.From(() =>
-        {
-            FragileBlinkFinishedCount++;
-            if (IsInstanceValid(body)) body.QueueFree();
-        }));
+        tw.TweenCallback(Callable.From(() => FinishFragileBreak(r, c, body)));
     }
 
     /// <summary>
@@ -933,7 +932,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         _reachable[r, c] = false;
         var n = _nodes[r, c];
         _nodes[r, c] = null;
-        DeferredRemove(n);   // 同 BreakBlock：触碰回调里不能同步移除碰撞体
+        DeferredRemove(n);   // 触碰回调里不能同步移除碰撞体（统一帧末延迟释放）
         BlockCount--;
 
         if (SceneLootDrop != null)

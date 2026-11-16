@@ -591,3 +591,26 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
   静态自检补「必须白色、不得残留警示红」的行为锁。
 - 复跑：`dotnet build` 0 警告 0 错误；自检 **112/112 PASS**；`Main.tscn --smoke` **19/19 PASS**、0 ERROR；
   开始页入口冒烟 PASS、0 ERROR。
+
+### 14.6 语义调整：闪时可站、闪完才碎（同日，**覆盖 14.1 / 14.5 的判定语义**）
+
+14.1~14.5 保留为历史记录；以本节为现行口径。
+
+- 用户新要求：闪 2 次、1.5 秒后消失、闪完才消失，且**闪的时候方块还能踩**。
+- **选**：踩中只启动闪烁 —— 碰撞、感应、`_alive`、统计全部不动，`_blinking[r,c]` 防重复触发；
+  满 1.5 秒后由 Tween 回调 `FinishFragileBreak()` 统一摘 `_alive`、`BlockCount--`、
+  `FragileBrokenCount++`、`FragileBlinkFinishedCount++`、`QueueFree`。玩家在闪烁期间仍有支撑。
+- **否决**：① 沿用上一版「当帧判碎 + 视觉延迟」—— 不满足「闪时还能踩」；
+  ② Timer 节点 / `_PhysicsProcess` 逐帧计时 —— Tween 已绑定 Sprite，换种子重建自动失效，更稳。
+- 改动文件：`GameDefs.cs`（1.5s / 2 次）、`BlockField.cs`（`StartFragileBlink` / `FinishFragileBreak` /
+  `_blinking` 数组随 `Build` 复位）、`GameRoot.cs`（冒烟延到 7.0s，新增 `fragile_standable_during_blink`
+  断言与基线取样）、`WhiteboxRoot.cs` 图例、`tools/check_project.py` 静态行为锁。
+- 验证（全部实跑）：`dotnet build` 0 警告 0 错误；自检 **112/112 PASS**；编辑器导入 0 ERROR；
+  `Main.tscn --smoke` **20/20 断言 PASS**、运行时 0 ERROR；开始页入口冒烟 PASS、0 ERROR；
+  `MapSeedProbe` 10 组种子 `fail=0`。证据：`fragile_blink_started=1 / finished=1`、
+  `fragile_standable_during_blink=true`、`fragile_blink_duration=1.5`、`fragile_blink_cycles=2`；
+  日志顺序 `fragile blink start → fragile broken after blink`。
+- `godot-code-review`：无 Critical。物理回调内不移除节点；判碎与释放都收在 Tween 结束回调里；
+  `_blinking` 双守卫（`_alive && !_blinking`）防重复；Tween 宿主随节点释放自动停止，
+  回调内再做状态校验；C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
+- 范围：版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。

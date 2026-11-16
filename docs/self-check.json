@@ -394,27 +394,27 @@
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 时长 1 秒 + 闪烁次数可配置（GameDefs 常量）",
+      "name": "FRAGILE-BLINK 时长 1.5 秒 + 2 次白闪（GameDefs 常量）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束才 QueueFree",
+      "name": "FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束回调才判碎",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 踩碎瞬间碰撞立即失效、感应关闭（不会继续支撑 / 重复触发）",
+      "name": "FRAGILE-BLINK 闪烁期间方块仍是实体、可站立（不动碰撞 / 不计数 / 不摘 _alive）",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 起止计数可观测 + 冒烟断言未立刻消失",
+      "name": "FRAGILE-BLINK 起止计数可观测 + 冒烟验证闪时可站 / 闪完才碎",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "FRAGILE-BLINK 白箱图例同步为闪烁 1 秒",
+      "name": "FRAGILE-BLINK 白箱图例同步为闪时可站 / 1.5 秒后才碎",
       "ok": true,
       "detail": ""
     },

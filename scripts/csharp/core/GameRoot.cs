@@ -68,11 +68,12 @@ public partial class GameRoot : Node2D
 	private bool _slimeTeleported, _slimeSkipped, _slimeMoveReleased, _slimeJumpInjected, _slimeJumpReleased;
 	private bool _slimeLandedChecked, _slimeLanded;
 	private float _slimePlatY, _slimeApexY, _slimeGroundSpeed;
-	// BUGFIX-FRAGILE 冒烟阶段（4.5~6.0s）：传送到脆弱块上方 → 自由落下 → 断言闪烁 1 秒后消失
+	// BUGFIX-FRAGILE 冒烟阶段（4.5~7.0s）：传送到脆弱块上方 → 自由落下 → 断言闪时可站、闪完才碎
 	private bool _fragileTeleported, _fragileSkipped;
-	private int _fragileBrokenBefore;
-	// FRAGILE-BLINK：踩碎当帧必须仍有闪烁节点存活（Started > Finished），证明「没有立刻消失」
-	private bool _fragileBlinkSeen;
+	private int _fragileBrokenBefore, _fragileBlinkStartBefore, _fragileBlinkFinishBefore, _fragileBlocksBefore;
+	private float _fragilePlatY;
+	// FRAGILE-BLINK：闪烁期间玩家仍站在同一块上；闪烁结束后该块才判碎释放
+	private bool _fragileBlinkSeen, _fragileStandChecked, _fragileStoodDuringBlink;
 
 	public override void _Ready()
 	{
@@ -204,6 +205,7 @@ public partial class GameRoot : Node2D
 	{
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstFragile(out float x, out float y)) return false;
+		_fragilePlatY = y;   // 冒烟断言「闪烁期间还站在同一块上」的台面基准
 		Player.GlobalPosition = new Vector2(x, y - GameDefs.MasterSize.Y * 0.5f - 0.6f);
 		Player.Velocity = Vector2.Zero;
 		Player.ResetMover();
@@ -343,6 +345,9 @@ public partial class GameRoot : Node2D
 		{
 			_fragileTeleported = true;
 			_fragileBrokenBefore = _blocks.FragileBrokenCount;
+			_fragileBlinkStartBefore = _blocks.FragileBlinkStartedCount;
+			_fragileBlinkFinishBefore = _blocks.FragileBlinkFinishedCount;
+			_fragileBlocksBefore = _blocks.BlockCount;
 			if (SmokeTeleportToFragile())
 				GD.Print("[SMOKE] 传送到脆弱木板上方 + 自由落下");
 			else
@@ -351,12 +356,27 @@ public partial class GameRoot : Node2D
 				GD.Print("[SMOKE] 脆弱木板验证跳过（传送失败）");
 			}
 		}
-		// FRAGILE-BLINK：在踩碎当帧取样，避免 1 秒闪烁结束后再取样造成假阴性。
-		if (!_fragileSkipped && !_fragileBlinkSeen && _blocks.FragileBrokenCount > _fragileBrokenBefore)
-			_fragileBlinkSeen = _blocks.FragileBlinkStartedCount > _blocks.FragileBlinkFinishedCount;
+		// FRAGILE-BLINK：闪烁启动当帧取样（尚未结束、尚未判碎），证明「踩上不是立刻消失」。
+		if (!_fragileSkipped && !_fragileBlinkSeen
+			&& _blocks.FragileBlinkStartedCount > _fragileBlinkStartBefore)
+			_fragileBlinkSeen = _blocks.FragileBlinkFinishedCount == _fragileBlinkFinishBefore
+								&& _blocks.FragileBrokenCount == _fragileBrokenBefore;
 
-		// 6.0s 收尾：给 1 秒闪烁留足时间，验证「先闪烁、后释放」两段都真实发生
-		if (_smokeTimer > 6.0f) FinishSmoke();
+		// 闪烁中（约 5.1s）取样：方块仍在实体集合里、玩家脚底仍贴着同一块台面。
+		if (!_fragileSkipped && !_fragileStandChecked && _smokeTimer > 5.1f)
+		{
+			_fragileStandChecked = true;
+			_fragileStoodDuringBlink = _fragileBlinkSeen
+				&& Player != null && IsInstanceValid(Player)
+				&& Player.IsOnFloor()
+				&& Mathf.Abs(Player.GlobalPosition.Y + GameDefs.MasterSize.Y * 0.5f - _fragilePlatY) < 0.35f
+				&& _blocks.FragileBlinkFinishedCount == _fragileBlinkFinishBefore
+				&& _blocks.FragileBrokenCount == _fragileBrokenBefore
+				&& _blocks.BlockCount == _fragileBlocksBefore;
+		}
+
+		// 7.0s 收尾：给 1.5 秒闪烁留足余量，再验「闪完才判碎 + 才释放」
+		if (_smokeTimer > 7.0f) FinishSmoke();
 	}
 
 	private void FinishSmoke()
@@ -409,20 +429,22 @@ public partial class GameRoot : Node2D
 								   && slimeRise > 0.02f && slimeRise <= GameDefs.SlimeHopApexMax,
 			["slime_snap_ok"] = slimeApexSim > 0.0f && slimeApexSim <= GameDefs.SlimeHopApexMax
 								&& slimeSnapped,
-			// BUGFIX-FRAGILE：接线完整 + 真实踩碎 + 方块总数确实减少
+			// BUGFIX-FRAGILE：接线完整 + 闪烁结束后真碎 + 方块总数确实减少
 			["fragile_break_ok"] = !_fragileSkipped
 								   && FragileCount > 0
 								   && FragileTouchWiredCount == FragileCount
 								   && _blocks.FragileBrokenCount > _fragileBrokenBefore
-								   && _blocks.BlockCount < PlatformCount,
-			// FRAGILE-BLINK：踩碎瞬间仍在闪烁（视觉未立刻消失），且闪烁总时长就是 1 秒
+								   && _blocks.BlockCount < _fragileBlocksBefore,
+			// FRAGILE-BLINK：踩上只启动闪烁（1.5 秒 / 2 次白闪），此时还没碎
 			["fragile_blink_ok"] = _fragileBlinkSeen
-								   && Mathf.IsEqualApprox(GameDefs.FragileBlinkDuration, 1.0f)
-								   && GameDefs.FragileBlinkCycles > 0,
-			// 1 秒后闪烁结束、视觉节点确实释放（不是永远留着）
+								   && Mathf.IsEqualApprox(GameDefs.FragileBlinkDuration, 1.5f)
+								   && GameDefs.FragileBlinkCycles == 2,
+			// 闪烁期间方块仍是实体、玩家仍站在上面
+			["fragile_standable_during_blink"] = _fragileStoodDuringBlink,
+			// 闪烁结束后才判碎、才释放（不是立刻消失，也不是永远留着）
 			["fragile_blink_finished_ok"] = _fragileBlinkSeen
-											&& _blocks.FragileBlinkStartedCount > 0
-											&& _blocks.FragileBlinkFinishedCount == _blocks.FragileBlinkStartedCount,
+											&& _blocks.FragileBlinkStartedCount > _fragileBlinkStartBefore
+											&& _blocks.FragileBlinkFinishedCount > _fragileBlinkFinishBefore,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -465,6 +487,8 @@ public partial class GameRoot : Node2D
 			["fragile_blink_started"] = _blocks.FragileBlinkStartedCount,
 			["fragile_blink_finished"] = _blocks.FragileBlinkFinishedCount,
 			["fragile_blink_duration"] = GameDefs.FragileBlinkDuration,
+			["fragile_blink_cycles"] = GameDefs.FragileBlinkCycles,
+			["fragile_standable_during_blink"] = _fragileStoodDuringBlink,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

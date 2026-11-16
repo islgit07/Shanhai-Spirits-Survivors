@@ -248,7 +248,7 @@ public partial class WhiteboxRoot : Node2D
         box.AddChild(UiSkin.MakeLabel("方块图例", 15, UiSkin.Gold));
         AddLegendRow(box, BlockField.Tint(BlockType.Normal), "普通实心块 —— 四面实体");
         AddLegendRow(box, BlockField.Tint(BlockType.Normal, true), "单向平台 —— 下方可跳穿 · 站上 S+跳 下穿");
-        AddLegendRow(box, BlockField.Tint(BlockType.Fragile), "脆弱木板 —— 踩碎后闪烁 1 秒再消失（本局不恢复）");
+        AddLegendRow(box, BlockField.Tint(BlockType.Fragile), "脆弱木板 —— 踩上白闪 2 次 / 1.5 秒后才碎（闪时可站立）");
         AddLegendRow(box, BlockField.Tint(BlockType.Bounce), "弹跳块 —— 弹射 ≈4.8 格（果冻动画）");
         AddLegendRow(box, BlockField.Tint(BlockType.Buildable), "可建筑块 —— 占位（未来塔防改造点）");
         AddLegendRow(box, BlockField.Tint(BlockType.Treasure), "宝箱块 —— 触碰打开 · 掉占位宝物");
