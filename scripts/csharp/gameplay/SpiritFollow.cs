@@ -91,16 +91,26 @@ public partial class SpiritFollow : Node
     }
 
     /// <summary>
-    /// 个人落点：黄金角（2.39996 ≈ 137.5°）保证任意数量都散得开；
-    /// 半径按 idx % 3 分三档形成「远近不一的一坨」；横向为主、纵向压扁并整体上浮。
+    /// 固定五格落点（本命 + 最多 4 名队友）。因为随从之间也有碰撞体，落点必须保证
+    /// 任意两格的最小间距 ≥ 0.8 格（碰撞体宽 0.62），否则一生成就互相挤。
+    /// 左右成对、前后错开：0/1 在两侧略高，2/3 在两侧再高一点，4 在正上方。
+    /// 超过 5 只时退回黄金角外扩（当前 MaxSlots + 本命 = 5，正常走不到）。
     /// </summary>
+    private static readonly Vector2[] FixedSlots =
+    {
+        new( 1.55f, -0.15f),
+        new(-1.55f, -0.15f),
+        new( 0.75f, -0.45f),
+        new(-0.75f, -0.45f),
+        new( 0.00f, -0.75f),
+    };
+
     public static Vector2 SlotOffset(int index)
     {
+        if (index >= 0 && index < FixedSlots.Length) return FixedSlots[index];
         float ang = Mathf.PosMod(index * 2.39996f, Mathf.Tau);
-        float rad = GameDefs.SpiritFollowAnchorMin + (index % 3) * GameDefs.SpiritFollowAnchorStep;
-        return new Vector2(
-            Mathf.Cos(ang) * rad,
-            Mathf.Sin(ang) * rad * GameDefs.SpiritFollowAnchorFlatten - GameDefs.SpiritFollowAnchorLift);
+        float rad = 1.90f + (index - FixedSlots.Length) * 0.35f;
+        return new Vector2(Mathf.Cos(ang) * rad, Mathf.Sin(ang) * rad * 0.30f - 0.45f);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -156,6 +166,9 @@ public partial class SpiritFollow : Node
             Mathf.Clamp(_slotOffset.Y, -GameDefs.SpiritSlotLiftMax, GameDefs.SpiritSlotDropMax));
 
         Vector2 pos = _pet.GlobalPosition;
+        // 主角与随从的「实际高度差」：跨层跳跃只认这个，不认落点高度 ——
+        // 落点可以为了队形抬高，但绝不该因此诱发跳跃（原地连跳的老根因）。
+        float playerDy = playerPos.Y - pos.Y;
         Vector2 wish = playerPos + dynamicSlot + _wander;
 
         // ---- 让路 v2：清空主角前进方向的「通道」。
@@ -215,9 +228,9 @@ public partial class SpiritFollow : Node
             vy = Mathf.Min(vy + g * dt, GameDefs.MasterMaxFallSpeed);
         }
 
-        // ---- 跨层：目标在上方超过「准层高」且水平够近 → 起跳。
-        // 阈值 0.9 格 + 槽位纵向夹紧：站同一地面能对齐的目标永远不触发跳跃，根治原地连跳。
-        bool wantUp = dy < -GameDefs.SpiritJumpUpThreshold;
+        // ---- 跨层：主角确实在上一层（实际高度差 > 0.9 格）且水平够近 → 起跳。
+        // 站同一地面时高度差只有 ≈0.16，任何队形落点都不会触发跳跃。
+        bool wantUp = playerDy < -GameDefs.SpiritJumpUpThreshold;
         if (onFloor && wantUp && Mathf.Abs(dx) < 2.4f && _jumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed;
@@ -260,6 +273,9 @@ public partial class SpiritFollow : Node
 
         // ---- 硬分离：与主角 AABB 重叠就沿水平轴推出（物理兜底，保证永不同位）
         SeparateFrom(playerPos);
+        // ---- 随从之间软分离：物理碰撞允许 safe_margin 的轻微穿透，这里补一道，
+        //      保证任意两只随从的中心距 ≥ 碰撞宽度（只推自己，避免互相推产生振荡）。
+        SeparateFromPets();
 
         // ---- 世界边界（与主角同口径）
         float edge = GameDefs.WorldHalfWidth - GameDefs.SpiritBodyWidth * 0.5f;
@@ -323,6 +339,26 @@ public partial class SpiritFollow : Node
                    : d.X < -0.001f ? -1f
                    : -_lastDirX;   // 完全重合时推到主角身后
         _pet.GlobalPosition = new Vector2(_pet.GlobalPosition.X + sign * push, _pet.GlobalPosition.Y);
+    }
+
+    /// <summary>
+    /// 与其他随从保持间距：按胶囊真实形状算距离，不足一个碰撞宽度就把自己推开。
+    /// 只推自己（不推对方）——双方都只负责「离开」，不会互相加力导致抖动。
+    /// </summary>
+    private void SeparateFromPets()
+    {
+        float minDist = GameDefs.SpiritBodyWidth + 0.02f;
+        float segSpan = GameDefs.SpiritBodyHeight - GameDefs.SpiritBodyWidth;
+        foreach (Node node in GetTree().GetNodesInGroup(GameDefs.SpiritGroup))
+        {
+            if (node == _pet || node is not SpiritPet other) continue;
+            Vector2 d = _pet.GlobalPosition - other.GlobalPosition;
+            float vertical = Mathf.Max(0f, Mathf.Abs(d.Y) - segSpan);
+            float dist = Mathf.Sqrt(d.X * d.X + vertical * vertical);
+            if (dist >= minDist) continue;
+            Vector2 dir = d.LengthSquared() > 0.0001f ? d.Normalized() : new Vector2(-_lastDirX, 0f);
+            _pet.GlobalPosition += dir * (minDist - dist);
+        }
     }
 
     /// <summary>记录脚下是否单向平台（决定能不能主动下穿）；静止帧沿用上次结论。</summary>

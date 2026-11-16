@@ -39,9 +39,11 @@ public partial class SpiritPet : CharacterBody2D
         _sprite = GetNode<Sprite2D>("Sprite2D");
         AddToGroup(GameDefs.SpiritGroup);
 
-        // 角色碰撞规则（与未来敌人共用一段）：随从被主角与地形挡住，彼此不硬碰。
+        // 角色碰撞规则（与未来敌人共用一段）：随从被主角、地形以及其他随从挡住。
+        // mask 含 LayerSpirit = 随从之间也互相碰撞，绝不重叠（落点间距由 SpiritFollow.SlotOffset 保证）。
         CollisionLayer = GameDefs.LayerSpirit;
-        CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay | GameDefs.LayerActor;
+        CollisionMask = GameDefs.LayerSolid | GameDefs.LayerOneWay
+            | GameDefs.LayerActor | GameDefs.LayerSpirit;
         MotionMode = MotionModeEnum.Grounded;
     }
 

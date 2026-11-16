@@ -1129,3 +1129,34 @@ catch_up_when_far / recall_when_lost / actor_layers / has_collision_body` 全 tr
 ### 24.5 范围边界
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
 未实现：战斗、敌人、随从攻击、技能、掉落。
+
+## 25. 随从之间加入碰撞体（2026-11-16，v0.0005）
+
+### 25.1 需求
+「随从和随从之间也是有碰撞体的，随从不会和随从重叠」。
+
+### 25.2 改动
+| 改动 | 做法 |
+|---|---|
+| 碰撞层 | 随从 `mask` 加入 `LayerSpirit`（7 → **15**），场景 `collision_mask` 同步；随从彼此互相碰撞 |
+| 落点 | 黄金角改为**固定五格**（本命 + 最多 4 队友）：`(±1.55,-0.15) / (±0.75,-0.45) / (0,-0.75)`，任意两格最小间距 **0.81 格** > 碰撞宽度 0.62；超编时退回黄金角外扩 |
+| 跳跃判定 | 从「落点高度差 `dy`」改为「**主角与随从的实际高度差 `playerDy`**」——队形落点可以抬高，但绝不因落点高度诱发跳跃（否则原地连跳会复发） |
+| 软分离 | 新增 `SeparateFromPets`：按胶囊真实形状算两两距离，不足碰撞宽度就把自己推开（只推自己，避免对称加力抖动），补上物理 `safe_margin` 允许的轻微穿透 |
+| 冒烟 | 满编 5 只（本命 + A/B/C/D）；新增 `spirit_no_overlap` 与 `min_pet_distance` 证据 |
+
+### 25.3 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **167/167 PASS** |
+| 3 | `--follow-smoke` 连跑 **6 次**（满编 5 只） | 全部 **PASS**，`min_pet_distance` 恒 **0.64**（碰撞宽度 0.62，稳定不重叠）、`idle_jumps` 恒 **0**、`yield_travel` 恒 **5.71** |
+| 4 | `Main --smoke` / 整链 `--smoke` | PASS，`player_moved` / `follow_entity_ok` / `follow_no_overlap_ok` 全 true |
+| 5 | `--pause-smoke` / `--offer-smoke` | 均 PASS |
+
+判定口径：`min_pet_distance` 用胶囊真实形状（竖直线段 + 半径）计算，不是 AABB；
+≥ 0.62（`SpiritBodyWidth`）即判定为不重叠。加软分离前实测 0.594/0.609（物理 `safe_margin` 允许的穿透），
+加后稳定 0.64。
+
+### 25.4 范围边界
+版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
+未实现：战斗、敌人、随从攻击、技能、掉落。

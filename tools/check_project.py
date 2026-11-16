@@ -512,11 +512,16 @@ check("随从跟随：头顶踩踏平台是单向碰撞（上方可踩、侧面�
       and "collision_layer = 16" in pet_scene
       and "RectangleShape2D" in pet_scene
       and "one_way_collision = true" in pet_scene)
+check("随从跟随：随从之间也有碰撞体（mask 含 LayerSpirit）+ 固定五格落点间距 + 软分离",
+      "collision_mask = 15" in pet_scene
+      and "| GameDefs.LayerSpirit" in pet_cs
+      and "FixedSlots" in follow_cs
+      and "SeparateFromPets" in follow_cs)
 check("随从跟随：静止不连跳（槽位纵向夹紧 + 跨层阈值 + 自救跳冷却 + 让路跳需主角在动）",
       "SpiritSlotLiftMax" in follow_defs and "SpiritJumpUpThreshold" in follow_defs
       and "SpiritStuckJumpCooldown" in follow_defs
       and "Mathf.Clamp(_slotOffset.Y" in follow_cs
-      and "dy < -GameDefs.SpiritJumpUpThreshold" in follow_cs
+      and "playerDy < -GameDefs.SpiritJumpUpThreshold" in follow_cs
       and "yielding && playerMoving" in follow_cs
       and "Mathf.Abs(dx) > 1.0f" in follow_cs
       and "JumpCount" in follow_cs)
@@ -544,12 +549,12 @@ check("随从跟随：让路 v2——前进方向通道让路 + 落点镜像身�
       and "SpiritFacingHoldTime" in follow_cs and "dynamicSlot" in follow_cs
       and "SpiritPushMargin" in follow_cs and "SpiritYieldJumpCooldown" in follow_cs
       and "d.Y > halfH * 0.55f" in follow_cs)
-check("随从跟随：--follow-smoke 十项断言（数量/收敛/不重叠/追赶/让路/踩头/静止不跳/召回/层/碰撞体）",
+check("随从跟随：--follow-smoke 十一项断言（数量/收敛/不重叠/追赶/让路/踩头/静止不跳/随从互不重叠/召回/层/碰撞体）",
       "FOLLOW_SMOKE_JSON_BEGIN" in group_cs
       and all(k in group_cs for k in ("fate_plus_roster", "converge_near_player", "never_overlap",
                                       "catch_up_when_far", "yield_no_block", "ride_on_head",
-                                      "idle_no_hopping", "recall_when_lost", "actor_layers",
-                                      "has_collision_body")))
+                                      "idle_no_hopping", "spirit_no_overlap", "recall_when_lost",
+                                      "actor_layers", "has_collision_body")))
 check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
       and not any(k in follow_cs for k in ("Skill", "Attack", "Damage"))

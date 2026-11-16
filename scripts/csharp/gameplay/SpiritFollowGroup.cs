@@ -68,18 +68,21 @@ public partial class SpiritFollowGroup : Node2D
             return;
         }
 
-        // 1) 队伍注入 A / B → 场上 = 本命 + 2 队友，共 3 只
+        // 1) 队伍注入 A/B/C/D 满编 → 场上 = 本命 + 4 队友，共 5 只（验证五人槽位互不重叠）
         root.Companions.Clear();
         root.Companions.TryApply("A", out _);
         root.Companions.TryApply("B", out _);
+        root.Companions.TryApply("C", out _);
+        root.Companions.TryApply("D", out _);
         Refresh();
         await Frames(4);
-        bool countOk = _pets.Count == 3 && Primary != null && Followers == 2;
+        bool countOk = _pets.Count == 5 && Primary != null && Followers == 4;
 
         // 2) 等落地：三只都应落在主角 3.5 格内，且与主角 AABB 不重叠
         await Frames(40);
         bool convergeOk = _pets.All(p => p.GlobalPosition.DistanceTo(_player.GlobalPosition) < 3.5f);
         bool noOverlapOk = _pets.All(p => !Overlaps(p.GlobalPosition, _player.GlobalPosition));
+        bool petsApartOk = PetsApart();   // 随从之间也必须有碰撞体、不重叠
 
         // 3) 主角瞬移 7 格 → 随从越远越快追上（40 帧内收敛到 4 格内）
         _player.GlobalPosition += new Vector2(7f, 0f);
@@ -134,6 +137,7 @@ public partial class SpiritFollowGroup : Node2D
         await Frames(150);   // 2.5 秒静止
         int idleJumps = follows.Sum(f => f.JumpCount) - jumpsBefore;
         bool idleCalmOk = idleJumps <= 2;
+        bool petsApartIdle = PetsApart();   // 静止归位后也不许互相压住
 
         // 7) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
         SpiritPet far = _pets[0];
@@ -163,6 +167,7 @@ public partial class SpiritFollowGroup : Node2D
             ["yield_no_block"] = yieldOk,
             ["ride_on_head"] = rideOk,
             ["idle_no_hopping"] = idleCalmOk,
+            ["spirit_no_overlap"] = petsApartOk && petsApartIdle,
             ["recall_when_lost"] = recallOk,
             ["actor_layers"] = layersOk,
             ["has_collision_body"] = bodyOk,
@@ -181,6 +186,8 @@ public partial class SpiritFollowGroup : Node2D
                 ? (float)Math.Round(_pets.Max(p => p.GlobalPosition.DistanceTo(_player.GlobalPosition)), 3) : -1f,
             ["yield_travel"] = (float)Math.Round(yieldTravel, 3),   // 挡路位形下主角按住左键 45 帧走出的距离
             ["idle_jumps"] = idleJumps,                              // 玩家静止 2.5 秒内随从的主动起跳总数
+            ["min_pet_distance"] = (float)Math.Round(MinPetDistance(), 3),   // 随从两两最小中心距（≥0.62 即不重叠）
+            ["pet_body_width"] = GameDefs.SpiritBodyWidth,
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");
@@ -195,6 +202,30 @@ public partial class SpiritFollowGroup : Node2D
     {
         for (int i = 0; i < count; i++)
             await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+    }
+
+    /// <summary>
+    /// 随从两两之间是否互相重叠。按胶囊真实形状算中心距（不是 AABB）：
+    /// 胶囊 = 竖直线段（半长 (H-W)/2）+ 半径 W/2，两胶囊不重叠 ⇔ 线段最短距离 ≥ W。
+    /// </summary>
+    private bool PetsApart() => MinPetDistance() >= GameDefs.SpiritBodyWidth;
+
+    /// <summary>所有随从对之间的最小中心距（重叠诊断用）。</summary>
+    private float MinPetDistance()
+    {
+        float min = float.MaxValue;
+        float segSpan = GameDefs.SpiritBodyHeight - GameDefs.SpiritBodyWidth;   // 两段端点的抵扣长度
+        for (int i = 0; i < _pets.Count; i++)
+        {
+            for (int j = i + 1; j < _pets.Count; j++)
+            {
+                Vector2 d = _pets[i].GlobalPosition - _pets[j].GlobalPosition;
+                float vertical = Mathf.Max(0f, Mathf.Abs(d.Y) - segSpan);
+                float dist = Mathf.Sqrt(d.X * d.X + vertical * vertical);
+                if (dist < min) min = dist;
+            }
+        }
+        return min;
     }
 
     private static bool Overlaps(Vector2 a, Vector2 b)
