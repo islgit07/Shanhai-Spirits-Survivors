@@ -32,6 +32,10 @@ public partial class GameRoot : Node2D
 	private const string DefaultMapConfigPath = "res://resources/maps/default.tres";
 	private MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
 	public MapGenConfig MapConfig { get => _mapConfig; set => _mapConfig = value; }
+	// 随从系统第 1 块：启动时加载本命随从目录（主角养的灵兽），只做「游戏知道有哪些随从」。
+	// 技能 / 本命升级 / 选择 UI / 跟随效果均未实现，留待后续逐块加。
+	private IReadOnlyList<SpiritDef> _spirits = SpiritCatalog.All;
+	public IReadOnlyList<SpiritDef> Spirits => _spirits;
 	private int _currentSeed;
 	private Label _seedLabel = null!;
 
@@ -115,6 +119,9 @@ public partial class GameRoot : Node2D
 		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
 		GD.Print("[BOOT] 山海幻灵 v0.0005 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
+		// 随从系统第 1 块：打印已发现的本命随从目录（定义卡自动扫描，加卡零代码）。
+		_spirits = SpiritCatalog.All;
+		GD.Print($"[BOOT] spirits={_spirits.Count} ids=[{string.Join(",", _spirits.Select(s => s.Id))}]");
 		if (SmokeMode) BeginSmoke();
 
 		// 仅截图自检用：--shot 时 1.5 秒后存图并退出
@@ -486,6 +493,18 @@ public partial class GameRoot : Node2D
 			// BOUNCE-JELLY：真实落下触发蹦蹦床动画，且玩家确实被弹起（跳过传送时不假阴性）
 			["bounce_jelly_ok"] = _bounceSkipped
 								  || (_bounceJellySeen && _bounceStartY - _bounceMinY > 1.0f),
+			// 随从系统第 1 块：目录含烛龙/饕餮/穷奇三张定义卡，Id 唯一且有序、身份字段非空
+			["spirits_catalog_ok"] = _spirits.Count >= 3
+									 && SpiritCatalog.Find("zhulong") != null
+									 && SpiritCatalog.Find("taotie") != null
+									 && SpiritCatalog.Find("qiongqi") != null
+									 && _spirits.All(s => !string.IsNullOrWhiteSpace(s.Id)
+														  && !string.IsNullOrWhiteSpace(s.DisplayName)
+														  && !string.IsNullOrWhiteSpace(s.Lore))
+									 && _spirits.Select(s => s.Id).Distinct().Count() == _spirits.Count
+									 && _spirits.Select(s => s.Id)
+												 .SequenceEqual(_spirits.Select(s => s.Id)
+																	.OrderBy(id => id, StringComparer.Ordinal)),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -535,6 +554,10 @@ public partial class GameRoot : Node2D
 			["bounce_jelly_seen"] = _bounceJellySeen,
 			["bounce_skipped"] = _bounceSkipped,
 			["bounce_launch_rise"] = Math.Round(_bounceStartY - _bounceMinY, 3),
+			// 随从系统第 1 块证据（主角养的灵兽身份目录，尚无技能/选择/跟随）
+			["spirits_count"] = _spirits.Count,
+			["spirits_ids"] = string.Join(",", _spirits.Select(s => s.Id)),
+			["spirits_names"] = string.Join(",", _spirits.Select(s => s.DisplayName)),
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 14",
+      "name": "C# 脚本数量 = 16",
       "ok": true,
-      "detail": "14 个"
+      "detail": "16 个"
     },
     {
       "name": "零 GDScript",
@@ -574,7 +574,37 @@
       "detail": ""
     },
     {
-      "name": "README 版本一致",
+      "name": "随从系统：SpiritDef 是 [GlobalClass] : Resource 数据卡",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：SpiritDef 只有身份字段（Id / DisplayName / Lore），零技能/升级字段",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：SpiritCatalog 静态类扫目录并自动发现定义卡（加卡零代码）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：目录按 Id 升序（确定性）+ 重复 Id 告警",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：三张本命定义卡存在且挂 SpiritDef 脚本、身份字段齐全",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：GameRoot 启动时加载目录并打印，冒烟有 spirits_catalog_ok 断言与证据字段",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从系统：只剩数据底座——无本命选择 UI / 跟随节点 / 技能实现",
       "ok": true,
       "detail": ""
     },

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SpiritDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritDef.cs" id="1_spiritdef"]
+
+[resource]
+script = ExtResource("1_spiritdef")
+Id = "zhulong"
+DisplayName = "烛龙"
+Lore = "山海经中的钟山之神，睁眼为昼、闭眼为夜。"

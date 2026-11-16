@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 14
+EXPECTED_CS = 16
 checks = []
 
 
@@ -402,9 +402,47 @@ for gone in ["SpeciesDef", "OfferKind", "LegionUnit", "WildSpawner", "EssencePic
              "static class Meta", "static class Run ", "class Signals"]:
     check(f"战斗/成长/UI 已拆除：{gone}", gone not in all_cs)
 
+# ---------------------------------------------------------------- 7b. 随从系统第 1 块（数据底座）
+# 用户术语：随从 = 主角养的灵兽。本块只做「游戏知道有哪些随从」，技能/选择/界面/跟随均未实现。
+spirit_def = cs("gameplay/SpiritDef.cs")
+spirit_cat = cs("gameplay/SpiritCatalog.cs")
+spirit_root = cs("core/GameRoot.cs")
+check("随从系统：SpiritDef 是 [GlobalClass] : Resource 数据卡",
+      "[GlobalClass]" in spirit_def and "partial class SpiritDef : Resource" in spirit_def)
+check("随从系统：SpiritDef 只有身份字段（Id / DisplayName / Lore），零技能/升级字段",
+      all(f"public string {p} {{ get; set; }}" in spirit_def for p in ("Id", "DisplayName", "Lore"))
+      and not any(k in spirit_def for k in ("Skill", "Ability", "Attack", "Damage", "Upgrade", "Follow"))
+      and "public int Level" not in spirit_def and "Experience" not in spirit_def)
+check("随从系统：SpiritCatalog 静态类扫目录并自动发现定义卡（加卡零代码）",
+      "public static class SpiritCatalog" in spirit_cat
+      and 'SpiritsDir = "res://resources/spirits"' in spirit_cat
+      and "DirAccess.Open" in spirit_cat and "ListDirBegin" in spirit_cat
+      and "is SpiritDef def" in spirit_cat and "TrimSuffix(\".remap\")" in spirit_cat)
+check("随从系统：目录按 Id 升序（确定性）+ 重复 Id 告警",
+      "OrderBy(s => s.Id, StringComparer.Ordinal)" in spirit_cat
+      and "重复 Id" in spirit_cat and "ClearCache" in spirit_cat)
+check("随从系统：三张本命定义卡存在且挂 SpiritDef 脚本、身份字段齐全",
+      all((ROOT / "resources" / "spirits" / f"{sid}.tres").exists()
+          for sid in ("zhulong", "taotie", "qiongqi"))
+      and all('script_class="SpiritDef"' in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              and "SpiritDef.cs" in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              for sid in ("zhulong", "taotie", "qiongqi"))
+      and all(f'Id = "{sid}"' in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              and "DisplayName =" in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              and "Lore =" in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              for sid in ("zhulong", "taotie", "qiongqi")))
+check("随从系统：GameRoot 启动时加载目录并打印，冒烟有 spirits_catalog_ok 断言与证据字段",
+      "SpiritCatalog.All" in spirit_root
+      and "[BOOT] spirits=" in spirit_root
+      and '"spirits_catalog_ok"' in spirit_root
+      and all(k in spirit_root for k in ("spirits_count", "spirits_ids", "spirits_names")))
+check("随从系统：只剩数据底座——无本命选择 UI / 跟随节点 / 技能实现",
+      "Follow" not in spirit_def and "Skill" not in spirit_def
+      and "Fate" not in spirit_root and "Summon" not in spirit_root)
+
 # ---------------------------------------------------------------- 8. 版本一致
-readme = read(ROOT / "README.md")
-check("README 版本一致", f"v{VERSION}" in readme)
+# README 由用户自己维护（2026-11-16 用户明确「最外层 README 我来写，你不用动」），
+# 故版本一致性只以 project.godot / overview / 自检脚本本体为准，不再检查 README 文本。
 # 注：原「README 记录找回路径（5978a58 / docs/archive/v0.003）」检查已移除——
 # 远程提交 40c9ce1 简化了 README 更新说明并删掉 History 行，用户拍板按远程 README 为准，
 # 故不再要求 README 保留找回路径；归档事实仍在 docs/overview-v0.003.md 中记录。

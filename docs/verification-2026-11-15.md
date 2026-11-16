@@ -683,3 +683,45 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
 C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
 
 范围：版本保持 `0.0004`，未升版、未打 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交。
+
+## 16. 随从系统第 1 块：随从定义与目录底座（2026-11-16，v0.0005）
+
+### 16.1 术语与范围
+- 用户明确：**随从 = 主角养的灵兽**（即旧设定的「幻灵」，幻灵/幻兽同源、只靠 Faction 区分），已写入用户级与项目级长期记忆。
+- 用户要求「一个一个来」，本块**只做数据底座**：让游戏知道有哪些本命随从、方便以后加入新随从。
+- 本块**不含**：具体随从技能（用户之后自行设计）、开局选择 UI、随从界面、跟随效果、本命升级玩法。
+
+### 16.2 实现选择
+- **选**：`SpiritDef : Resource`（`[GlobalClass]`，Inspector 可编辑）存单条随从身份数据；`SpiritCatalog` 静态类扫 `res://resources/spirits/*.tres` 自动发现，按 Id 升序。加新随从 = 丢一张定义卡进目录，**零代码改动**。
+- **否决**：① 硬编码 enum/数组（加随从要改代码，违背用户意图）；② autoload 单例（项目零 autoload 铁律）；③ 巨型 Resource（resource-pattern §10 反模式）；④ 本块就做 UI / 跟随（用户要逐块来）。
+
+### 16.3 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/SpiritDef.cs` (+ `.uid`) | 新建本命随从数据卡：`Id` / `DisplayName` / `Lore`，**零技能/升级字段** |
+| `scripts/csharp/gameplay/SpiritCatalog.cs` (+ `.uid`) | 新建静态加载器：目录扫描 + Id 排序 + 重复告警 + `Find(id)` + `ClearCache()` |
+| `resources/spirits/{zhulong,taotie,qiongqi}.tres` | 三张本命定义卡（烛龙/饕餮/穷奇），Lore 仅一句话客观背景 |
+| `scripts/csharp/core/GameRoot.cs` | 启动加载并打印随从目录；冒烟加 `spirits_catalog_ok` 断言 + 3 个证据字段 |
+| `tools/check_project.py` | `EXPECTED_CS` 14→16；新增 7 条随从系统静态检查；**移除 README 版本一致检查**（README 归用户维护） |
+
+### 16.4 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **126/126 PASS** |
+| 3 | 编辑器无头导入 | exit 0，0 ERROR，识别到 `SpiritDef` 类，两个 `.uid` 自动生成 |
+| 4 | `Main.tscn --smoke` | exit 0，**PASS，22/22 断言**，运行时 0 ERROR |
+| 5 | 开始页 → `Main --smoke` | exit 0，**PASS**，0 ERROR |
+
+冒烟证据：`spirits_count=3`、`spirits_ids=qiongqi,taotie,zhulong`、`spirits_names=穷奇,饕餮,烛龙`；
+日志 `catalog loaded count=3` → `spirits=3`，按 Id 升序确定性加载。
+
+### 16.5 代码审查
+`godot-code-review`：无 Critical。静态工具类（非 autoload）符合项目范式；目录仅首次访问扫描并缓存，
+不在热路径 `load()`；`using var dir` 正确释放；Resource 只读共享不 mutate；C# `partial` / PascalCase /
+`[GlobalClass]` 齐全；零 GDScript / 零 autoload 基线保持。
+
+### 16.6 范围边界
+版本保持 `0.0005`（本轮为 0.0005 版本规划的第 1 块，不再升版、未打新 tag、未 push）；
+`scenes/StartPage.tscn` 与 `project.godot` 的用户格式改动未碰、未提交；
+**README 由用户自己维护，本轮未改**（仅把静态自检里依赖 README 的检查移除）。
