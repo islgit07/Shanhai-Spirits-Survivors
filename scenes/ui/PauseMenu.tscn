@@ -62,21 +62,28 @@ grow_vertical = 2
 mouse_filter = 0
 color = Color(0, 0, 0, 0.66)
 
-[node name="Center" type="CenterContainer" parent="PauseRoot"]
+[node name="Center" type="MarginContainer" parent="PauseRoot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
 
 [node name="Panel" type="PanelContainer" parent="PauseRoot/Center"]
-custom_minimum_size = Vector2(960, 480)
+custom_minimum_size = Vector2(640, 360)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="VBox" type="VBoxContainer" parent="PauseRoot/Center/Panel"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="PauseRoot/Center/Panel/VBox"]
@@ -87,12 +94,14 @@ horizontal_alignment = 1
 
 [node name="Columns" type="HBoxContainer" parent="PauseRoot/Center/Panel/VBox"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/separation = 18
 
 [node name="Left" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns"]
 custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 size_flags_horizontal = 0
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="Menu" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Left"]
@@ -153,6 +162,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(620, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_roster")
 
 [node name="VBox" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Right"]

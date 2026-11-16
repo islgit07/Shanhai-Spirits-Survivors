@@ -932,3 +932,49 @@ JSON 带版本号与迁移钩子、先校验余额再变更、`GetNode` 全在 `
 版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
 `project.godot` 用户改动未碰、未提交。战斗、魂魄掉落、真升级触发、技能设计、局内跟随 AI、
 手柄 UI 映射均未实现；队伍只当局有效，退出即清。
+
+## 21. ESC 面板改近全屏版式（2026-11-16，v0.0005）
+
+### 21.1 需求与拍板
+用户「我想要的 esc 是那种几乎全屏的，因为以后那块地方会设计特别大」。
+按 GodotPrompter 先报方案再动手：
+- **选**：`Center` 由 `CenterContainer` 改 `MarginContainer`（四边 24px），
+  `Panel` 去掉 `960×480` 固定最小尺寸改随视口拉伸，左窄栏仍固定 240，
+  右大栏横向 + 纵向 `size_flags=3`（expand-fill）吃掉所有剩余空间。
+- **否决**：贴边 100% 全屏（失层次，用户说的是「几乎」）；单纯放大固定尺寸
+  （不自适应分辨率，正不合「以后设计特别大」）；改 `project.godot` 窗口尺寸
+  （用户改动未提交）；顺手重排按钮 / 加设置项（本轮只改版式）。
+
+### 21.2 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scenes/ui/PauseMenu.tscn` | `Center` 改 `MarginContainer` 四边 24px；`Panel` 最小尺寸 640×360 + expand-fill；`VBox`/`Columns`/`Left`/`Right` 纵向拉伸；按钮与路径全部不变 |
+| `scripts/csharp/ui/PauseMenu.cs` | `_Ready` 取节点类型同步 `MarginContainer`，缓存 `_panel`；冒烟新增 `near_fullscreen` 结构断言与版式报告字段 |
+| `tools/check_project.py` | 新增近全屏版式静态检查（四边 margin、无旧固定尺寸、expand-fill、断言字段） |
+
+### 21.3 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `godot --headless --editor --quit` | 0 ERROR |
+| 3 | `tools/check_project.py` | **156/156 PASS** |
+| 4 | `Main.tscn -- --pause-smoke` | **PASS**，14 项断言含 `near_fullscreen=true` |
+| 5 | `Main.tscn -- --offer-smoke` | **PASS** |
+| 6 | `Main.tscn -- --smoke` | **PASS** |
+| 7 | 开始页整链 `-- --smoke` | **PASS** |
+
+`near_fullscreen` 采用**结构性验证**（`Center` 全屏锚点 + 四边 24px + 面板与右栏 expand-fill），
+不用实测像素：headless 下可见矩形报 `1280×1280`（非项目设定的 1280×720），且面板刚显示时
+布局尚未重排，读到的 `headless_panel_size=948×383` 是旧值，不能作为判定依据；
+实测数据仅留在冒烟报告里作参考。
+
+### 21.4 代码审查（`godot-code-review`）
+无 Critical / Improvement 遗留。节点路径逐层下钻并在 `_Ready()` 缓存；新增 `_panel` 字段只用于
+冒烟报告与结构断言，不进热路径；`IsOpen` 仍以 `_root.Visible` 为准；ESC 语义、弹窗拦截、
+焦点环、退出目标均未动。C# 绑定差异（无 `GetThemeConstantOverride`、`SizeFlags` 为枚举）
+已改用 `Node.Get(...).AsInt32()` 与枚举直接比较解决。
+
+### 21.5 范围边界
+版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
+`project.godot` 用户改动未碰、未提交。右栏大区域目前仍是占位队伍列表，
+等用户以后自己设计具体内容；本轮没加任何设置项、技能或战斗逻辑。

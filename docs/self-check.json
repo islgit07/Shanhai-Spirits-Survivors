@@ -719,6 +719,11 @@
       "detail": ""
     },
     {
+      "name": "暂停菜单：近全屏版式——MarginContainer 四边 24px，面板与右栏随视口拉伸",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "局内随从：当局临时队伍，选新加入 / 同名合成资质+1，不写存档",
       "ok": true,
       "detail": ""

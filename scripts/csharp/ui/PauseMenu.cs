@@ -9,7 +9,7 @@ namespace ShanhaiSpiritsSurvivors;
 /// <summary>
 /// @trace PAUSE-001 / RUN-ROSTER ESC 双栏面板（v0.0005）：左窄栏继续 / 设置 / 退出，右大栏当前随从队伍。
 ///
-/// 场景驱动：PauseMenu.tscn 摆版式（CanvasLayer + 遮罩 + 居中双栏面板），本脚本只管状态与接线。
+/// 场景驱动：PauseMenu.tscn 摆版式（CanvasLayer + 遮罩 + 近全屏双栏面板，四边留 24px 边距），本脚本只管状态与接线。
 /// 输入走 _UnhandledInput 的原生 ESC 键（离散动作）；不新增 Input Map action，
 /// 因为 project.godot 的用户改动未提交，手柄 / 手柄 Start 键映射留到后续统一做。
 /// 暂停时全树停摆，故 CanvasLayer 的 ProcessMode = Always，菜单仍能收 UI 输入。
@@ -22,6 +22,7 @@ public partial class PauseMenu : CanvasLayer
     private const string StartScenePath = "res://scenes/StartPage.tscn";
 
     private Control _root = null!;
+    private PanelContainer _panel = null!;
     private VBoxContainer _menu = null!;
     private VBoxContainer _settings = null!;
     private Button _resumeButton = null!;
@@ -41,8 +42,9 @@ public partial class PauseMenu : CanvasLayer
 
         // 逐层下钻，避免一条深层路径因版式调整而整体失效。
         _root = GetNode<Control>("PauseRoot");
-        HBoxContainer columns = _root.GetNode<CenterContainer>("Center")
-                                     .GetNode<PanelContainer>("Panel")
+        MarginContainer center = _root.GetNode<MarginContainer>("Center");
+        _panel = center.GetNode<PanelContainer>("Panel");
+        HBoxContainer columns = _panel
                                      .GetNode<VBoxContainer>("VBox")
                                      .GetNode<HBoxContainer>("Columns");
         VBoxContainer left = columns.GetNode<VBoxContainer>("Left");
@@ -254,6 +256,23 @@ public partial class PauseMenu : CanvasLayer
                        && _settingsBackButton.FocusMode == Control.FocusModeEnum.All;
         bool quitTargetOk = FileAccess.FileExists(StartScenePath);
 
+        // 近全屏走结构性验证：Center 全屏锚点 + 四边 24px，面板与右栏横向纵向 expand-fill。
+        // headless 下实测像素不可靠（可见矩形报 1280x1280，且面板刚显示时布局未重排），只记入报告。
+        MarginContainer centerNode = _root.GetNode<MarginContainer>("Center");
+        Control.SizeFlags expandFill = Control.SizeFlags.ExpandFill;
+        PanelContainer rightPanel = _panel.GetNode<PanelContainer>("VBox/Columns/Right");
+        bool marginOk = centerNode.Get("theme_override_constants/margin_left").AsInt32() == 24
+                        && centerNode.Get("theme_override_constants/margin_top").AsInt32() == 24
+                        && centerNode.Get("theme_override_constants/margin_right").AsInt32() == 24
+                        && centerNode.Get("theme_override_constants/margin_bottom").AsInt32() == 24;
+        bool nearFullscreen = centerNode.AnchorLeft == 0f && centerNode.AnchorTop == 0f
+                              && centerNode.AnchorRight == 1f && centerNode.AnchorBottom == 1f
+                              && marginOk
+                              && _panel.SizeFlagsHorizontal == expandFill
+                              && _panel.SizeFlagsVertical == expandFill
+                              && rightPanel.SizeFlagsHorizontal == expandFill
+                              && rightPanel.SizeFlagsVertical == expandFill;
+
         var assertions = new Dictionary<string, bool>
         {
             ["initial_hidden"] = initialOk,
@@ -268,9 +287,11 @@ public partial class PauseMenu : CanvasLayer
             ["esc_event_filter"] = escEventOpen && escReleaseIgnored && escEventClose,
             ["esc_blocked_by_offer"] = escBlockedByOffer,
             ["focus_ready"] = focusOk,
+            ["near_fullscreen"] = nearFullscreen,
             ["quit_to_start_target"] = quitTargetOk,
         };
         bool ok = assertions.Values.All(v => v);
+        Vector2 headlessViewport = GetViewport()!.GetVisibleRect().Size;
         var report = new Dictionary<string, object>
         {
             ["project"] = "山海幻灵",
@@ -278,7 +299,10 @@ public partial class PauseMenu : CanvasLayer
             ["scene"] = "PauseMenu",
             ["result"] = ok ? "PASS" : "FAIL",
             ["buttons"] = "继续/设置/退出（左窄栏）",
-            ["right_panel"] = "当前队伍（右大栏）",
+            ["right_panel"] = "当前队伍（右大栏，expand-fill）",
+            ["layout"] = "近全屏：四边 24px 边距，面板随视口拉伸",
+            ["headless_viewport"] = $"{headlessViewport.X:0}x{headlessViewport.Y:0}",
+            ["headless_panel_size"] = $"{_panel.Size.X:0}x{_panel.Size.Y:0}",
             ["quit_target"] = StartScenePath,
             ["process_mode_always"] = (int)ProcessMode == (int)ProcessModeEnum.Always,
             ["assertions"] = assertions,

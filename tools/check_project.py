@@ -591,6 +591,15 @@ check("暂停菜单：按钮焦点环 + 打开抓焦点 + 独立冒烟九项断�
       and all(k in pause_cs for k in ("initial_hidden", "esc_open", "settings_page",
                                       "settings_back", "resume", "esc_toggle",
                                       "esc_event_filter", "focus_ready", "quit_to_start_target")))
+check("暂停菜单：近全屏版式——MarginContainer 四边 24px，面板与右栏随视口拉伸",
+      'name="Center" type="MarginContainer"' in pause_tscn
+      and all(f"theme_override_constants/margin_{edge} = 24" in pause_tscn
+              for edge in ("left", "top", "right", "bottom"))
+      and "custom_minimum_size = Vector2(960, 480)" not in pause_tscn
+      and 'name="Right" type="PanelContainer"' in pause_tscn
+      and "near_fullscreen" in pause_cs
+      and "theme_override_constants/margin_left" in pause_cs
+      and "SizeFlags.ExpandFill" in pause_cs)
 
 # ---------------------------------------------------------------- 7f. RUN-ROSTER 局内随从界面（第四块 UI）
 roster_cs = cs("gameplay/RunRoster.cs")
