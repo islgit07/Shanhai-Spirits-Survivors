@@ -257,8 +257,18 @@ check("BUGFIX-FRAGILE 感应区跨过方块顶面（几何行为断言，非锁�
 check("BUGFIX-FRAGILE 生成 / 接线 / 碎块三项计数可观测",
       all(k in field for k in ("FragileCount", "FragileTouchWiredCount", "FragileBrokenCount"))
       and "FragileTouchWiredCount++" in field and "FragileBrokenCount++" in field)
-check("BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（DeferredRemove 统一延迟释放）",
-      "DeferredRemove(n)" in field and field.count("DeferredRemove(n)") == 2
+def fragile_break_body(src):
+    a = src.find("private void BreakBlock")
+    b = src.find("private void BlinkThenFree", a)
+    # 截掉后一个方法的 XML 注释（其中会出现 QueueFree 字样，不属于 BreakBlock 本体）
+    return src[a:b].split("/// <summary>")[0] if a >= 0 and b > a else ""
+
+
+_break_body = fragile_break_body(field)
+check("BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（延迟释放统一收口）",
+      bool(_break_body)
+      and all(op not in _break_body for op in ("RemoveChild", "QueueFree", "DeferredRemove"))
+      and "DeferredRemove(n)" in field and "body.QueueFree()" in field
       and "{ RemoveChild(n); n.QueueFree(); }" not in field)
 check("BUGFIX-FRAGILE 冒烟用真实自由落下验证踩碎（传送 + 断言 + 报告字段）",
       "GetFirstFragile" in field and "SmokeTeleportToFragile" in root_cs
@@ -268,6 +278,34 @@ check("BUGFIX-FRAGILE 多种子探针校验感应区接线完整",
       "field.FragileTouchWiredCount == field.FragileCount" in probe_cs)
 check("BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchArea 死代码已删）",
       "AddTouchArea" not in field and 'GetNodeOrNull<Area2D>("Touch")' in field)
+
+# ---------------------------------------------------------------- 5d. FRAGILE-BLINK 闪烁 1 秒再消失
+_gamedefs = cs("core/GameDefs.cs")
+_blink_body = read(ROOT / "scripts" / "csharp" / "gameplay" / "BlockField.cs")
+_blink_root = cs("core/GameRoot.cs")
+check("FRAGILE-BLINK 时长 1 秒 + 闪烁次数可配置（GameDefs 常量）",
+      "FragileBlinkDuration = 1.0f" in _gamedefs
+      and "FragileBlinkCycles = 10" in _gamedefs)
+check("FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束才 QueueFree",
+      "BlinkThenFree(n, visual)" in _blink_body
+      and "visual.CreateTween()" in _blink_body
+      and '"modulate", flashTint' in _blink_body
+      and '"modulate", baseTint' in _blink_body
+      and "tw.Parallel()" in _blink_body
+      and "body.QueueFree()" in _blink_body)
+check("FRAGILE-BLINK 踩碎瞬间碰撞立即失效、感应关闭（不会继续支撑 / 重复触发）",
+      "body.CollisionLayer = 0" in _blink_body
+      and "body.CollisionMask = 0" in _blink_body
+      and 'touch.SetDeferred("monitoring", false)' in _blink_body)
+check("FRAGILE-BLINK 起止计数可观测 + 冒烟断言未立刻消失",
+      all(k in field for k in ("FragileBlinkStartedCount", "FragileBlinkFinishedCount"))
+      and "FragileBlinkStartedCount++" in field and "FragileBlinkFinishedCount++" in field
+      and "fragile_blink_ok" in _blink_root
+      and "fragile_blink_finished_ok" in _blink_root
+      and "_fragileBlinkSeen" in _blink_root
+      and "fragile_blink_duration" in _blink_root)
+check("FRAGILE-BLINK 白箱图例同步为闪烁 1 秒",
+      "闪烁 1 秒再消失" in cs("tools/WhiteboxRoot.cs"))
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))

@@ -68,9 +68,11 @@ public partial class GameRoot : Node2D
 	private bool _slimeTeleported, _slimeSkipped, _slimeMoveReleased, _slimeJumpInjected, _slimeJumpReleased;
 	private bool _slimeLandedChecked, _slimeLanded;
 	private float _slimePlatY, _slimeApexY, _slimeGroundSpeed;
-	// BUGFIX-FRAGILE 冒烟阶段（4.5~5.4s）：传送到脆弱块上方 → 自由落下 → 断言该块消失
+	// BUGFIX-FRAGILE 冒烟阶段（4.5~6.0s）：传送到脆弱块上方 → 自由落下 → 断言闪烁 1 秒后消失
 	private bool _fragileTeleported, _fragileSkipped;
 	private int _fragileBrokenBefore;
+	// FRAGILE-BLINK：踩碎当帧必须仍有闪烁节点存活（Started > Finished），证明「没有立刻消失」
+	private bool _fragileBlinkSeen;
 
 	public override void _Ready()
 	{
@@ -349,7 +351,12 @@ public partial class GameRoot : Node2D
 				GD.Print("[SMOKE] 脆弱木板验证跳过（传送失败）");
 			}
 		}
-		if (_smokeTimer > 5.4f) FinishSmoke();
+		// FRAGILE-BLINK：在踩碎当帧取样，避免 1 秒闪烁结束后再取样造成假阴性。
+		if (!_fragileSkipped && !_fragileBlinkSeen && _blocks.FragileBrokenCount > _fragileBrokenBefore)
+			_fragileBlinkSeen = _blocks.FragileBlinkStartedCount > _blocks.FragileBlinkFinishedCount;
+
+		// 6.0s 收尾：给 1 秒闪烁留足时间，验证「先闪烁、后释放」两段都真实发生
+		if (_smokeTimer > 6.0f) FinishSmoke();
 	}
 
 	private void FinishSmoke()
@@ -408,6 +415,14 @@ public partial class GameRoot : Node2D
 								   && FragileTouchWiredCount == FragileCount
 								   && _blocks.FragileBrokenCount > _fragileBrokenBefore
 								   && _blocks.BlockCount < PlatformCount,
+			// FRAGILE-BLINK：踩碎瞬间仍在闪烁（视觉未立刻消失），且闪烁总时长就是 1 秒
+			["fragile_blink_ok"] = _fragileBlinkSeen
+								   && Mathf.IsEqualApprox(GameDefs.FragileBlinkDuration, 1.0f)
+								   && GameDefs.FragileBlinkCycles > 0,
+			// 1 秒后闪烁结束、视觉节点确实释放（不是永远留着）
+			["fragile_blink_finished_ok"] = _fragileBlinkSeen
+											&& _blocks.FragileBlinkStartedCount > 0
+											&& _blocks.FragileBlinkFinishedCount == _blocks.FragileBlinkStartedCount,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -446,6 +461,10 @@ public partial class GameRoot : Node2D
 			["fragile_touch_wired"] = FragileTouchWiredCount,
 			["fragile_broken"] = _blocks.FragileBrokenCount,
 			["fragile_blocks_left"] = _blocks.BlockCount,
+			["fragile_blink_seen"] = _fragileBlinkSeen,
+			["fragile_blink_started"] = _blocks.FragileBlinkStartedCount,
+			["fragile_blink_finished"] = _blocks.FragileBlinkFinishedCount,
+			["fragile_blink_duration"] = GameDefs.FragileBlinkDuration,
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

@@ -374,7 +374,7 @@
       "detail": ""
     },
     {
-      "name": "BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（DeferredRemove 统一延迟释放）",
+      "name": "BUGFIX-FRAGILE 物理回调内不做同步 RemoveChild（延迟释放统一收口）",
       "ok": true,
       "detail": ""
     },
@@ -390,6 +390,31 @@
     },
     {
       "name": "BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchArea 死代码已删）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 时长 1 秒 + 闪烁次数可配置（GameDefs 常量）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束才 QueueFree",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 踩碎瞬间碰撞立即失效、感应关闭（不会继续支撑 / 重复触发）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 起止计数可观测 + 冒烟断言未立刻消失",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FRAGILE-BLINK 白箱图例同步为闪烁 1 秒",
       "ok": true,
       "detail": ""
     },

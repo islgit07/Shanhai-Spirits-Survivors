@@ -533,3 +533,52 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
   从 BlockField 搬进生成器**均 deferred，见决策记录 Open / deferred。
 - 版本保持 `0.0004`，未升版、未打 tag、未 push。
 - `scenes/StartPage.tscn` 用户改动未碰、未提交、显式排除。
+
+## 14. FRAGILE-BLINK：脆弱木板闪烁 1 秒后消失（2026-11-16）
+
+### 14.1 需求与实现选择
+
+用户：「更新一下脆弱木板 1 秒内闪烁然后消失，不要立刻消失」。
+
+- **选**：踩中当帧判碎（碰撞失效、`FragileBrokenCount` +1，冒烟语义与时序不变），
+  视觉节点多活 `FragileBlinkDuration = 1.0s`，由绑定在 `Sprite2D` 上的一次性 Tween
+  做 `FragileBlinkCycles = 10` 次「木色 ↔ 警示红」交替（同步轻微膨胀/回弹），到时 `QueueFree`。
+- **否决**：① 踩上后仍能站 1 秒再碎 —— 改变「踩碎」判定与冒烟时序，而需求只要求视觉不立刻消失；
+  ② AnimationPlayer 资源动画 —— 一次性程序化效果用它过重；③ 全局 Timer —— Tween 宿主为 visual，
+  换种子重建地图时自动失效，不会有游离回调打到已释放节点。
+
+### 14.2 改动文件
+
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/core/GameDefs.cs` | 新增 `FragileBlinkDuration = 1.0f` / `FragileBlinkCycles = 10` |
+| `scripts/csharp/gameplay/BlockField.cs` | `BreakBlock` 改为「立即关碰撞 + 关感应（SetDeferred）+ 统计 +1」；新增 `BlinkThenFree()` Tween 闪烁；新增起止计数并随 `Build` 复位 |
+| `scripts/csharp/core/GameRoot.cs` | 冒烟脆弱块阶段延长到 6.0s；踩碎当帧取样 `_fragileBlinkSeen`（证明没立刻消失），收尾断言 `fragile_blink_finished_ok`（证明 1 秒后真的释放）；新增 5 个报告字段 |
+| `scripts/csharp/tools/WhiteboxRoot.cs` | 图例改为「踩碎后闪烁 1 秒再消失」 |
+| `tools/check_project.py` | 新增 5 条 FRAGILE-BLINK 静态断言；同步修正原「延迟释放收口」断言（碎块节点现在由 Tween 末尾释放） |
+
+### 14.3 验证（全部实跑）
+
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **112/112 PASS** |
+| 3 | 编辑器无头导入 | exit 0，0 ERROR |
+| 4 | `Main.tscn --smoke` | exit 0，**PASS，19/19 断言**，运行时 **0 ERROR** |
+| 5 | 开始页 → `Main --smoke` | exit 0，**PASS**，运行时 0 ERROR |
+| 6 | `MapSeedProbe` | 10 组种子 `fail=0`，脆弱块接线 `N/N fragile_ok=1` |
+
+冒烟证据（固定种子）：`fragile_broken=1`、`fragile_blink_seen=true`、
+`fragile_blink_started=1`、`fragile_blink_finished=0`（踩碎当帧）→ 收尾时 `finished=1`，
+`fragile_blink_ok` 与 `fragile_blink_finished_ok` 均 true。
+
+### 14.4 排错与代码审查
+
+- 首版在 `Area2D.BodyEntered` 回调里直接写 `touch.Monitoring = false`，
+  Godot 报 `Function blocked during in/out signal. Use set_deferred("monitoring", true/false).`；
+  改为 `touch.SetDeferred("monitoring", false)` 后两条冒烟均 0 ERROR。
+- `godot-code-review`：无 Critical。Tween 绑定 visual 随节点释放自动停止；
+  物理回调内只改属性不移除节点，`QueueFree` 统一在 1 秒后的回调里；
+  `_alive` 守卫 + 碰撞层置 0 + monitoring 延迟关闭三重防重复触发；
+  C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
+- 范围：版本保持 `0.0004`，未升版、未打 tag；`scenes/StartPage.tscn` 用户改动未碰、未提交。

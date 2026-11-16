@@ -133,6 +133,10 @@ public partial class BlockField : Node2D, IBlockGeometry
     public int FragileTouchWiredCount { get; private set; }
     /// <summary>BUGFIX-FRAGILE：本局已被踩碎的脆弱块数（BreakBlock 递增，Build 复位）。</summary>
     public int FragileBrokenCount { get; private set; }
+    /// <summary>FRAGILE-BLINK：已启动闪烁的碎块数（踩碎当帧 +1）。</summary>
+    public int FragileBlinkStartedCount { get; private set; }
+    /// <summary>FRAGILE-BLINK：闪烁结束、视觉节点已释放的碎块数。Started &gt; Finished 即「还没立刻消失」。</summary>
+    public int FragileBlinkFinishedCount { get; private set; }
 
     // ---------------------------------------------------------------- 坐标
     // 块 (r,c)：x ∈ [ColX(c), ColX(c)+1]，y ∈ [RowTopY(r)-1, RowTopY(r)]（y-down）
@@ -186,6 +190,8 @@ public partial class BlockField : Node2D, IBlockGeometry
         FragileCount = 0;
         FragileTouchWiredCount = 0;
         FragileBrokenCount = 0;
+        FragileBlinkStartedCount = 0;
+        FragileBlinkFinishedCount = 0;
 
         // GND-001：row 0 全覆盖实体普通块。刻意不走随机分支。
         for (int c = 0; c < GameDefs.BlockCols; c++)
@@ -832,18 +838,73 @@ public partial class BlockField : Node2D, IBlockGeometry
         if (n != null && IsInstanceValid(n)) n.QueueFree();
     }
 
-    /// <summary>脆弱块：踩碎消失，本局内不恢复（换种子 / 重开新局恢复）。</summary>
+    /// <summary>
+    /// 脆弱块：踩中当帧判碎（碰撞立即失效、统计 +1，本局不恢复），
+    /// 但视觉节点保留 FragileBlinkDuration 秒闪烁后再释放 —— FRAGILE-BLINK「不要立刻消失」。
+    /// </summary>
     private void BreakBlock(int r, int c)
     {
         if (!_alive[r, c]) return;
         _alive[r, c] = false;
         _reachable[r, c] = false;
         var n = _nodes[r, c];
+        var visual = _visuals[r, c];
         _nodes[r, c] = null;
-        DeferredRemove(n);
+        _visuals[r, c] = null;
+        if (IsInstanceValid(n) && n is StaticBody2D body)
+        {
+            // 物理回调里只改属性、不移除节点：关碰撞让玩家踩碎瞬间就失去支撑，
+            // 关感应避免闪烁期间重复触发。节点释放统一交给闪烁 Tween 末尾。
+            body.CollisionLayer = 0;
+            body.CollisionMask = 0;
+            var touch = body.GetNodeOrNull<Area2D>("Touch");
+            // 信号回调里直接写 monitoring 会被 Godot 拒绝（Function blocked during in/out signal），
+            // 必须 SetDeferred；同时 body 层已置 0、_alive 已 false，双保险不重复触发。
+            if (touch != null) touch.SetDeferred("monitoring", false);
+        }
         BlockCount--;
         FragileBrokenCount++;
-        GD.Print($"[BLOCKS] fragile broken ({c},{r})");
+        BlinkThenFree(n, visual);
+        GD.Print($"[BLOCKS] fragile broken ({c},{r}) blink={GameDefs.FragileBlinkDuration}s");
+    }
+
+    /// <summary>
+    /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 10 次「木色 ↔ 警示红」闪烁
+    /// （同时轻微膨胀/回弹强调崩裂），满 1 秒后 QueueFree 整个方块节点。
+    /// Tween 宿主是 visual：换种子 Build 释放整张地图时 tween 自动失效，
+    /// 回调不会打到已释放节点；结束回调里仍做一次 IsInstanceValid 兜底。
+    /// </summary>
+    private void BlinkThenFree(Node2D? body, Sprite2D? visual)
+    {
+        FragileBlinkStartedCount++;
+        if (body == null || !IsInstanceValid(body) || visual == null || !IsInstanceValid(visual))
+        {
+            FragileBlinkFinishedCount++;
+            DeferredRemove(body);
+            return;
+        }
+
+        Color baseTint = Tint(BlockType.Fragile);
+        Color flashTint = new(1.0f, 0.30f, 0.25f, 1.0f);
+        Vector2 baseScale = visual.Scale;
+        float half = GameDefs.FragileBlinkDuration / (GameDefs.FragileBlinkCycles * 2f);
+        var tw = visual.CreateTween();
+        for (int i = 0; i < GameDefs.FragileBlinkCycles; i++)
+        {
+            tw.TweenProperty(visual, "modulate", flashTint, half)
+                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+            tw.Parallel().TweenProperty(visual, "scale", baseScale * 1.12f, half)
+                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+            tw.TweenProperty(visual, "modulate", baseTint, half)
+                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
+            tw.Parallel().TweenProperty(visual, "scale", baseScale, half)
+                .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
+        }
+        tw.TweenCallback(Callable.From(() =>
+        {
+            FragileBlinkFinishedCount++;
+            if (IsInstanceValid(body)) body.QueueFree();
+        }));
     }
 
     /// <summary>
