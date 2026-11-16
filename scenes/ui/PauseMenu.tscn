@@ -16,10 +16,26 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
-content_margin_left = 28.0
-content_margin_top = 24.0
-content_margin_right = 28.0
-content_margin_bottom = 24.0
+content_margin_left = 24.0
+content_margin_top = 20.0
+content_margin_right = 24.0
+content_margin_bottom = 20.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_roster"]
+bg_color = Color(0.06, 0.07, 0.12, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.76, 1, 0.45)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 18.0
+content_margin_top = 14.0
+content_margin_right = 18.0
+content_margin_bottom = 14.0
 
 [node name="PauseLayer" type="CanvasLayer"]
 process_mode = 3
@@ -55,7 +71,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="PauseRoot/Center"]
-custom_minimum_size = Vector2(360, 0)
+custom_minimum_size = Vector2(960, 480)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
@@ -65,57 +81,94 @@ theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="PauseRoot/Center/Panel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 30
 text = "已暂停"
 horizontal_alignment = 1
 
-[node name="Menu" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox"]
+[node name="Columns" type="HBoxContainer" parent="PauseRoot/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Left" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns"]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 10
+
+[node name="Menu" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Left"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ResumeButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Menu"]
-custom_minimum_size = Vector2(240, 48)
+[node name="ResumeButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Menu"]
+custom_minimum_size = Vector2(220, 48)
 layout_mode = 2
 focus_mode = 2
 text = "继续"
 
-[node name="SettingsButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Menu"]
-custom_minimum_size = Vector2(240, 48)
+[node name="SettingsButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Menu"]
+custom_minimum_size = Vector2(220, 48)
 layout_mode = 2
 focus_mode = 2
 text = "设置"
 
-[node name="QuitButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Menu"]
-custom_minimum_size = Vector2(240, 48)
+[node name="QuitButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Menu"]
+custom_minimum_size = Vector2(220, 48)
 layout_mode = 2
 focus_mode = 2
 text = "退出"
 
-[node name="Settings" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox"]
+[node name="Settings" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Left"]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SettingsTitle" type="Label" parent="PauseRoot/Center/Panel/VBox/Settings"]
+[node name="SettingsTitle" type="Label" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Settings"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 22
 text = "设置"
 horizontal_alignment = 1
 
-[node name="Placeholder" type="Label" parent="PauseRoot/Center/Panel/VBox/Settings"]
+[node name="Placeholder" type="Label" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Settings"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 15
 text = "设置项后续补充。"
 horizontal_alignment = 1
 
-[node name="BackButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Settings"]
-custom_minimum_size = Vector2(240, 48)
+[node name="BackButton" type="Button" parent="PauseRoot/Center/Panel/VBox/Columns/Left/Settings"]
+custom_minimum_size = Vector2(220, 48)
 layout_mode = 2
 focus_mode = 2
 text = "返回"
 
-[node name="Hint" type="Label" parent="PauseRoot/Center/Panel/VBox"]
+[node name="Hint" type="Label" parent="PauseRoot/Center/Panel/VBox/Columns/Left"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "按 ESC 也可继续游戏"
 horizontal_alignment = 1
+
+[node name="VSeparator" type="VSeparator" parent="PauseRoot/Center/Panel/VBox/Columns"]
+layout_mode = 2
+
+[node name="Right" type="PanelContainer" parent="PauseRoot/Center/Panel/VBox/Columns"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_roster")
+
+[node name="VBox" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Right"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="RosterTitle" type="Label" parent="PauseRoot/Center/Panel/VBox/Columns/Right/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "当前队伍（当局临时）"
+
+[node name="RosterRows" type="VBoxContainer" parent="PauseRoot/Center/Panel/VBox/Columns/Right/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RosterHint" type="Label" parent="PauseRoot/Center/Panel/VBox/Columns/Right/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "点「调试：模拟升级」领取随从；选到同名随从可合成更高资质。"

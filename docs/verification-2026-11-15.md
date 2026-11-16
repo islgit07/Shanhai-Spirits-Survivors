@@ -878,3 +878,57 @@ JSON 带版本号与迁移钩子、先校验余额再变更、`GetNode` 全在 `
 版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
 `project.godot` 与 `StartPage.tscn` 的用户改动未碰、未提交。
 「设置」仅占位页；手柄暂停键、读数持久化等功能都未实现。
+
+## 20. 局内随从界面：ESC 双栏 + 三选一领取/合成（2026-11-16，v0.0005 第四块 UI）
+
+### 20.1 需求与拍板
+用户「接下来做局内的随从界面」。按 `godot-grill` 分两轮拍板，决策留档
+`docs/decisions/2026-11-16-inrun-spirit-ui.md`：三选一 + 大面板；界面 + 可跑逻辑（模拟触发）；
+纯占位卡片；领取新随从 / 同名合成资质 +1；当局临时不落盘。
+第二轮用户改口径：大面板不单独占键，改成「ESC 原来的内容放左边，大界面放右边」——
+覆盖早先的 Tab/F 呼出方案，已写进决策记录。
+
+### 20.2 实现选择
+- **选**：`Main.tscn` 挂三个 UI 层——`CompanionHud`（layer 1，「调试：模拟升级」按钮）、
+  `PauseMenu`（layer 10，改双栏）、`CompanionOffer`（layer 15，三选一）；
+  数据由 `GameRoot.Companions`（纯 C# `RunRoster`，当局临时、零 autoload）单点持有。
+- **否决**：autoload / 静态可变状态；单独占 Tab/F 键；写存档；编技能名或属性效果；
+  常驻随从小面板（用户明确用 ESC 大栏代替）。
+- **默认值（用户未点名，可改）**：队伍 4 格、候选池 A~F 六个占位随从。
+
+### 20.3 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/RunRoster.cs` (+uid) | 当局队伍：选新加入 / 同名合成资质+1 / 随机抽 3 张；零技能零存档 |
+| `scripts/csharp/ui/CompanionOffer.cs` (+uid) / `.tscn` | 三选一弹窗：暂停→占位卡→点卡写队伍→恢复；左右焦点环；`--offer-smoke` 六项断言 |
+| `scripts/csharp/ui/CompanionHud.cs` (+uid) / `.tscn` | 局内「调试：模拟升级」按钮，替代未做的战斗升级触发 |
+| `scripts/csharp/ui/PauseMenu.cs` / `.tscn` | ESC 改双栏：左窄继续/设置/退出，右大队伍列表（空位/领取/合成三态）；ESC 在三选一期间被吞掉 |
+| `scripts/csharp/core/GameRoot.cs` | 持有 `RunRoster`，每次开局 `Clear()`，不碰存档 |
+| `scenes/Main.tscn` | 新增 HUD / 弹窗两个实例 |
+| `tools/check_project.py` | EXPECTED_CS 24→27；新增 7f 段七项静态检查；7e 补 `esc_blocked_by_offer` |
+
+### 20.4 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `godot --headless --path ... --editor --quit` | exit 0，0 ERROR；3 个新 `.cs.uid` 生成 |
+| 3 | `tools/check_project.py` | **155/155 PASS** |
+| 4 | `Main.tscn -- --offer-smoke` | exit 0，**6/6 PASS**，0 ERROR |
+| 5 | `Main.tscn -- --pause-smoke` | exit 0，**13/13 PASS**，0 ERROR |
+| 6 | `Main.tscn -- --smoke` | exit 0，**26/26 PASS** |
+| 7 | 开始页 → 选择 → 游戏 整链 `-- --smoke` | exit 0，**26/26 PASS** |
+
+证据：`OFFER_SMOKE_JSON` 的 `pick_new_joins=true / pick_same_merges=true / quality_A=2`；
+`PAUSE_SMOKE_JSON` 的 `roster_panel / roster_join / roster_merge / esc_blocked_by_offer` 全 true。
+
+### 20.5 代码审查（`godot-code-review`）
+无 Critical / Improvement 遗留。审查中发现并修掉一个交互漏洞：三选一弹窗打开时按 ESC 会叠出暂停菜单，
+现在 `PauseMenu._UnhandledInput` 先检查弹窗 `IsOpen` 并吞掉事件；`CompanionOffer.Cancel()` 供冒烟复位。
+其余：`GetNode<T>()` 全在 `_Ready()` 缓存且逐层下钻、按钮焦点成环并 `grab_focus()`、
+`ProcessMode=Always` 覆盖暂停期、动态行 `RemoveChild + QueueFree`、零 autoload / 零静态可变状态、
+`partial` + PascalCase、卡片文案无技能。有意偏离仍是原生键码 ESC（用户 `project.godot` 未提交）。
+
+### 20.6 范围边界
+版本保持 `0.0005`，未升版、未打新 tag、未 push；README 用户自管；
+`project.godot` 用户改动未碰、未提交。战斗、魂魄掉落、真升级触发、技能设计、局内跟随 AI、
+手柄 UI 映射均未实现；队伍只当局有效，退出即清。

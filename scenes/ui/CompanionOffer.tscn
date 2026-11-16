@@ -1,0 +1,104 @@
+[gd_scene load_steps=4 format=3 uid="uid://bcompanionoffer"]
+
+[ext_resource type="Script" path="res://scripts/csharp/ui/CompanionOffer.cs" id="1_offer"]
+
+[sub_resource type="SystemFont" id="SystemFont_cjk"]
+font_names = PackedStringArray("Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "SimHei", "sans-serif")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.09, 0.1, 0.16, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.84, 0.46, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 24.0
+content_margin_top = 20.0
+content_margin_right = 24.0
+content_margin_bottom = 20.0
+
+[node name="OfferLayer" type="CanvasLayer"]
+process_mode = 3
+layer = 15
+script = ExtResource("1_offer")
+
+[node name="OfferRoot" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme_override_fonts/font = SubResource("SystemFont_cjk")
+
+[node name="Dim" type="ColorRect" parent="OfferRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.62)
+
+[node name="Center" type="CenterContainer" parent="OfferRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="OfferRoot/Center"]
+custom_minimum_size = Vector2(760, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="OfferRoot/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="OfferRoot/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "领取随从"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="OfferRoot/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "选一张：新随从加入队伍，同名随从合成更高资质"
+horizontal_alignment = 1
+
+[node name="Cards" type="HBoxContainer" parent="OfferRoot/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Card0" type="Button" parent="OfferRoot/Center/Panel/VBox/Cards"]
+custom_minimum_size = Vector2(220, 130)
+layout_mode = 2
+focus_mode = 2
+text = ""
+
+[node name="Card1" type="Button" parent="OfferRoot/Center/Panel/VBox/Cards"]
+custom_minimum_size = Vector2(220, 130)
+layout_mode = 2
+focus_mode = 2
+text = ""
+
+[node name="Card2" type="Button" parent="OfferRoot/Center/Panel/VBox/Cards"]
+custom_minimum_size = Vector2(220, 130)
+layout_mode = 2
+focus_mode = 2
+text = ""
+
+[node name="Footer" type="Label" parent="OfferRoot/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "占位内容：正式随从名与技能以后由你自己设计"
+horizontal_alignment = 1

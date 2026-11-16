@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 24
+EXPECTED_CS = 27
 checks = []
 
 
@@ -591,6 +591,53 @@ check("暂停菜单：按钮焦点环 + 打开抓焦点 + 独立冒烟九项断�
       and all(k in pause_cs for k in ("initial_hidden", "esc_open", "settings_page",
                                       "settings_back", "resume", "esc_toggle",
                                       "esc_event_filter", "focus_ready", "quit_to_start_target")))
+
+# ---------------------------------------------------------------- 7f. RUN-ROSTER 局内随从界面（第四块 UI）
+roster_cs = cs("gameplay/RunRoster.cs")
+offer_cs = cs("ui/CompanionOffer.cs")
+offer_tscn = read(ROOT / "scenes" / "ui" / "CompanionOffer.tscn")
+hud_cs = cs("ui/CompanionHud.cs")
+hud_tscn = read(ROOT / "scenes" / "ui" / "CompanionHud.tscn")
+check("局内随从：当局临时队伍，选新加入 / 同名合成资质+1，不写存档",
+      "public const int MaxSlots = 4" in roster_cs
+      and "public IReadOnlyList<RunCompanion> Members" in roster_cs
+      and "existing.Quality++" in roster_cs
+      and "_members.Add(new RunCompanion(id, NameOf(id)))" in roster_cs
+      and "SaveGame" not in roster_cs and "user://" not in roster_cs)
+check("局内随从：卡片纯占位（随从 A / 等级 1），零技能 / 零属性效果",
+      "随从 {id}" in roster_cs and "等级 1" in offer_cs
+      and not any(k in roster_cs for k in ("Skill", "Attack", "Damage", "Experience"))
+      and not any(k in offer_cs for k in ("SkillDef", "NodeSkill", "Attack(")))
+check("局内随从：三选一弹窗场景（3 卡 + 暂停 + 占位提示）由 Main 挂载",
+      (ROOT / "scenes" / "ui" / "CompanionOffer.tscn").exists()
+      and 'res://scenes/ui/CompanionOffer.tscn' in main_tscn
+      and 'name="OfferLayer" type="CanvasLayer"' in offer_tscn
+      and all(f'name="Card{i}" type="Button"' in offer_tscn for i in range(3))
+      and "process_mode = 3" in offer_tscn
+      and "GetTree().Paused = true" in offer_cs and "GetTree().Paused = false" in offer_cs)
+check("局内随从：模拟升级调试按钮挂进 HUD（替代未做的战斗升级条件）",
+      (ROOT / "scenes" / "ui" / "CompanionHud.tscn").exists()
+      and 'res://scenes/ui/CompanionHud.tscn' in main_tscn
+      and 'text = "调试：模拟升级"' in hud_tscn
+      and "CompanionOffer" in hud_cs)
+check("局内随从：ESC 双栏——左窄继续/设置/退出，右大队伍列表",
+      'name="Columns" type="HBoxContainer"' in pause_tscn
+      and 'name="Left" type="VBoxContainer"' in pause_tscn
+      and 'name="Right" type="PanelContainer"' in pause_tscn
+      and 'text = "当前队伍（当局临时）"' in pause_tscn
+      and 'name="RosterRows" type="VBoxContainer"' in pause_tscn
+      and "RefreshRoster" in pause_cs and "RunRoster.MaxSlots" in pause_cs)
+check("局内随从：GameRoot 持有当局队伍、每次开局清空，不混进存档",
+      "public RunRoster Companions { get; } = new();" in root_cs
+      and "Companions.Clear()" in root_cs
+      and "Companions" not in save_cs)
+check("局内随从：两个独立冒烟（三选一领取/合成 + 双栏队伍三态）",
+      "OFFER_SMOKE_JSON_BEGIN" in offer_cs
+      and all(k in offer_cs for k in ("offer_open_pauses", "three_placeholder_cards",
+                                      "pick_new_joins", "pick_same_merges"))
+      and all(k in pause_cs for k in ("roster_panel", "roster_join", "roster_merge",
+                                      "esc_blocked_by_offer"))
+      and "offer.IsOpen" in pause_cs and "public void Cancel()" in offer_cs)
 
 # ---------------------------------------------------------------- 8. 版本一致
 # README 由用户自己维护（2026-11-16 用户明确「最外层 README 我来写，你不用动」），

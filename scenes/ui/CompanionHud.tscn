@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3 uid="uid://bcompanionhud"]
+
+[ext_resource type="Script" path="res://scripts/csharp/ui/CompanionHud.cs" id="1_hud"]
+
+[sub_resource type="SystemFont" id="SystemFont_cjk"]
+font_names = PackedStringArray("Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "SimHei", "sans-serif")
+
+[node name="CompanionHud" type="CanvasLayer"]
+layer = 1
+script = ExtResource("1_hud")
+
+[node name="HudRoot" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_fonts/font = SubResource("SystemFont_cjk")
+
+[node name="OfferButton" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 56.0
+offset_right = 196.0
+offset_bottom = 100.0
+focus_mode = 2
+text = "调试：模拟升级"

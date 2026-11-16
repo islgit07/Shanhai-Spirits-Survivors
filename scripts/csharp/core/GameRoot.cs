@@ -47,6 +47,9 @@ public partial class GameRoot : Node2D
 	// 随从系统第 3 块：单槽存档 + 升级树目录（数据底座，冒烟里也要验证）。
 	private SaveData _save = null!;
 	public SaveData Save => _save;
+	// 局内随从界面（第四块 UI）：当局临时队伍，退出即清、绝不写存档；
+	// 调试 HUD / 三选一弹窗 / ESC 双栏面板都读这同一份状态。
+	public RunRoster Companions { get; } = new();
 
 	public Master? Player;
 	public int PlatformCount;
@@ -185,6 +188,7 @@ public partial class GameRoot : Node2D
 	private void BeginRun(int seed)
 	{
 		_currentSeed = seed;
+		Companions.Clear();   // 当局临时：每次开局从空队伍开始，不碰局外存档
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
