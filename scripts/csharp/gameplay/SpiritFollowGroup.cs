@@ -35,6 +35,7 @@ public partial class SpiritFollowGroup : Node2D
 
     private readonly List<SpiritPet> _pets = new();
     private Master? _player;
+    private IStandableGrid? _grid;   // 方块网格：给随从的 BFS 防卡死寻路用
     private PackedScene? _petScene;
 
     /// <summary>当前场上的随从实体（顺序 = 槽位顺序）。</summary>
@@ -124,7 +125,7 @@ public partial class SpiritFollowGroup : Node2D
         bool rideOk = _player.IsOnFloor()
                       && _player.GlobalPosition.Y < GameDefs.LayerY(0) - 1.0f   // 明显高于地面站姿
                       && Mathf.Abs(_player.GlobalPosition.X - ridePet.GlobalPosition.X) < 0.6f;
-        rideFollow?.Enable(_player, 0);   // 恢复跟随
+        rideFollow?.Enable(_player, 0, _grid);   // 恢复跟随（网格要一起传回去，否则寻路能力被清空）
 
         // 6) 静止不跳：玩家站地面不动 2.5 秒，随从不应原地连跳
         //    （槽位纵向夹紧 + 跨层阈值 0.9 + 自救跳冷却，三处共同保证）
@@ -139,7 +140,26 @@ public partial class SpiritFollowGroup : Node2D
         bool idleCalmOk = idleJumps <= 2;
         bool petsApartIdle = PetsApart();   // 静止归位后也不许互相压住
 
-        // 7) 掉队召回：挪到 20 格外，几帧内应被瞬移回主角身边
+        // 7) BFS 寻路：地面连续时，从 18 格外应能找到回玩家身边的路（非空路径）
+        bool pathFound = _grid != null
+                         && SpiritPathfinder.FindPath(_grid,
+                                _player.GlobalPosition + new Vector2(-18f, 0f),
+                                _player.GlobalPosition) is { Count: > 0 };
+
+        // 8) 卡死恢复：把一只随从扔到 10 格外（>6 触发寻路，<13 不会直接瞬移），
+        //    7 秒内应靠 BFS 走回来，且期间确实找到过路径。
+        SpiritPet stranded = _pets[0];
+        SpiritFollow? strandedFollow = stranded.GetNodeOrNull<SpiritFollow>("Follow");
+        stranded.GlobalPosition = _player.GlobalPosition + new Vector2(-10f, -1f);
+        stranded.Velocity = Vector2.Zero;
+        strandedFollow?.ForceSeekForSmoke();   // 模拟「直线回不去」，强制走 BFS
+        float stuckStartDist = stranded.GlobalPosition.DistanceTo(_player.GlobalPosition);
+        await Frames(300);   // 5 秒足够走完 10 格 + 寻路超时兜底
+        float stuckFinalDist = stranded.GlobalPosition.DistanceTo(_player.GlobalPosition);
+        bool stuckRecovered = stuckFinalDist < 6f;
+        bool stuckByPath = stuckRecovered && strandedFollow?.EverFoundPath == true;
+
+        // 9) 掉队召回：挪到 20 格外（超过瞬移阈值），几帧内应被瞬移回主角身边
         SpiritPet far = _pets[0];
         far.GlobalPosition = _player.GlobalPosition + new Vector2(20f, 0f);
         await Frames(6);
@@ -168,6 +188,8 @@ public partial class SpiritFollowGroup : Node2D
             ["ride_on_head"] = rideOk,
             ["idle_no_hopping"] = idleCalmOk,
             ["spirit_no_overlap"] = petsApartOk && petsApartIdle,
+            ["bfs_path_found"] = pathFound,
+            ["stuck_recovery_by_bfs"] = stuckByPath,
             ["recall_when_lost"] = recallOk,
             ["actor_layers"] = layersOk,
             ["has_collision_body"] = bodyOk,
@@ -188,6 +210,11 @@ public partial class SpiritFollowGroup : Node2D
             ["idle_jumps"] = idleJumps,                              // 玩家静止 2.5 秒内随从的主动起跳总数
             ["min_pet_distance"] = (float)Math.Round(MinPetDistance(), 3),   // 随从两两最小中心距（≥0.62 即不重叠）
             ["pet_body_width"] = GameDefs.SpiritBodyWidth,
+            ["stuck_start_dist"] = (float)Math.Round(stuckStartDist, 2),     // 卡死测试开始时的距离
+            ["stuck_final_dist"] = (float)Math.Round(stuckFinalDist, 2),     // 9 秒后的距离
+            ["stuck_ever_path"] = strandedFollow?.EverFoundPath ?? false,
+            ["stranded_has_grid"] = strandedFollow?.HasGrid ?? false,
+            ["stranded_seek_starts"] = strandedFollow?.SeekStarts ?? -1,
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");
@@ -235,8 +262,12 @@ public partial class SpiritFollowGroup : Node2D
         return Mathf.Abs(a.X - b.X) < halfW && Mathf.Abs(a.Y - b.Y) < halfH;
     }
 
-    /// <summary>由 GameRoot 在主角就绪后调用：绑定跟随对象。</summary>
-    public void Bind(Master player) => _player = player;
+    /// <summary>由 GameRoot 在主角与地形就绪后调用：绑定跟随对象与方块网格（网格用于 BFS 寻路）。</summary>
+    public void Bind(Master player, IStandableGrid? grid = null)
+    {
+        _player = player;
+        _grid = grid;
+    }
 
     /// <summary>按「本命 + 当局队伍」同步实体；幂等，可随时调用。</summary>
     public void Refresh()
@@ -286,7 +317,7 @@ public partial class SpiritFollowGroup : Node2D
             SpiritFollow? follow = pet.GetNodeOrNull<SpiritFollow>("Follow");
             if (follow == null) continue;
             bool firstBind = !follow.Enabled;
-            follow.Enable(_player, i);
+            follow.Enable(_player, i, _grid);
             if (firstBind) follow.SnapToTarget();   // 新实体直接落位，不从远处跑过来
         }
 

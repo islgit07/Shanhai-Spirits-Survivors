@@ -1160,3 +1160,49 @@ catch_up_when_far / recall_when_lost / actor_layers / has_collision_body` 全 tr
 ### 25.4 范围边界
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
 未实现：战斗、敌人、随从攻击、技能、掉落。
+
+## 26. 随从防卡死：BFS 寻路找回（2026-11-16，v0.0005）
+
+### 26.1 需求
+「加一个防止宠物卡死的机制，当宠物长时间离玩家很远的时候，可能是路卡死了回不去，
+就 BFS 搜索一下回玩家身边的方法」。
+追加：「宠物的移速、敏捷之类的以后会影响跳跃的距离、影响允许移动的距离长度，需要考虑这个，优化一下 BFS」。
+
+### 26.2 实现
+| 部分 | 做法 |
+|---|---|
+| 网格接口 | 新增 `IStandableGrid : IBlockGeometry`（`IsStandableCell` / `StandPoint`），`BlockField` 实现；「可站立」复用既有 `CanStandOn`（有实体块 + 上方净空） |
+| BFS | 新增 `SpiritPathfinder`：节点 = 可站立方块，边 = 平地走 1 格 / 跳上 / 下落；`Dictionary + HashSet + Queue` 回溯路径；上限 3000 节点 |
+| **能力参数化** | `SpiritNavProfile`（MaxRise / MaxSpan / MaxDrop）由 `Default` 或 `FromStats(移速, 敏捷)` 给出。公式与移动内核同口径：跳高 = v²/(2g)、滞空 = 2v/g、水平跨度 = 移速 × 滞空。BFS 只读档案，**不写死跳跃距离** |
+| 触发 | 离玩家 > 6 格持续 2.5 秒 → 进入寻路模式（给正常跟随留追赶时间） |
+| 执行 | 每 0.6 秒重算路径，沿路径点逐点走（到达 0.45 格内切下一个）；路径点在上方时照常跳 |
+| 兜底 | 寻路模式超过 5 秒仍未回到 → 瞬移；原有 13 格瞬移与坠落重生保留为最后一道 |
+| 属性接入 | `SpiritFollow.SetNavProfile(profile)` / `SetMoveStats(moveSpeed, agility)`：以后随从养成改数值，调一次即可，BFS 与跟随逻辑零改动 |
+
+### 26.3 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/SpiritPathfinder.cs` (+uid) | 新增：`SpiritNavProfile` + BFS 寻路 |
+| `scripts/csharp/gameplay/BlockField.cs` | 类改为实现 `IStandableGrid`；新增 `IsStandableCell` / `StandPoint` |
+| `scripts/csharp/gameplay/SpiritFollow.cs` | 接入寻路模式（计时 / 重算 / 沿路径走 / 超时瞬移）；`SetNavProfile` / `SetMoveStats`；`EverFoundPath` / `SeekStarts` 诊断字段 |
+| `scripts/csharp/gameplay/SpiritFollowGroup.cs` | `Bind` 接收网格并下发给每个随从；冒烟新增 `bfs_path_found` / `stuck_recovery_by_bfs` |
+| `scripts/csharp/core/GameRoot.cs` | `_spiritGroup.Bind(Player!, _blocks)` |
+| `tools/check_project.py` | `EXPECTED_CS` 29→30；新增 2 项寻路检查；冒烟断言 11→13 项 |
+
+### 26.4 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **169/169 PASS** |
+| 3 | `--follow-smoke`（含强制卡死）| **PASS**：`stuck_start_dist=10.05` → `stuck_final_dist=1.13~1.68`，`stuck_ever_path=true`，`stranded_seek_starts=1` |
+| 4 | `Main --smoke` / 整链 `--smoke` | PASS，`player_moved` / `follow_entity_ok` / `follow_no_overlap_ok` 全 true |
+| 5 | `--pause-smoke` / `--offer-smoke` | 均 PASS |
+| 6 | 其余跟随指标回归 | `idle_jumps=0`、`min_pet_distance=0.648~0.652` 仍然稳定 |
+
+说明：普通跟随能直线走回时 **不会**触发 BFS（实测 10 格距离 1.5 秒内自行走回，`_farTimer` 到不了 2.5 秒）；
+端到端测试用 `ForceSeekForSmoke()` 模拟「被地形卡死、直线回不去」，验证 BFS 路径确实被采用并走通。
+排查中还修掉一个冒烟自身的 bug：踩头测试恢复随从时漏传网格，把它的寻路能力清空了。
+
+### 26.5 范围边界
+版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
+未实现：战斗、敌人、随从攻击、技能、掉落、随从属性成长（`SetMoveStats` 已预留入口，等养成系统接）。

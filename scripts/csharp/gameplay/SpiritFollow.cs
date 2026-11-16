@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace ShanhaiSpiritsSurvivors;
@@ -35,6 +36,17 @@ public partial class SpiritFollow : Node
     private float _facingHoldT;          // 朝向翻转滞回倒计时
     private float _yieldJumpCooldown;    // 让路跳跃冷却
     private float _stuckJumpCooldown;    // 卡住自救跳冷却（原地连跳修复）
+    // 防卡死寻路（SPIRIT-PATH）
+    private IStandableGrid? _grid;       // 方块网格（BFS 寻路用；null = 不做寻路）
+    private float _farTimer;             // 远离玩家的累计时长
+    private float _seekTimer;            // 重算路径倒计时
+    private float _seekDuration;         // 已处于寻路模式的时长
+    private List<Vector2>? _path;        // 当前 BFS 路径（世界坐标）
+    private int _pathIndex;              // 当前走向第几个路径点
+    // 移动能力档案：BFS 认为这只随从能跳多高 / 跨多远。默认与主角满跳同量级；
+    // 以后随从的移速 / 敏捷接入养成后，用 SpiritNavProfile.FromStats 换一份即可。
+    private SpiritNavProfile _navProfile = SpiritNavProfile.Default;
+    private bool _forceSeek;             // 冒烟专用：模拟「被地形卡死」，强制走寻路模式
 
     /// <summary>是否已接入跟随（UI 预览里保持 false，实体静止）。</summary>
     public bool Enabled { get; private set; }
@@ -48,6 +60,20 @@ public partial class SpiritFollow : Node
     /// <summary>累计主动起跳次数（跨层 / 让路 / 自救），冒烟用「静止时不该连跳」。</summary>
     public int JumpCount { get; private set; }
 
+    /// <summary>最近一次 BFS 寻路是否找到路径。</summary>
+    public bool LastPathFound { get; private set; }
+
+    /// <summary>本次接入以来是否成功找到过路径（冒烟核对「卡死时确实靠寻路回来」）。</summary>
+    public bool EverFoundPath { get; private set; }
+
+    /// <summary>是否已拿到方块网格（冒烟诊断）。</summary>
+    public bool HasGrid => _grid != null;
+
+    /// <summary>进入寻路模式的次数（冒烟诊断）。</summary>
+    public int SeekStarts { get; private set; }
+
+    private bool _wasSeeking;
+
     public override void _Ready()
     {
         _pet = GetParent<SpiritPet>();
@@ -56,10 +82,22 @@ public partial class SpiritFollow : Node
         SetPhysicsProcess(false);
     }
 
-    /// <summary>接入跟随：target = 主角（或以后的其他跟随对象），slotIndex 决定个人落点。</summary>
-    public void Enable(Node2D target, int slotIndex)
+    /// <summary>
+    /// 接入跟随：target = 主角（或以后的其他跟随对象），slotIndex 决定个人落点，
+    /// grid = 方块网格（提供后启用 BFS 防卡死寻路；null 则只做普通跟随）。
+    /// </summary>
+    public void Enable(Node2D target, int slotIndex, IStandableGrid? grid = null)
     {
         _target = target;
+        _grid = grid;
+        _farTimer = 0f;
+        _seekTimer = 0f;
+        _seekDuration = 0f;
+        _path = null;
+        _pathIndex = 0;
+        EverFoundPath = false;
+        LastPathFound = false;
+        _forceSeek = false;
         _slotOffset = SlotOffset(slotIndex);
         _wander = Vector2.Zero;
         _wanderGoal = Vector2.Zero;
@@ -80,6 +118,26 @@ public partial class SpiritFollow : Node
         Enabled = false;
         _target = null;
         SetPhysicsProcess(false);
+    }
+
+    /// <summary>
+    /// 设置移动能力档案（移速 / 敏捷 → 跳高与跨度）。属性变化后调用一次即可，
+    /// 下一次寻路就按新能力算；不调用则一直用基础档案。
+    /// </summary>
+    public void SetNavProfile(SpiritNavProfile profile) => _navProfile = profile;
+
+    /// <summary>按移速 / 敏捷直接换算并设置（以后接随从养成时的入口）。</summary>
+    public void SetMoveStats(float moveSpeed, float agility) =>
+        _navProfile = SpiritNavProfile.FromStats(moveSpeed, agility);
+
+    /// <summary>
+    /// 冒烟专用：模拟「被地形卡死，直线回不去」——强制进入寻路模式，直到真的回到玩家身边。
+    /// 正常游戏不会调用；用来验证 BFS 路径确实被采用并走通。
+    /// </summary>
+    public void ForceSeekForSmoke()
+    {
+        _forceSeek = true;
+        _farTimer = GameDefs.SpiritFindPathDelay;
     }
 
     /// <summary>立即贴到落点（生成 / 瞬移用，避免新实体从远处跑过来）。</summary>
@@ -192,6 +250,74 @@ public partial class SpiritFollow : Node
             yielding = true;
         }
 
+        // ---- 防卡死寻路（SPIRIT-PATH）：长时间离玩家很远 → 在方块网格上 BFS 找一条回得去的路。
+        // 正常跟随（直线够得到）用不上它；只有被墙 / 高台隔断、怎么走都回不去时才接管。
+        bool seeking = false;
+        float distToPlayer = relNow.Length();
+        if (_grid != null)
+        {
+            bool farEnough = distToPlayer > GameDefs.SpiritFindPathDist;
+            if (_forceSeek)
+            {
+                farEnough = true;
+                if (distToPlayer < 2.5f) _forceSeek = false;   // 真回到身边才解除（冒烟用）
+            }
+            if (farEnough) _farTimer += dt;
+            else _farTimer = Mathf.Max(0f, _farTimer - dt * 2f);   // 靠近比远离消得快，避免状态残留
+
+            if (_farTimer >= GameDefs.SpiritFindPathDelay)
+            {
+                if (!_wasSeeking)
+                {
+                    _wasSeeking = true;
+                    SeekStarts++;
+                }
+                seeking = true;
+                _seekDuration += dt;
+                _seekTimer -= dt;
+                if (_path == null || _seekTimer <= 0f)
+                {
+                    _path = SpiritPathfinder.FindPath(_grid, pos, playerPos, _navProfile);
+                    LastPathFound = _path != null;
+                    if (_path != null) EverFoundPath = true;
+                    _pathIndex = 0;
+                    _seekTimer = GameDefs.SpiritRepathInterval;
+                }
+
+                if (_path != null)
+                {
+                    while (_pathIndex < _path.Count
+                           && pos.DistanceTo(_path[_pathIndex]) < 0.45f)
+                        _pathIndex++;   // 到达当前路径点 → 走下一个
+
+                    if (_pathIndex < _path.Count)
+                    {
+                        wish = _path[_pathIndex];
+                    }
+                    else
+                    {
+                        // 路径走完：交回普通跟随
+                        _farTimer = 0f;
+                        _seekDuration = 0f;
+                        _path = null;
+                    }
+                }
+
+                // 兜底：寻路模式下迟迟回不去（路被堵死 / BFS 太乐观）→ 直接瞬移
+                if (_seekDuration > GameDefs.SpiritSeekTimeout)
+                {
+                    _pet.GlobalPosition = playerPos + dynamicSlot + new Vector2(0f, -0.5f);
+                    _pet.Velocity = Vector2.Zero;
+                    _farTimer = 0f;
+                    _seekDuration = 0f;
+                    _path = null;
+                    _dropTimer = 0f;
+                    return;
+                }
+            }
+            else _wasSeeking = false;
+        }
+
         float dx = wish.X - pos.X;
         float dy = wish.Y - pos.Y;
         LastDistance = (wish - pos).Length();
@@ -230,7 +356,10 @@ public partial class SpiritFollow : Node
 
         // ---- 跨层：主角确实在上一层（实际高度差 > 0.9 格）且水平够近 → 起跳。
         // 站同一地面时高度差只有 ≈0.16，任何队形落点都不会触发跳跃。
-        bool wantUp = playerDy < -GameDefs.SpiritJumpUpThreshold;
+        // 寻路模式下按「路径点是否在上方」判断跳跃；正常跟随按「主角是否真在上一层」判断。
+        bool wantUp = seeking
+            ? dy < -0.60f
+            : playerDy < -GameDefs.SpiritJumpUpThreshold;
         if (onFloor && wantUp && Mathf.Abs(dx) < 2.4f && _jumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed;

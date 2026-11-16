@@ -75,6 +75,14 @@ public static class GameDefs
     public const float SpiritSlotDropMax = 0.10f;         // 落点最多低于主角中心多少（格）
     public const float SpiritJumpUpThreshold = 0.90f;     // 目标高于自身超过此值才判定为「需要跨层」
     public const float SpiritStuckJumpCooldown = 1.20f;   // 卡住自救跳的最小间隔（防原地连跳）
+    // 防卡死寻路（SPIRIT-PATH）：离玩家太远且持续一段时间 → 在方块网格上 BFS 找路回去，找不到再瞬移。
+    public const float SpiritFindPathDist = 6.0f;         // 超过此距离开始累计「远离时长」
+    public const float SpiritFindPathDelay = 2.5f;        // 持续远离多久后进入寻路模式（给正常跟随留出追赶时间）
+    public const float SpiritRepathInterval = 0.6f;       // 寻路模式中重新计算路径的间隔
+    public const float SpiritSeekTimeout = 5.0f;          // 寻路模式最长持续时间，超时直接瞬移
+    public const int SpiritNavMaxRise = 3;                // BFS 允许的最大上跳行数（满跳约 3 格）
+    public const int SpiritNavMaxSpan = 5;                // BFS 允许的最大水平跨度（满跳约 5 格）
+    public const int SpiritNavMaxDrop = 6;                // BFS 允许的最大下落行数
     public const float SpiritBobHeight = 0.07f;           // 视觉呼吸幅度（只动 Sprite，不动物理体）
     public const string SpiritGroup = "spirit";          // 随从节点组（冒烟 / 查询用）
 

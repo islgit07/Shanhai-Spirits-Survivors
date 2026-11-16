@@ -31,6 +31,18 @@ public interface IBlockGeometry
 }
 
 /// <summary>
+/// 可站立网格接口（IBlockGeometry 的扩展）：随从防卡死 BFS 寻路用。
+/// 节点 = 一块「上方有净空、可以站人」的方块，边 = 平地走 / 跳上 / 下落。
+/// </summary>
+public interface IStandableGrid : IBlockGeometry
+{
+    /// <summary>该格是否是可站立方块（有实体方块，且上方 BlockHeadroomRows 格净空）。</summary>
+    bool IsStandableCell(int row, int col);
+    /// <summary>站在该方块上时角色中心的近似世界坐标（寻路路径点）。</summary>
+    Vector2 StandPoint(int row, int col);
+}
+
+/// <summary>
 /// 方块弹跳接口：Master / WhiteboxPlayer 实现。BlockField 触碰感应置标志，
 /// 角色在 Step 之后应用弹射速度（先应用会被贴地逻辑当帧把 Y 清零）。
 /// </summary>
@@ -63,7 +75,7 @@ public interface IBounceable
 /// 生成权重 BlockWeightSlime 极小，全图 SlimeCount 硬上限 BlockSlimeMaxCount。
 /// </summary>
 [GlobalClass]
-public partial class BlockField : Node2D, IBlockGeometry
+public partial class BlockField : Node2D, IStandableGrid
 {
     private readonly BlockType[,] _type = new BlockType[GameDefs.BlockRows, GameDefs.BlockCols];
     private readonly bool[,] _oneWay = new bool[GameDefs.BlockRows, GameDefs.BlockCols];
@@ -1062,6 +1074,12 @@ public partial class BlockField : Node2D, IBlockGeometry
     {
         return _alive[row, col] && !_oneWay[row, col];
     }
+
+    /// <summary>该格是否是可站立方块（有实体方块 + 上方净空）—— 随从 BFS 寻路用。</summary>
+    public bool IsStandableCell(int row, int col) => CanStandOn(row, col);
+
+    /// <summary>站在该方块上时角色中心的近似世界坐标（随从 BFS 路径点）。</summary>
+    public Vector2 StandPoint(int row, int col) => new(ColX(col) + 0.5f, RowTopY(row) - 0.5f);
 
     /// <summary>
     /// MAP-009 冒烟测试用：取第一块「可站立」的粘液块（上方 2 格净空、非单向），

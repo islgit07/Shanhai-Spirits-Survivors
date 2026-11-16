@@ -151,7 +151,7 @@ public partial class GameRoot : Node2D
 			? GetTree().GetMeta(SpiritCatalog.ChosenIdMeta).AsString() : "";
 		_chosenSpirit = SpiritCatalog.Find(chosenId) ?? _spirits.FirstOrDefault();
 		// SPIRIT-FOLLOW：实体生成与跟随交给 SpiritFollowGroup（本命 = 槽位 0，队友按领取顺序排在后面）。
-		_spiritGroup.Bind(Player!);
+		_spiritGroup.Bind(Player!, _blocks);   // 地形网格供随从 BFS 防卡死寻路
 		_spiritGroup.Refresh();
 		_companion = _spiritGroup.Primary;
 		if (_chosenSpirit != null && _companion != null)

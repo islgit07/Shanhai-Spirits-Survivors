@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 29
+EXPECTED_CS = 30
 checks = []
 
 
@@ -493,6 +493,23 @@ follow_defs = cs("core/GameDefs.cs")
 follow_master = cs("gameplay/Master.cs")
 follow_offer = cs("ui/CompanionOffer.cs")
 follow_main = read(ROOT / "scenes" / "Main.tscn")
+path_cs = cs("gameplay/SpiritPathfinder.cs")
+block_cs = cs("gameplay/BlockField.cs")
+
+check("随从跟随：BFS 防卡死寻路（可站立网格 + 能力档案参数化，不写死跳跃跨度）",
+      "class SpiritPathfinder" in path_cs and "FindPath" in path_cs
+      and "struct SpiritNavProfile" in path_cs and "FromStats" in path_cs
+      and "profile.MaxRise" in path_cs and "profile.MaxSpan" in path_cs
+      and "profile.MaxDrop" in path_cs
+      and "interface IStandableGrid" in block_cs and "IsStandableCell" in block_cs
+      and "public bool IsStandableCell" in block_cs and "StandPoint" in block_cs
+      and "SetNavProfile" in follow_cs and "SetMoveStats" in follow_cs
+      and "SpiritNavProfile.FromStats" in follow_cs)
+check("随从跟随：卡死触发条件与兜底（远离 6 格持续 2.5s → BFS；5s 回不去 → 瞬移）",
+      "SpiritFindPathDist" in follow_defs and "SpiritFindPathDelay" in follow_defs
+      and "SpiritSeekTimeout" in follow_defs and "SpiritRepathInterval" in follow_defs
+      and "_farTimer" in follow_cs and "_seekDuration" in follow_cs
+      and "ForceSeekForSmoke" in follow_cs)
 
 check("随从跟随：随从是 CharacterBody2D + CollisionShape2D（有真实碰撞体，非纯贴图）",
       'name="SpiritPet" type="CharacterBody2D"' in pet_scene
@@ -549,11 +566,12 @@ check("随从跟随：让路 v2——前进方向通道让路 + 落点镜像身�
       and "SpiritFacingHoldTime" in follow_cs and "dynamicSlot" in follow_cs
       and "SpiritPushMargin" in follow_cs and "SpiritYieldJumpCooldown" in follow_cs
       and "d.Y > halfH * 0.55f" in follow_cs)
-check("随从跟随：--follow-smoke 十一项断言（数量/收敛/不重叠/追赶/让路/踩头/静止不跳/随从互不重叠/召回/层/碰撞体）",
+check("随从跟随：--follow-smoke 十三项断言（数量/收敛/不重叠/追赶/让路/踩头/静止不跳/随从互不重叠/BFS/卡死找回/召回/层/碰撞体）",
       "FOLLOW_SMOKE_JSON_BEGIN" in group_cs
       and all(k in group_cs for k in ("fate_plus_roster", "converge_near_player", "never_overlap",
                                       "catch_up_when_far", "yield_no_block", "ride_on_head",
-                                      "idle_no_hopping", "spirit_no_overlap", "recall_when_lost",
+                                      "idle_no_hopping", "spirit_no_overlap", "bfs_path_found",
+                                      "stuck_recovery_by_bfs", "recall_when_lost",
                                       "actor_layers", "has_collision_body")))
 check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
