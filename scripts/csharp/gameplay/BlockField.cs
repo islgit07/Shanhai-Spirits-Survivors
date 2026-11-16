@@ -869,7 +869,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     }
 
     /// <summary>
-    /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 10 次「木色 ↔ 警示红」闪烁
+    /// FRAGILE-BLINK：绑定在 Sprite2D 上的一次性 Tween，做 3 次「木色 ↔ 白色」闪烁
     /// （同时轻微膨胀/回弹强调崩裂），满 1 秒后 QueueFree 整个方块节点。
     /// Tween 宿主是 visual：换种子 Build 释放整张地图时 tween 自动失效，
     /// 回调不会打到已释放节点；结束回调里仍做一次 IsInstanceValid 兜底。
@@ -885,7 +885,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         }
 
         Color baseTint = Tint(BlockType.Fragile);
-        Color flashTint = new(1.0f, 0.30f, 0.25f, 1.0f);
+        Color flashTint = Colors.White;
         Vector2 baseScale = visual.Scale;
         float half = GameDefs.FragileBlinkDuration / (GameDefs.FragileBlinkCycles * 2f);
         var tw = visual.CreateTween();

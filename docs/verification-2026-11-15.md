@@ -542,7 +542,7 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
 
 - **选**：踩中当帧判碎（碰撞失效、`FragileBrokenCount` +1，冒烟语义与时序不变），
   视觉节点多活 `FragileBlinkDuration = 1.0s`，由绑定在 `Sprite2D` 上的一次性 Tween
-  做 `FragileBlinkCycles = 10` 次「木色 ↔ 警示红」交替（同步轻微膨胀/回弹），到时 `QueueFree`。
+  做 `FragileBlinkCycles = 3` 次「木色 ↔ 白色」交替（同步轻微膨胀/回弹），到时 `QueueFree`。
 - **否决**：① 踩上后仍能站 1 秒再碎 —— 改变「踩碎」判定与冒烟时序，而需求只要求视觉不立刻消失；
   ② AnimationPlayer 资源动画 —— 一次性程序化效果用它过重；③ 全局 Timer —— Tween 宿主为 visual，
   换种子重建地图时自动失效，不会有游离回调打到已释放节点。
@@ -551,7 +551,7 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
 
 | 文件 | 改动 |
 |---|---|
-| `scripts/csharp/core/GameDefs.cs` | 新增 `FragileBlinkDuration = 1.0f` / `FragileBlinkCycles = 10` |
+| `scripts/csharp/core/GameDefs.cs` | 新增 `FragileBlinkDuration = 1.0f` / `FragileBlinkCycles = 3` |
 | `scripts/csharp/gameplay/BlockField.cs` | `BreakBlock` 改为「立即关碰撞 + 关感应（SetDeferred）+ 统计 +1」；新增 `BlinkThenFree()` Tween 闪烁；新增起止计数并随 `Build` 复位 |
 | `scripts/csharp/core/GameRoot.cs` | 冒烟脆弱块阶段延长到 6.0s；踩碎当帧取样 `_fragileBlinkSeen`（证明没立刻消失），收尾断言 `fragile_blink_finished_ok`（证明 1 秒后真的释放）；新增 5 个报告字段 |
 | `scripts/csharp/tools/WhiteboxRoot.cs` | 图例改为「踩碎后闪烁 1 秒再消失」 |
@@ -582,3 +582,12 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
   `_alive` 守卫 + 碰撞层置 0 + monitoring 延迟关闭三重防重复触发；
   C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
 - 范围：版本保持 `0.0004`，未升版、未打 tag；`scenes/StartPage.tscn` 用户改动未碰、未提交。
+
+### 14.5 视觉频率微调（同日）
+
+- 用户反馈「闪得太快」：`FragileBlinkCycles` 由 10 改为 **3**（1 秒 3 次完整闪烁，单次变色 ≈0.167s），
+  高亮色由警示红改为 **`Colors.White`（白色）**。
+- 判定与时序一律不动：1 秒总时长、踩中当帧判碎、1 秒后 `QueueFree` 全部保持；
+  静态自检补「必须白色、不得残留警示红」的行为锁。
+- 复跑：`dotnet build` 0 警告 0 错误；自检 **112/112 PASS**；`Main.tscn --smoke` **19/19 PASS**、0 ERROR；
+  开始页入口冒烟 PASS、0 ERROR。

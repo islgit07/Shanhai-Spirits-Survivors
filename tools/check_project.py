@@ -285,10 +285,11 @@ _blink_body = read(ROOT / "scripts" / "csharp" / "gameplay" / "BlockField.cs")
 _blink_root = cs("core/GameRoot.cs")
 check("FRAGILE-BLINK 时长 1 秒 + 闪烁次数可配置（GameDefs 常量）",
       "FragileBlinkDuration = 1.0f" in _gamedefs
-      and "FragileBlinkCycles = 10" in _gamedefs)
+      and "FragileBlinkCycles = 3" in _gamedefs)
 check("FRAGILE-BLINK 视觉节点绑定 Sprite 的 Tween，闪烁结束才 QueueFree",
       "BlinkThenFree(n, visual)" in _blink_body
       and "visual.CreateTween()" in _blink_body
+      and "Colors.White" in _blink_body and "警示红" not in _blink_body
       and '"modulate", flashTint' in _blink_body
       and '"modulate", baseTint' in _blink_body
       and "tw.Parallel()" in _blink_body

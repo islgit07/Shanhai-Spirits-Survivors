@@ -81,9 +81,9 @@ public static class GameDefs
     public const float BlockWeightSlime = 0.01f;     // MAP-009 粘液块：每 run 仅 1% 命中（整段至多一块，全图另有限量）
     // FRAGILE-BLINK：脆弱木板踩碎后「闪烁 1 秒再消失」的视觉参数。
     // 逻辑层（碰撞 / 计数）在踩中当帧就判碎，保持既有「踩碎」语义与冒烟时序；
-    // 只有视觉节点多活 1 秒，按 Cycles 次 木色↔警示红 交替闪烁，到时 QueueFree。
+    // 只有视觉节点多活 1 秒，按 Cycles 次 木色↔白色 交替闪烁，到时 QueueFree。
     public const float FragileBlinkDuration = 1.0f;  // 闪烁总时长（秒）
-    public const int FragileBlinkCycles = 10;        // 完整闪烁次数（20 次变色 / 1 秒，单次 0.05s）
+    public const int FragileBlinkCycles = 3;         // 完整闪烁次数（6 次变色 / 1 秒，单次 ≈0.167s）
     public const float BlockOneWayChance = 0.30f;    // 每个 run 含「单向连排段」的概率（段长分布见 OneWayLen* 权重）
     // 单向平台连排长度分布（同一 run 内横排连续格数）：2~3 常见，1/4 少见，5 极少见，>5 不出现（run 长度上限 5）
     public const float OneWayLen1Weight = 0.10f;
