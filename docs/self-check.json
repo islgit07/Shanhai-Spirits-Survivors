@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 16",
+      "name": "C# 脚本数量 = 18",
       "ok": true,
-      "detail": "16 个"
+      "detail": "18 个"
     },
     {
       "name": "零 GDScript",
@@ -604,7 +604,42 @@
       "detail": ""
     },
     {
-      "name": "随从系统：只剩数据底座——无本命选择 UI / 跟随节点 / 技能实现",
+      "name": "随从系统：数据卡无技能/升级/跟随字段（技能由用户自行设计，跟随留后续块）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：SpiritDef 加占位色 Tint，三张卡各填一个互异颜色（换色区分）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：spirit_pet.tscn 引用 pet.png + SpiritPet.cs，随从由场景实例化非纯代码拼节点",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：SpiritPet.Setup 套身份色 Tint 并按 pet.png 像素等比缩放（不拉伸）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：SpiritSelect 从目录动态生成卡（加随从零代码）+ 写 SceneTree meta 选中",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：选择场景存在且含标题/提示/卡片容器/操作说明，开始页改跳选择页",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：GameRoot 读 meta 选本命、实例化实体、冒烟断言与证据齐全",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从第2块：跟随 AI / 技能 / 本命升级仍未实现（逐块推进，不越界）",
       "ok": true,
       "detail": ""
     },

@@ -22,4 +22,11 @@ public partial class SpiritDef : Resource
     [Export] public string DisplayName { get; set; } = "";
     /// <summary>一句话背景，仅作占位身份说明，不是技能描述。</summary>
     [Export] public string Lore { get; set; } = "";
+
+    [ExportGroup("占位美术")]
+    /// <summary>
+    /// 占位色：随从实体（spirit_pet.tscn）用 pet.png 这张占位图，靠 modulate 套此色区分不同灵兽。
+    /// 用户明确「以后会替换美术素材」——届时换贴图即可，这个字段只是当前区分手段，非技能/数值。
+    /// </summary>
+    [Export] public Color Tint { get; set; } = Colors.White;
 }

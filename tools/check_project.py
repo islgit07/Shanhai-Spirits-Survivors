@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0005"
-EXPECTED_CS = 16
+EXPECTED_CS = 18
 checks = []
 
 
@@ -436,9 +436,57 @@ check("随从系统：GameRoot 启动时加载目录并打印，冒烟有 spirit
       and "[BOOT] spirits=" in spirit_root
       and '"spirits_catalog_ok"' in spirit_root
       and all(k in spirit_root for k in ("spirits_count", "spirits_ids", "spirits_names")))
-check("随从系统：只剩数据底座——无本命选择 UI / 跟随节点 / 技能实现",
+check("随从系统：数据卡无技能/升级/跟随字段（技能由用户自行设计，跟随留后续块）",
       "Follow" not in spirit_def and "Skill" not in spirit_def
-      and "Fate" not in spirit_root and "Summon" not in spirit_root)
+      and "public int Level" not in spirit_def and "Summon" not in spirit_def)
+
+# ---------------------------------------------------------------- 7c. 随从系统第 2 块（本命选择 + tscn 实体）
+pet_scene = read(ROOT / "scenes" / "spirits" / "spirit_pet.tscn")
+pet_cs = cs("gameplay/SpiritPet.cs")
+select_cs = cs("ui/SpiritSelect.cs")
+select_tscn = read(ROOT / "scenes" / "ui" / "SpiritSelect.tscn")
+start_cs = read(ROOT / "scripts" / "csharp" / "ui" / "StartPage.cs")
+all_spirit_cards = "".join(read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+                           for sid in ("zhulong", "taotie", "qiongqi"))
+check("随从第2块：SpiritDef 加占位色 Tint，三张卡各填一个互异颜色（换色区分）",
+      "public Color Tint { get; set; }" in spirit_def
+      and all("Tint = Color(" in read(ROOT / "resources" / "spirits" / f"{sid}.tres")
+              for sid in ("zhulong", "taotie", "qiongqi"))
+      and len(set(re.findall(r"Tint = Color\(([^)]*)\)", all_spirit_cards))) == 3)
+check("随从第2块：spirit_pet.tscn 引用 pet.png + SpiritPet.cs，随从由场景实例化非纯代码拼节点",
+      (ROOT / "scenes" / "spirits" / "spirit_pet.tscn").exists()
+      and "pet.png" in pet_scene and "SpiritPet.cs" in pet_scene
+      and 'type="Sprite2D"' in pet_scene
+      and "pet.png" in pet_cs and "partial class SpiritPet : Node2D" in pet_cs
+      and "GD.Load<PackedScene>" in select_cs and "Instantiate<SpiritPet>()" in select_cs
+      and "GD.Load<PackedScene>(SpiritPetScenePath)" in spirit_root
+      and "petScene.Instantiate<SpiritPet>()" in spirit_root)
+check("随从第2块：SpiritPet.Setup 套身份色 Tint 并按 pet.png 像素等比缩放（不拉伸）",
+      "_sprite.Modulate = def.Tint" in pet_cs
+      and "uniform" in pet_cs and "_worldHeight" in pet_cs
+      and "displayHeight" in pet_cs and "AppliedTint" in pet_cs
+      and "TexturePath" in pet_cs)
+check("随从第2块：SpiritSelect 从目录动态生成卡（加随从零代码）+ 写 SceneTree meta 选中",
+      "SpiritCatalog.All" in select_cs and "petScene.Instantiate<SpiritPet>()" in select_cs
+      and "SpiritCatalog.ChosenIdMeta" in select_cs and "SetMeta" in select_cs
+      and "ChangeSceneToFile" in select_cs and "IsSmokeRequested" in select_cs
+      and "AutoPickSmoke" in select_cs)
+check("随从第2块：选择场景存在且含标题/提示/卡片容器/操作说明，开始页改跳选择页",
+      (ROOT / "scenes" / "ui" / "SpiritSelect.tscn").exists()
+      and '"Cards" type="HBoxContainer"' in select_tscn
+      and 'text = "选择本命灵兽"' in select_tscn
+      and "SpiritSelect.cs" in select_tscn
+      and 'res://scenes/ui/SpiritSelect.tscn' in start_cs)
+check("随从第2块：GameRoot 读 meta 选本命、实例化实体、冒烟断言与证据齐全",
+      "SpiritCatalog.ChosenIdMeta" in spirit_root
+      and "HasMeta" in spirit_root and "GetMeta" in spirit_root
+      and '"fate_companion_ok"' in spirit_root and '"spirits_tints_ok"' in spirit_root
+      and all(k in spirit_root for k in ("fate_chosen_id", "fate_chosen_name",
+                                          "fate_companion_id", "fate_companion_texture",
+                                          "fate_companion_tint", "spirits_tints")))
+check("随从第2块：跟随 AI / 技能 / 本命升级仍未实现（逐块推进，不越界）",
+      not any(k in pet_cs for k in ("_PhysicsProcess", "Velocity", "Skill", "Attack"))
+      and "Follow" not in spirit_root)
 
 # ---------------------------------------------------------------- 8. 版本一致
 # README 由用户自己维护（2026-11-16 用户明确「最外层 README 我来写，你不用动」），

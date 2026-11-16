@@ -7,3 +7,4 @@ script = ExtResource("1_spiritdef")
 Id = "taotie"
 DisplayName = "饕餮"
 Lore = "山海经中的贪食之兽，形如羊身人面。"
+Tint = Color(1, 0.45, 0.42, 1)

@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/csharp/ui/SpiritSelect.cs" id="1_select"]
+
+[node name="SpiritSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_select")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.06, 0.11, 1)
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 40.0
+offset_right = 1040.0
+offset_bottom = 96.0
+text = "选择本命灵兽"
+
+[node name="Hint" type="Label" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 104.0
+offset_right = 1040.0
+offset_bottom = 142.0
+text = "本命伴随主角左右，决定日后的成长方向"
+
+[node name="Cards" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 172.0
+offset_right = 1140.0
+offset_bottom = 602.0
+theme_override_constants/separation = 18
+
+[node name="Footer" type="Label" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 644.0
+offset_right = 1040.0
+offset_bottom = 684.0
+text = "← → 或手柄方向切换 · Enter / A 确认选择"

@@ -725,3 +725,56 @@ C# `partial` / PascalCase / 零 GDScript / 零 autoload 基线保持。
 版本保持 `0.0005`（本轮为 0.0005 版本规划的第 1 块，不再升版、未打新 tag、未 push）；
 `scenes/StartPage.tscn` 与 `project.godot` 的用户格式改动未碰、未提交；
 **README 由用户自己维护，本轮未改**（仅把静态自检里依赖 README 的检查移除）。
+
+## 17. 随从系统第 2 块：开局选择本命灵兽 + tscn 随从实体（2026-11-16，v0.0005）
+
+### 17.1 需求与实现选择
+用户：「做开局选择本命灵兽，先用 pet.png 占位，通过换颜色区分不同随从，以后会替换美术素材；
+随从生成不是单纯靠代码实现，而是 tscn」。
+- **选**：① 随从实体做成 `scenes/spirits/spirit_pet.tscn`（Node2D + Sprite2D 引用 pet.png），
+  选择页卡片预览与游戏内实体都实例化这同一个场景；② 换色走数据卡 `SpiritDef.Tint`，
+  三张定义卡各填一色（烛龙金 ffd973 / 饕餮赤 ff736b / 穷奇青蓝 73c7ff）；
+  ③ 选择页 `scenes/ui/SpiritSelect.tscn` 从 `SpiritCatalog.All` 动态生成卡片（加随从零代码），
+  选中写 `SceneTree` meta，GameRoot 读 meta 后从 tscn 实例化本命。
+- **否决**：① 三种随从各写一套代码 / 各建一份 tscn——违背第 1 块「数据卡驱动、加随从零代码」；
+  ② 在 `StartPage.tscn` 塞选择 UI——该文件是用户自己的，只改 `StartPage.cs` 的跳转路径；
+  ③ 本块做跟随 AI / 技能 / 本命升级——用户「一个一个来」，跟随效果留后续块。
+
+### 17.2 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/gameplay/SpiritDef.cs` | 加 `[Export] Color Tint` 占位色字段（无技能/升级字段） |
+| `resources/spirits/{zhulong,taotie,qiongqi}.tres` | 各填一个互异 Tint |
+| `scripts/csharp/gameplay/SpiritPet.cs` (+ `.uid`) | 随从实体脚本：Setup 套 Tint + 按 pet.png 像素等比缩放；暴露 AppliedTint / TexturePath |
+| `scenes/spirits/spirit_pet.tscn` | 随从实体场景（Sprite2D ← pet.png），UI 与游戏共用 |
+| `scripts/csharp/ui/SpiritSelect.cs` (+ `.uid`) / `scenes/ui/SpiritSelect.tscn` | 本命选择页：目录驱动建卡 + tscn 预览 + meta 选中 + 键盘/手柄焦点链 + smoke 自动选 |
+| `scripts/csharp/ui/StartPage.cs` | 「开始」跳转改到选择页（只改 .cs，未碰用户的 .tscn） |
+| `scripts/csharp/gameplay/SpiritCatalog.cs` | 加 `ChosenIdMeta` 常量（SceneTree meta 键，零 autoload / 零静态状态） |
+| `scripts/csharp/core/GameRoot.cs` | 读 meta 选本命 → 从 tscn 实例化实体 → 冒烟 2 条断言 + 6 个证据字段 |
+| `tools/check_project.py` | EXPECTED_CS 16→18；新增 7 条第 2 块静态断言 |
+
+### 17.3 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **133/133 PASS** |
+| 3 | 编辑器无头导入 | exit 0，0 ERROR，两个新 `.uid` 自动生成，注册到 `SpiritPet` 全局类 |
+| 4 | `Main.tscn --smoke` | exit 0，**PASS，24/24 断言**，运行时 0 ERROR |
+| 5 | 开始页 → 选择 → 游戏 整链 `--smoke` | exit 0，**PASS，24/24 断言**，0 ERROR |
+| 6 | 选择页卡片换色探针（临时，跑完删） | 3 卡 / 3 色，`pet.png` 来源与逐卡 Tint 全对，`fail=0` |
+| 7 | `MapSeedProbe` | 10 组种子 `fail=0` |
+
+日志证据：`[FATE] select cards=3 ids=[qiongqi,taotie,zhulong]` → `[FATE] chosen id=qiongqi`
+→ `[FATE] companion spawned id=qiongqi tint=(0.45,0.78,1) scene=res://scenes/spirits/spirit_pet.tscn`；
+冒烟证据 `fate_companion_texture=res://assets/art/pet.png`、`fate_companion_tint=73c7ff`、
+`spirits_tints=73c7ff,ff736b,ffd973`，`fate_companion_ok` / `spirits_tints_ok` 均 true。
+
+### 17.4 代码审查
+`godot-code-review`：无 Critical。零 autoload / 零静态状态（本命用 SceneTree meta，跨场景不丢）；
+所有 GetNode 指向直接子节点；无热路径查找；C# `partial` / PascalCase / Godot 4.7 API
+（`StyleBoxFlat.BorderWidthLeft` 等）均正确；定义卡只读、UI 与游戏共用一份 tscn。
+唯一改进项（companion 用 `Position` → `GlobalPosition`）已修，避免 WorldRoot 将来位移时偏移。
+
+### 17.5 范围边界
+版本保持 `0.0005`，未升版、未打新 tag、未 push；`scenes/StartPage.tscn` 用户改动未碰、未提交；
+README 由用户自己维护，本轮未改。跟随 AI / 技能 / 本命升级仍未实现。

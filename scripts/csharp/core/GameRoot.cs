@@ -33,9 +33,15 @@ public partial class GameRoot : Node2D
 	private MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
 	public MapGenConfig MapConfig { get => _mapConfig; set => _mapConfig = value; }
 	// 随从系统第 1 块：启动时加载本命随从目录（主角养的灵兽），只做「游戏知道有哪些随从」。
-	// 技能 / 本命升级 / 选择 UI / 跟随效果均未实现，留待后续逐块加。
+	// 第 2 块：读选择页写入 SceneTree 的本命 Id，从 spirit_pet.tscn 实例化本命灵兽实体。
+	// 技能 / 本命升级 / 跟随效果仍未实现，留待后续逐块加。
 	private IReadOnlyList<SpiritDef> _spirits = SpiritCatalog.All;
 	public IReadOnlyList<SpiritDef> Spirits => _spirits;
+	private const string SpiritPetScenePath = "res://scenes/spirits/spirit_pet.tscn";
+	private SpiritDef? _chosenSpirit;
+	private SpiritPet? _companion;
+	public SpiritDef? ChosenSpirit => _chosenSpirit;
+	public SpiritPet? Companion => _companion;
 	private int _currentSeed;
 	private Label _seedLabel = null!;
 
@@ -122,6 +128,27 @@ public partial class GameRoot : Node2D
 		// 随从系统第 1 块：打印已发现的本命随从目录（定义卡自动扫描，加卡零代码）。
 		_spirits = SpiritCatalog.All;
 		GD.Print($"[BOOT] spirits={_spirits.Count} ids=[{string.Join(",", _spirits.Select(s => s.Id))}]");
+
+		// 随从系统第 2 块：读取选择页写入的本命 Id，从 tscn 实例化本命灵兽。
+		// 直接以 Main.tscn 起（如 --smoke 单场景测试）时无 meta：兜底取目录第一只，保证实体仍存在。
+		string chosenId = GetTree().HasMeta(SpiritCatalog.ChosenIdMeta)
+			? GetTree().GetMeta(SpiritCatalog.ChosenIdMeta).AsString() : "";
+		_chosenSpirit = SpiritCatalog.Find(chosenId) ?? _spirits.FirstOrDefault();
+		if (_chosenSpirit != null)
+		{
+			var petScene = GD.Load<PackedScene>(SpiritPetScenePath);
+			if (petScene != null)
+			{
+				_companion = petScene.Instantiate<SpiritPet>();
+				_companion.Setup(_chosenSpirit);
+				AddChild(_companion);
+				// 跟随 AI 属后续块，本块只把实体摆在主角右上方固定偏移，证明「选中即生成、按卡换色」。
+				_companion.GlobalPosition = Player.GlobalPosition + new Vector2(1.6f, -0.9f);
+				GD.Print($"[FATE] companion spawned id={_chosenSpirit.Id} tint={_chosenSpirit.Tint} scene={SpiritPetScenePath}");
+			}
+			else GD.PushError($"[FATE] 无法加载随从场景 {SpiritPetScenePath}");
+		}
+
 		if (SmokeMode) BeginSmoke();
 
 		// 仅截图自检用：--shot 时 1.5 秒后存图并退出
@@ -504,7 +531,18 @@ public partial class GameRoot : Node2D
 									 && _spirits.Select(s => s.Id).Distinct().Count() == _spirits.Count
 									 && _spirits.Select(s => s.Id)
 												 .SequenceEqual(_spirits.Select(s => s.Id)
-																	.OrderBy(id => id, StringComparer.Ordinal)),
+																		.OrderBy(id => id, StringComparer.Ordinal)),
+			// 随从系统第 2 块：三张卡各有互异的占位色（换色区分随从）
+			["spirits_tints_ok"] = _spirits.Count >= 3
+								   && _spirits.All(s => s.Tint.A > 0.99f)
+								   && _spirits.Select(s => s.Tint.ToHtml(false))
+											  .Distinct().Count() == _spirits.Count,
+			// 选中本命后，实体从 tscn 实例化，贴图 = pet.png，且 modulate 套上了该随从的身份色
+			["fate_companion_ok"] = _chosenSpirit != null
+									&& _companion != null && IsInstanceValid(_companion)
+									&& _companion.SpiritId == _chosenSpirit.Id
+									&& _companion.TexturePath.EndsWith("/pet.png")
+									&& _companion.AppliedTint == _chosenSpirit.Tint,
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
@@ -558,6 +596,13 @@ public partial class GameRoot : Node2D
 			["spirits_count"] = _spirits.Count,
 			["spirits_ids"] = string.Join(",", _spirits.Select(s => s.Id)),
 			["spirits_names"] = string.Join(",", _spirits.Select(s => s.DisplayName)),
+			["spirits_tints"] = string.Join(",", _spirits.Select(s => s.Tint.ToHtml(false))),
+			// 随从系统第 2 块证据（本命选择 + tscn 实体）
+			["fate_chosen_id"] = _chosenSpirit?.Id ?? "",
+			["fate_chosen_name"] = _chosenSpirit?.DisplayName ?? "",
+			["fate_companion_id"] = _companion?.SpiritId ?? "",
+			["fate_companion_texture"] = _companion?.TexturePath ?? "",
+			["fate_companion_tint"] = _companion != null ? _companion.AppliedTint.ToHtml(false) : "",
 			["player_grounded"] = PlayerGrounded,
 			["player_start"] = _smokeStartPos.ToString(),
 			["player_end"] = now.ToString(),

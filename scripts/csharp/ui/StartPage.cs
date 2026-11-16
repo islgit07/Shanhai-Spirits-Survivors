@@ -7,13 +7,14 @@ namespace ShanhaiSpiritsSurvivors;
 /// 开始页（主菜单）：键鼠双通道。
 /// 鼠标点击按钮；或 ↑/↓ 切换焦点、Enter/Space 确认（走 Godot 内置 ui_* 动作，不新增映射）。
 /// 四个按钮：开始 / 设置 / 图鉴 / 退出；设置与图鉴尚未实装，先打日志占位。
-/// --smoke 时直接进 Main.tscn，避免无头冒烟停在开始页挂死。
+/// 「开始」先进本命选择页 SpiritSelect.tscn，选完再进 Main.tscn。
+/// --smoke 时也走这条链（选择页会自动选第一只），整条链路无头可验证。
 /// 节点、焦点链与按键说明在 StartPage.tscn 里摆好，本脚本只负责连信号、跳转与版本号。
 /// </summary>
 public partial class StartPage : Control
 {
-    /// <summary>「开始」按钮跳转到的游戏场景。</summary>
-    [Export] private string _gameScenePath = "res://scenes/Main.tscn";
+    /// <summary>「开始」按钮先跳到本命选择页；选完由 SpiritSelect 跳进游戏场景。</summary>
+    [Export] private string _gameScenePath = "res://scenes/ui/SpiritSelect.tscn";
 
     private Button[] _buttons = null!;
 

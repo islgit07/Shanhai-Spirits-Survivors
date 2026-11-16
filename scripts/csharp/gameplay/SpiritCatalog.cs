@@ -17,6 +17,13 @@ public static class SpiritCatalog
 {
     public const string SpiritsDir = "res://resources/spirits";
 
+    /// <summary>
+    /// 本命选择跨场景传递键：选择界面写入 SceneTree meta，GameRoot 读取后实例化对应灵兽。
+    /// 用 SceneTree meta 而非静态字段/autoload——项目铁律零 autoload、零静态状态类，
+    /// 且 meta 随场景树存活、换场景不丢，正好覆盖「选完本命进入游戏」这一段。
+    /// </summary>
+    public const string ChosenIdMeta = "chosen_spirit_id";
+
     private static IReadOnlyList<SpiritDef>? _cache;
 
     /// <summary>全部随从定义，按 Id 升序（确定性顺序，冒烟与 UI 都依赖它）。</summary>

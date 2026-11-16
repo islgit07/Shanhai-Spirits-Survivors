@@ -7,3 +7,4 @@ script = ExtResource("1_spiritdef")
 Id = "zhulong"
 DisplayName = "烛龙"
 Lore = "山海经中的钟山之神，睁眼为昼、闭眼为夜。"
+Tint = Color(1, 0.85, 0.45, 1)
