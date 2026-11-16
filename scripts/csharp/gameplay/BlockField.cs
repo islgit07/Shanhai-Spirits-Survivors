@@ -79,6 +79,8 @@ public partial class BlockField : Node2D, IBlockGeometry
     private readonly List<List<(int Row, int C0, int C1)>> _paths = new();
     private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
     private int _slimeBudget;   // 生成期已落地的粘液块数（硬上限，保证"出现概率非常小"）
+    // MAP-TYPE：当前地形配置。默认走 GameDefs 常量逐字等值，故默认地形行为与接线前完全一致。
+    private MapGenConfig _cfg = MapGenConfig.CreateDefault();
 
     // ---------------------------------------------------------------- 场景预制体（编辑器可拖拽换贴图）
     [Export] public PackedScene? SceneSolid;
@@ -139,9 +141,16 @@ public partial class BlockField : Node2D, IBlockGeometry
     private Vector2 BlockCenter(int r, int c) => new(ColX(c) + 0.5f, RowTopY(r) - 0.5f);
 
     // ---------------------------------------------------------------- 生成
-    /// <summary>按种子重建整张方块地图，可重复调用（旧节点延迟释放）。</summary>
-    public void Build(int seedValue)
+    /// <summary>按种子 + 默认配置重建地图（旧入口，供探针与既有调用方零改动使用）。</summary>
+    public void Build(int seedValue) => Build(seedValue, MapGenConfig.CreateDefault());
+
+    /// <summary>
+    /// MAP-TYPE：按种子 + 指定地形配置重建整张方块地图，可重复调用（旧节点延迟释放）。
+    /// 算法与数值逐字沿用原实现，仅把 28 个行为参数来源从 GameDefs 常量改为 config。
+    /// </summary>
+    public void Build(int seedValue, MapGenConfig config)
     {
+        _cfg = config ?? MapGenConfig.CreateDefault();
         EnsureScenes();
         foreach (Node child in GetChildren())
         {
@@ -186,15 +195,15 @@ public partial class BlockField : Node2D, IBlockGeometry
 
         // 随机区从 row BlockHeadroomRows+1 开始（row 1..2 被地面块净空保留，原则①）：
         // run 撒点 + 两遍可达性（允许同行横向借道）
-        for (int r = GameDefs.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
+        for (int r = _cfg.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
         {
             var runs = new List<(int Start, int Len)>();
             int x = _rng.RandiRange(0, 6);
             while (x < GameDefs.BlockCols)
             {
-                int len = _rng.RandiRange(GameDefs.BlockRunMin, GameDefs.BlockRunMax);
+                int len = _rng.RandiRange(_cfg.BlockRunMin, _cfg.BlockRunMax);
                 runs.Add((x, len));
-                x += len + _rng.RandiRange(GameDefs.BlockGapMin, GameDefs.BlockGapMax);
+                x += len + _rng.RandiRange(_cfg.BlockGapMin, _cfg.BlockGapMax);
             }
             for (int pass = 0; pass < 2; pass++)
                 for (int i = 0; i < runs.Count; i++)
@@ -234,7 +243,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     /// </summary>
     private void BuildBackbone()
     {
-        int pathCount = _rng.RandiRange(GameDefs.BackbonePathMin, GameDefs.BackbonePathMax);
+        int pathCount = _rng.RandiRange(_cfg.BackbonePathMin, _cfg.BackbonePathMax);
         int band = GameDefs.BlockCols / pathCount;
         for (int p = 0; p < pathCount; p++)
         {
@@ -242,7 +251,7 @@ public partial class BlockField : Node2D, IBlockGeometry
             int bandRight = p == pathCount - 1 ? GameDefs.BlockCols - 1 : (p + 1) * band - 1;
             var segments = new List<(int Row, int C0, int C1)>();
 
-            int r = GameDefs.BlockHeadroomRows + 1;
+            int r = _cfg.BlockHeadroomRows + 1;
             bool right = _rng.Randf() < 0.5f;
             int c = right
                 ? _rng.RandiRange(bandLeft + 1, bandLeft + 4)
@@ -258,7 +267,7 @@ public partial class BlockField : Node2D, IBlockGeometry
                 _backbone.Add((r, c, c + len - 1));
                 segments.Add((r, c, c + len - 1));
 
-                r += GameDefs.LayerStepRows;   // 原则⑤：层间空 2 行
+                r += _cfg.LayerStepRows;   // 原则⑤：层间空 2 行
                 if (r >= GameDefs.BlockRows) break;
                 int step = _rng.RandiRange(1, 2);   // dr=3 的水平可达半径 ≤2 列
                 int next = c + (right ? step : -step);
@@ -289,7 +298,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         var special = purePlatform ? BlockType.Normal : PickType();
         // 单向连排段：按 run 掷一次，段长 2~3 常见 / 1 或 4 少见 / 5 极少见 / >5 不出现
         int oneWayLen = 0, oneWayStart = 0;
-        if (_rng.Randf() < GameDefs.BlockOneWayChance)
+        if (_rng.Randf() < _cfg.BlockOneWayChance)
         {
             int want = SampleOneWayLength();
             if (want <= len)
@@ -332,7 +341,7 @@ public partial class BlockField : Node2D, IBlockGeometry
             if (InSpawnZone(r, c)) continue;   // 出生净空区不放块
             // MAP-005：上下没隔开 2 格的装饰块按概率拒绝，避免挡道；骨架段豁免（必要通路）。
             if (!purePlatform && HasNearVerticalNeighbor(r, c)
-                && _rng.Randf() >= GameDefs.BlockVerticalClearBreakChance) continue;
+                && _rng.Randf() >= _cfg.BlockVerticalClearBreakChance) continue;
             var t = k == specialAt ? special : BlockType.Normal;
             bool oneWay = t == BlockType.Normal && k >= oneWayStart && k < oneWayStart + oneWayLen;
             SetCell(r, c, t, oneWay);
@@ -343,13 +352,13 @@ public partial class BlockField : Node2D, IBlockGeometry
     private int SampleOneWayLength()
     {
         float roll = _rng.Randf();
-        float acc = GameDefs.OneWayLen1Weight;
+        float acc = _cfg.OneWayLen1Weight;
         if (roll < acc) return 1;
-        acc += GameDefs.OneWayLen2Weight;
+        acc += _cfg.OneWayLen2Weight;
         if (roll < acc) return 2;
-        acc += GameDefs.OneWayLen3Weight;
+        acc += _cfg.OneWayLen3Weight;
         if (roll < acc) return 3;
-        acc += GameDefs.OneWayLen4Weight;
+        acc += _cfg.OneWayLen4Weight;
         if (roll < acc) return 4;
         return 5;   // 剩余概率 = OneWayLen5Weight
     }
@@ -372,7 +381,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         foreach (var (row, c0, c1) in _backbone)
         {
             int dr = row - r;
-            if (dr is < 1 or >= GameDefs.LayerStepRows) continue;   // 只看层间 1..2 行
+            if (dr < 1 || dr >= _cfg.LayerStepRows) continue;   // 只看层间 1..2 行（config 变量，故用普通比较）
             int reach = 3;   // 保守外扩（CellReachable 的 dr=3 半径是 2）
             if (c >= c0 - reach && c <= c1 + reach) return true;
         }
@@ -426,16 +435,16 @@ public partial class BlockField : Node2D, IBlockGeometry
     private BlockType PickType()
     {
         float roll = _rng.Randf();
-        float acc = GameDefs.BlockWeightFragile;
+        float acc = _cfg.BlockWeightFragile;
         if (roll < acc) return BlockType.Fragile;
-        acc += GameDefs.BlockWeightBounce;
+        acc += _cfg.BlockWeightBounce;
         if (roll < acc) return BlockType.Bounce;
-        acc += GameDefs.BlockWeightBuildable;
+        acc += _cfg.BlockWeightBuildable;
         if (roll < acc) return BlockType.Buildable;
-        acc += GameDefs.BlockWeightTreasure;
+        acc += _cfg.BlockWeightTreasure;
         if (roll < acc) return BlockType.Treasure;
-        acc += GameDefs.BlockWeightSlime;
-        if (roll < acc && _slimeBudget < GameDefs.BlockSlimeMaxCount) return BlockType.Slime;
+        acc += _cfg.BlockWeightSlime;
+        if (roll < acc && _slimeBudget < _cfg.BlockSlimeMaxCount) return BlockType.Slime;
         return BlockType.Normal;
     }
 
@@ -454,7 +463,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     /// <summary>原则②：可站立块上方保留净空（普通 2 格 / 弹跳块 7 格），生成自下而上，后续行不得占用。</summary>
     private void ReserveHeadroom(int r, int c, BlockType t)
     {
-        int rows = t == BlockType.Bounce ? GameDefs.BlockBounceHeadroomRows : GameDefs.BlockHeadroomRows;
+        int rows = t == BlockType.Bounce ? _cfg.BlockBounceHeadroomRows : _cfg.BlockHeadroomRows;
         for (int i = 1; i <= rows && r + i < GameDefs.BlockRows; i++)
             _reserved[r + i, c] = true;
     }
@@ -466,13 +475,13 @@ public partial class BlockField : Node2D, IBlockGeometry
     /// </summary>
     private bool HasNearVerticalNeighbor(int r, int c)
     {
-        for (int dr = -GameDefs.BlockVerticalClearRows; dr <= GameDefs.BlockVerticalClearRows; dr++)
+        for (int dr = -_cfg.BlockVerticalClearRows; dr <= _cfg.BlockVerticalClearRows; dr++)
         {
             if (dr == 0) continue;   // 同行横排不算上下相邻
             int rr = r + dr;
             if (rr < 0 || rr >= GameDefs.BlockRows) continue;
-            int c0 = Math.Max(0, c - GameDefs.BlockVerticalClearCols);
-            int c1 = Math.Min(GameDefs.BlockCols - 1, c + GameDefs.BlockVerticalClearCols);
+            int c0 = Math.Max(0, c - _cfg.BlockVerticalClearCols);
+            int c1 = Math.Min(GameDefs.BlockCols - 1, c + _cfg.BlockVerticalClearCols);
             for (int cc = c0; cc <= c1; cc++)
                 if (_alive[rr, cc]) return true;
         }
@@ -512,7 +521,7 @@ public partial class BlockField : Node2D, IBlockGeometry
         CountSlimeBlocks();
         if (SlimeCount > 0) return;
         var candidates = new List<(int R, int C)>();
-        for (int r = GameDefs.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
+        for (int r = _cfg.BlockHeadroomRows + 1; r < GameDefs.BlockRows; r++)
             for (int c = 0; c < GameDefs.BlockCols; c++)
                 if (_alive[r, c] && _type[r, c] == BlockType.Normal
                     && !_oneWay[r, c] && !_backboneCell[r, c])
@@ -555,7 +564,7 @@ public partial class BlockField : Node2D, IBlockGeometry
             for (int c = 0; c < GameDefs.BlockCols; c++)
             {
                 if (!_alive[r, c] || _backboneCell[r, c]) continue;
-                if (IsIsolatedSingle(r, c) && _rng.Randf() >= GameDefs.BlockSingleKeepChance)
+                if (IsIsolatedSingle(r, c) && _rng.Randf() >= _cfg.BlockSingleKeepChance)
                 {
                     _alive[r, c] = false;
                     _reachable[r, c] = false;
@@ -563,11 +572,11 @@ public partial class BlockField : Node2D, IBlockGeometry
                 }
             }
         MeasureVerticalClearance();
-        if (SingleBlockRatio <= GameDefs.BlockSingleRatioMax) return;
+        if (SingleBlockRatio <= _cfg.BlockSingleRatioMax) return;
         for (int r = GameDefs.BlockRows - 1; r >= 1; r--)
             for (int c = 0; c < GameDefs.BlockCols; c++)
             {
-                if (SingleBlockRatio <= GameDefs.BlockSingleRatioMax) return;
+                if (SingleBlockRatio <= _cfg.BlockSingleRatioMax) return;
                 if (!_alive[r, c] || _backboneCell[r, c] || !IsIsolatedSingle(r, c)) continue;
                 _alive[r, c] = false;
                 _reachable[r, c] = false;
@@ -585,7 +594,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     {
         ComputeTrueReachability();
         // 至少 1 条贯通是硬保证；平时要求全部 BackbonePathMin~Max 条都可达
-        if (HasPathToTop && ReachablePathCount >= GameDefs.BackbonePathMin) return;
+        if (HasPathToTop && ReachablePathCount >= _cfg.BackbonePathMin) return;
 
         // 若因出生区豁免或极端修剪导致断路，把全部骨架段补齐（连排 3~4 格，绝不产生单块）
         foreach (var (row, c0, c1) in _backbone)
@@ -598,7 +607,7 @@ public partial class BlockField : Node2D, IBlockGeometry
                     _backboneCell[row, c] = true;
                 }
                 // 确保骨架块上方 2 格净空不被实心装饰块封死
-                for (int hr = 1; hr <= GameDefs.BlockHeadroomRows && row + hr < GameDefs.BlockRows; hr++)
+                for (int hr = 1; hr <= _cfg.BlockHeadroomRows && row + hr < GameDefs.BlockRows; hr++)
                     if (_alive[row + hr, c] && !_backboneCell[row + hr, c] && !_oneWay[row + hr, c])
                     {
                         _alive[row + hr, c] = false;
@@ -614,7 +623,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     {
         if (r < 0 || r >= GameDefs.BlockRows || c < 0 || c >= GameDefs.BlockCols) return false;
         if (!_alive[r, c]) return false;
-        for (int hr = 1; hr <= GameDefs.BlockHeadroomRows && r + hr < GameDefs.BlockRows; hr++)
+        for (int hr = 1; hr <= _cfg.BlockHeadroomRows && r + hr < GameDefs.BlockRows; hr++)
             if (_alive[r + hr, c] && !_oneWay[r + hr, c]) return false;
         return true;
     }
@@ -695,7 +704,7 @@ public partial class BlockField : Node2D, IBlockGeometry
                 break;
             }
         }
-        HasPathToTop = MaxReachableRow >= GameDefs.BlockTopReachMinRow && ReachablePathCount >= 1;
+        HasPathToTop = MaxReachableRow >= _cfg.BlockTopReachMinRow && ReachablePathCount >= 1;
     }
 
     /// <summary>
@@ -706,7 +715,7 @@ public partial class BlockField : Node2D, IBlockGeometry
     private void EnforceVerticalClearance()
     {
         MeasureVerticalClearance();
-        if (VerticalClearRatio >= GameDefs.BlockVerticalClearRatio) return;
+        if (VerticalClearRatio >= _cfg.BlockVerticalClearRatio) return;
 
         var candidates = new List<(int R, int C)>();
         for (int r = GameDefs.BlockRows - 1; r > 0; r--)
@@ -716,7 +725,7 @@ public partial class BlockField : Node2D, IBlockGeometry
 
         foreach (var (r, c) in candidates)
         {
-            if (VerticalClearRatio >= GameDefs.BlockVerticalClearRatio) break;
+            if (VerticalClearRatio >= _cfg.BlockVerticalClearRatio) break;
             if (!_alive[r, c] || !HasNearVerticalNeighbor(r, c)) continue;
             _alive[r, c] = false;
             _reachable[r, c] = false;

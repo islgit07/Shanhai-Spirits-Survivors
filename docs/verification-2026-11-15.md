@@ -460,3 +460,76 @@ Godot 4.7 实际解析出 `move_left/right/down` 各 3 事件（key + btn + axis
 
 - 版本保持 `0.0004`，未升版、未打 tag、未 push。
 - `scenes/StartPage.tscn` 用户改动未碰、未提交、显式排除。
+
+---
+
+## 13. 同日第十轮：地图地形类型系统（第 1 阶段 · 骨架 + 参数接线）
+
+### 13.1 先 grill 拍板，再动手
+
+用户：「以后会有其他地图的类型……目前的地图生成可以加一个系统，目前这个就是默认」。
+按框架先 `godot-grill` 分轮拍板（用户一度表示选项太技术化，改用大白话重问），四项决策落盘在
+`docs/decisions/2026-11-16-map-terrain-system.md`：
+
+| 决策 | 选择 |
+|---|---|
+| 抽象层次 | 策略：每种地形一套独立算法，共用容器/查询门面 |
+| 当前地图定位 | 默认地形，规则逐字不变 |
+| 参数 home | Resource `.tres` 配置卡片，Inspector 可调 |
+| 选择时机 | 暂固定默认，接口/注入点留好 |
+
+据答案推导的事实（不占用户决策）：C# net8.0、策略接口 + Resource 配置类放 `gameplay/`、
+`.tres` 放 `resources/maps/`、无 autoload、种子分域不变。用户再拍本轮范围 = 第 1 阶段。
+
+### 13.2 实现（报告再动手）
+
+- **选**：28 个「行为参数」接线到 `MapGenConfig`（run 长度/净空率/单块率/路径数/权重/头空行数…）；
+  策略口 `IMapGenerator.Generate(field, seed, config)`；`DefaultMapGenerator` 薄壳转交 `Build(seed, config)`。
+- **不接**：`BlockRows/BlockCols/GroundY/WorldHalfWidth/SlimeBlockGroup` —— 前四个是 8 个网格数组的
+  编译期维度与坐标基准，动它们等于重构容器（第 2 阶段才开放）；组名是地图↔移动内核的代码契约。
+- **否决**：把 32 个常量全塞进卡片假装可拖（会产生「拖了没反应」的假功能）。
+- **兼容**：保留 `Build(seed)` 旧入口（内部走 `CreateDefault()`），既有探针/调用零改动。
+- `GameRoot` / `WhiteboxRoot` 从 `resources/maps/default.tres` 加载配置（失败兜底 `CreateDefault()`），
+  走生成器建图；`MapGenerator` / `MapConfig` 暴露可写属性，以后注入别的地形不用再改调用方。
+- `.tres` 由 Godot 引擎 `ResourceSaver` 生成骨架（拿到正确 `[gd_resource]` / `script_class` 格式），
+  再显式写入 28 个数值——因为引擎会省略「等于属性默认值」的字段，不写就是空壳卡片。
+
+### 13.3 行为零漂移验证（临时探针，跑完已删）
+
+`tools/MapConfigProbe.cs` 对种子 `20261113` 做逐格 SHA256 快照：
+
+| 场景 | 哈希 | 结论 |
+|---|---|---|
+| 旧入口 `Build(seed)` | `54A9B7682200DA44` | 基准 |
+| 新入口 `Build(seed, CreateDefault())` | `54A9B7682200DA44` | **逐格一致，零漂移** |
+| 同 seed + 同 config 再建 | 同上 | 可复现 |
+| 改 config（路径 2→5、净空率 0.8→0.5、粘液权重 0.01→0.5） | `2DBE15A0493BA7DE` | **地图确实变了**：blocks 262→329、paths 2/2→5/5、slime 1→3 |
+
+另用 `tools/VerifyMapConfigAsset.cs` 验证 Godot 能加载手写 `.tres` 且 28 字段读回正确（`ok=1`）。
+两个临时探针及其 `.uid` 均已删除，仓库无残留。
+
+### 13.4 验证（全部实跑）
+
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **107/107 PASS**（新增 10 条地形系统检查；`EXPECTED_CS` 11→14） |
+| 3 | 编辑器导入 | 0 ERROR；生成 3 个新脚本 `.uid` |
+| 4 | `Main.tscn --smoke` | **PASS，17/17 断言**，`version=0.0004`，运行时 0 ERROR |
+| 5 | 开始页 → `Main --smoke` | **PASS** |
+| 6 | 白箱 / 开始页各 120 帧 | 0 ERROR；白箱 `blocks=263 / paths=3/3 / slime=1 grouped=1` |
+| 7 | `CSharpToolchainProbe` | `ok=1 engine=4.7.2-stable` |
+| 8 | `MapSeedProbe` | 10 组种子 `fail=0` |
+
+### 13.5 代码审查
+
+`godot-code-review` + `resource-pattern` + `csharp-godot`：无 Critical / Improvement。
+`MapGenConfig : Resource` 用 `partial`；`DefaultMapGenerator` / `IMapGenerator` 是纯 C# 类型无需 `partial`；
+`_cfg` 有 null 兜底；3 个新脚本 `.uid` 齐全；零 GDScript / 零 autoload 基线保持；无 CRLF。
+
+### 13.6 范围边界
+
+- 本轮只做第 1 阶段。**火山/雪山的具体算法**、**白箱切换地形热键**、**第 2 阶段把 958 行算法
+  从 BlockField 搬进生成器**均 deferred，见决策记录 Open / deferred。
+- 版本保持 `0.0004`，未升版、未打 tag、未 push。
+- `scenes/StartPage.tscn` 用户改动未碰、未提交、显式排除。

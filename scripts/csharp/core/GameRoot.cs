@@ -25,6 +25,13 @@ public partial class GameRoot : Node2D
 	private Camera2D _camera = null!;
 	private Sprite2D _backdrop = null!;
 	private BlockField _blocks = null!;
+	// MAP-TYPE：地形生成策略口。默认地形；以后换火山/雪山只需替换这个实例，其余代码不动。
+	private IMapGenerator _mapGenerator = new DefaultMapGenerator();
+	public IMapGenerator MapGenerator { get => _mapGenerator; set => _mapGenerator = value; }
+	// 默认地形配置卡片：Inspector 里改 resources/maps/default.tres 的数值即可生效；加载失败兜底代码默认。
+	private const string DefaultMapConfigPath = "res://resources/maps/default.tres";
+	private MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
+	public MapGenConfig MapConfig { get => _mapConfig; set => _mapConfig = value; }
 	private int _currentSeed;
 	private Label _seedLabel = null!;
 
@@ -132,7 +139,7 @@ public partial class GameRoot : Node2D
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
 
-		_blocks.Build(seed);
+		_mapGenerator.Generate(_blocks, seed, _mapConfig);
 		PlatformCount = _blocks.BlockCount;
 		GroundContinuous = _blocks.IsGroundContinuous();
 		VerticalClearRatio = _blocks.VerticalClearRatio;

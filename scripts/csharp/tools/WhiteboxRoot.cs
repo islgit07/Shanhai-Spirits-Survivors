@@ -22,6 +22,10 @@ public partial class WhiteboxRoot : Node2D
     private const int DefaultSeed = 20261112;
 
     private readonly MoveTuning _tuning = MoveTuning.GameDefaults();
+    // MAP-TYPE：白箱也走策略口，默认地形；以后可在白箱里换生成器做对照调试。
+    private const string DefaultMapConfigPath = "res://resources/maps/default.tres";
+    private readonly IMapGenerator _mapGenerator = new DefaultMapGenerator();
+    private readonly MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
     private WhiteboxPlayer _player = null!;
     private BlockField _blocks = null!;
     private Camera2D _camera = null!;
@@ -82,7 +86,7 @@ public partial class WhiteboxRoot : Node2D
         // 场景节点在 Whitebox.tscn 里摆（Backdrop / BlockField / Player[CharacterBody2D+Visual+Camera2D]）
         _blocks = GetNodeOrNull<BlockField>("BlockField");
         if (_blocks == null) { _blocks = new BlockField(); AddChild(_blocks); }
-        _blocks.Build(_seed);
+        _mapGenerator.Generate(_blocks, _seed, _mapConfig);
 
         _player = GetNodeOrNull<WhiteboxPlayer>("Player");
         if (_player == null) { _player = new WhiteboxPlayer { Tuning = _tuning }; AddChild(_player); }
@@ -104,7 +108,7 @@ public partial class WhiteboxRoot : Node2D
 
     private void RebuildPlatforms()
     {
-        _blocks.Build(_seed);
+        _mapGenerator.Generate(_blocks, _seed, _mapConfig);
         _player.Respawn();
         _player.SetLedges(_blocks.GetLedges());   // CLIMB-001 换地形后刷新台沿
         UiSkin.RefreshSeed(_seedLabel, _seed);    // 开发用：换地形后同步显示新种子

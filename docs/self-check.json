@@ -64,9 +64,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 11",
+      "name": "C# 脚本数量 = 14",
       "ok": true,
-      "detail": "11 个"
+      "detail": "14 个"
     },
     {
       "name": "零 GDScript",
@@ -180,6 +180,56 @@
     },
     {
       "name": "手柄映射：事件类型为 Godot 4 joypad button / motion",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：配置卡片类 [GlobalClass] : Resource 且 28 个行为参数可编辑",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：策略接口 IMapGenerator 定义 Generate(field, seed, config)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：默认生成器实现接口并转交 Build(seed, config)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：默认配置卡片存在且被 Godot 挂上 MapGenConfig 脚本",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：配置卡片显式写入全部 28 个数值（所见即所得）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：卡片默认净空率 0.8 / 路径 2~3 / 粘液权重 0.01 与 GameDefs 一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：BlockField 读 config 而非写死 GameDefs 行为参数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：保留旧 Build(seed) 入口（探针/既有调用零改动）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：两个调用方走 IMapGenerator.Generate 且从卡片加载配置",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "地形系统：网格维度/坐标基准不接 config（仍在字段初始化用 GameDefs）",
       "ok": true,
       "detail": ""
     },

@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0004"
-EXPECTED_CS = 11
+EXPECTED_CS = 14
 checks = []
 
 
@@ -113,6 +113,43 @@ check("手柄映射：每个 action 的事件数（左/右/下 3 个，跳跃 2 
 check("手柄映射：事件类型为 Godot 4 joypad button / motion",
       pg.count("Object(InputEventJoypadButton") == 4
       and pg.count("Object(InputEventJoypadMotion") == 3)
+
+# ---------------------------------------------------------------- 地形类型系统（MAP-TYPE）
+cfg_cs = cs("gameplay/MapGenConfig.cs")
+igen_cs = cs("gameplay/IMapGenerator.cs")
+defgen_cs = cs("gameplay/DefaultMapGenerator.cs")
+field = cs("gameplay/BlockField.cs")
+check("地形系统：配置卡片类 [GlobalClass] : Resource 且 28 个行为参数可编辑",
+      "[GlobalClass]" in cfg_cs and "partial class MapGenConfig : Resource" in cfg_cs
+      and cfg_cs.count("[Export] public") >= 28)
+check("地形系统：策略接口 IMapGenerator 定义 Generate(field, seed, config)",
+      "interface IMapGenerator" in igen_cs and "void Generate" in igen_cs)
+check("地形系统：默认生成器实现接口并转交 Build(seed, config)",
+      "class DefaultMapGenerator : IMapGenerator" in defgen_cs
+      and "field.Build(seed, config)" in defgen_cs)
+check("地形系统：默认配置卡片存在且被 Godot 挂上 MapGenConfig 脚本",
+      (ROOT / "resources" / "maps" / "default.tres").exists()
+      and 'script_class="MapGenConfig"' in read(ROOT / "resources" / "maps" / "default.tres")
+      and "MapGenConfig.cs" in read(ROOT / "resources" / "maps" / "default.tres"))
+# 卡片必须显式承载数值（不是 Godot 省略默认值的空壳），且关键项 == GameDefs 口径
+_card = read(ROOT / "resources" / "maps" / "default.tres")
+check("地形系统：配置卡片显式写入全部 28 个数值（所见即所得）",
+      sum(1 for line in _card.splitlines() if "=" in line and not line.startswith("[") and "script" not in line) >= 28)
+check("地形系统：卡片默认净空率 0.8 / 路径 2~3 / 粘液权重 0.01 与 GameDefs 一致",
+      "BlockVerticalClearRatio = 0.8" in _card and "BackbonePathMin = 2" in _card
+      and "BackbonePathMax = 3" in _card and "BlockWeightSlime = 0.01" in _card)
+check("地形系统：BlockField 读 config 而非写死 GameDefs 行为参数",
+      "MapGenConfig _cfg" in field and "Build(int seedValue, MapGenConfig config)" in field
+      and field.count("_cfg.") >= 28)
+check("地形系统：保留旧 Build(seed) 入口（探针/既有调用零改动）",
+      "Build(int seedValue) => Build(seedValue" in field or "void Build(int seedValue)" in field)
+check("地形系统：两个调用方走 IMapGenerator.Generate 且从卡片加载配置",
+      "new DefaultMapGenerator()" in cs("core/GameRoot.cs")
+      and "new DefaultMapGenerator()" in cs("tools/WhiteboxRoot.cs")
+      and "GD.Load<MapGenConfig>(DefaultMapConfigPath)" in cs("core/GameRoot.cs"))
+check("地形系统：网格维度/坐标基准不接 config（仍在字段初始化用 GameDefs）",
+      "new BlockType[GameDefs.BlockRows, GameDefs.BlockCols]" in field
+      and "-GameDefs.WorldHalfWidth" in field)
 check("主角只有移动跳跃（Master 无 TakeDamage）",
       "TakeDamage" not in cs("gameplay/Master.cs"))
 
