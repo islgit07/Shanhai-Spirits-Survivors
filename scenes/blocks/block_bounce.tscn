@@ -17,7 +17,7 @@ scale = Vector2(0.03125, 0.03125)
 modulate = Color(0.95, 0.55, 0.35, 1)
 
 [node name="Touch" type="Area2D" parent="."]
-collision_mask = 1
+collision_mask = 12
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Touch"]
 position = Vector2(0, -0.55)

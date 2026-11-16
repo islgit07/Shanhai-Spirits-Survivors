@@ -36,6 +36,7 @@ public partial class SpiritFollowGroup : Node2D
     private readonly List<SpiritPet> _pets = new();
     private Master? _player;
     private IStandableGrid? _grid;   // 方块网格：给随从的 BFS 防卡死寻路用
+    private BlockField? _blocks;     // 同一网格的具体类型（冒烟查弹跳 / 粘液块位置用）
     private PackedScene? _petScene;
 
     /// <summary>当前场上的随从实体（顺序 = 槽位顺序）。</summary>
@@ -165,6 +166,67 @@ public partial class SpiritFollowGroup : Node2D
         await Frames(6);
         bool recallOk = far.GlobalPosition.DistanceTo(_player.GlobalPosition) < 4.0f;
 
+        // 10) 弹跳块对随从生效：从弹跳块上方落下，应被弹起 2 格以上
+        bool bounceFound = false, bounceOk = false;
+        float bounceRise = 0f;
+        float bouncePeakVy = 0f;
+        if (_blocks != null && _blocks.GetFirstBounce(out float bx, out float bTop))
+        {
+            bounceFound = true;
+            SpiritPet jumper = _pets[0];
+            foreach (SpiritPet p in _pets)
+                if (p != jumper) p.GetNodeOrNull<SpiritFollow>("Follow")?.Disable();
+
+            _player.GlobalPosition = new Vector2(bx - 2f, bTop - 1f);
+            _player.Velocity = Vector2.Zero;
+            // 贴得很近才放手：距离短，水平还没加速起来就碰到感应区，不会被带偏到块外
+            jumper.GlobalPosition = new Vector2(bx, bTop - 0.55f);
+            jumper.Velocity = Vector2.Zero;
+            // 放下就立即逐帧采样：弹跳发生在头两帧，晚开始会错过最高点、把弹起高度记小
+            float minY = jumper.GlobalPosition.Y;
+            float minVy = 0f;
+            for (int i = 0; i < 45; i++)
+            {
+                await Frames(1);
+                if (jumper.GlobalPosition.Y < minY) minY = jumper.GlobalPosition.Y;
+                if (jumper.Velocity.Y < minVy) minVy = jumper.Velocity.Y;
+            }
+            bounceRise = bTop - minY;
+            bouncePeakVy = minVy;
+            // 断言「弹射速度被应用」而不是「弹起多高」：上方有没有天花板由地图随机决定，
+            // 高度会因此变化，但 -22 的上抛速度一定说明弹跳块对随从生效了。
+            bounceOk = bouncePeakVy <= -GameDefs.BounceSpeed * 0.8f;
+        }
+
+        // 11) 粘液块对随从生效：站上去应判定为粘液地面，且水平速度被压低
+        bool slimeFound = false, slimeOk = false;
+        if (_blocks != null && _blocks.GetFirstSlime(out float sx, out float sTop))
+        {
+            slimeFound = true;
+            SpiritPet slimer = _pets[0];
+            SpiritFollow? slimeFollow = slimer.GetNodeOrNull<SpiritFollow>("Follow");
+            // 其它随从暂停跟随，避免把测试用的随从从粘液块上挤开
+            foreach (SpiritPet p in _pets)
+                if (p != slimer) p.GetNodeOrNull<SpiritFollow>("Follow")?.Disable();
+
+            slimer.GlobalPosition = new Vector2(sx, sTop - 0.44f);
+            slimer.Velocity = Vector2.Zero;
+            _player.GlobalPosition = new Vector2(sx + 6f, sTop - 1f);   // 玩家在 6 格外 → 随从全速追
+            _player.Velocity = Vector2.Zero;
+
+            // 逐帧采样：粘液块只有 1 格宽，随从很快会滑出去，只要「站在上面的某帧」速度受限即可
+            bool onSlime = false, slimeSlowed = false;
+            float slimeCap = GameDefs.SpiritFollowMaxSpeed * GameDefs.SlimeSpeedMul;
+            for (int i = 0; i < 12; i++)
+            {
+                await Frames(1);
+                if (slimeFollow?.IsOnSlime != true) continue;
+                onSlime = true;
+                if (Mathf.Abs(slimer.Velocity.X) <= slimeCap + 1.0f) slimeSlowed = true;
+            }
+            slimeOk = onSlime && slimeSlowed;
+        }
+
         // 6) 角色碰撞规则：随从 layer=Spirit、mask 含 Actor/Solid；
         //    主角只对 LayerSpiritTop（头顶平台）产生碰撞 —— 头上能踩、水平不被顶住。
         bool layersOk = _pets.All(p => p.CollisionLayer == GameDefs.LayerSpirit
@@ -191,6 +253,8 @@ public partial class SpiritFollowGroup : Node2D
             ["bfs_path_found"] = pathFound,
             ["stuck_recovery_by_bfs"] = stuckByPath,
             ["recall_when_lost"] = recallOk,
+            ["bounce_affects_spirit"] = !bounceFound || bounceOk,
+            ["slime_affects_spirit"] = !slimeFound || slimeOk,
             ["actor_layers"] = layersOk,
             ["has_collision_body"] = bodyOk,
         };
@@ -215,6 +279,10 @@ public partial class SpiritFollowGroup : Node2D
             ["stuck_ever_path"] = strandedFollow?.EverFoundPath ?? false,
             ["stranded_has_grid"] = strandedFollow?.HasGrid ?? false,
             ["stranded_seek_starts"] = strandedFollow?.SeekStarts ?? -1,
+            ["bounce_block_found"] = bounceFound,
+            ["bounce_rise"] = (float)Math.Round(bounceRise, 2),
+            ["bounce_peak_vy"] = (float)Math.Round(bouncePeakVy, 2),
+            ["slime_block_found"] = slimeFound,
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");
@@ -267,6 +335,7 @@ public partial class SpiritFollowGroup : Node2D
     {
         _player = player;
         _grid = grid;
+        _blocks = grid as BlockField;
     }
 
     /// <summary>按「本命 + 当局队伍」同步实体；幂等，可随时调用。</summary>

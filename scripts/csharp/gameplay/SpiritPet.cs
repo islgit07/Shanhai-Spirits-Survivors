@@ -12,8 +12,22 @@ namespace ShanhaiSpiritsSurvivors;
 /// · 碰撞体尺寸固定，Sprite 缩放只影响视觉——两者解耦，换成任意比例的美术都不会改变角色占位。
 /// </summary>
 [GlobalClass]
-public partial class SpiritPet : CharacterBody2D
+public partial class SpiritPet : CharacterBody2D, IBounceable
 {
+    private bool _bounceRequested;
+
+    /// <summary>弹跳块触发：只置标志，真正的上抛由 SpiritFollow 在 MoveAndSlide 之后应用
+    /// （先应用会被贴地分支当帧清零 Y，与主角的处理方式一致）。</summary>
+    public void Bounce() => _bounceRequested = true;
+
+    /// <summary>取走并清除本次弹跳请求。</summary>
+    public bool ConsumeBounce()
+    {
+        bool pending = _bounceRequested;
+        _bounceRequested = false;
+        return pending;
+    }
+
     /// <summary>占位贴图在场景里引用的路径（供静态自检 / 冒烟核对「确实来自 pet.png」）。</summary>
     public const string PetArtPath = "res://assets/art/pet.png";
 

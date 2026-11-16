@@ -1206,3 +1206,47 @@ catch_up_when_far / recall_when_lost / actor_layers / has_collision_body` 全 tr
 ### 26.5 范围边界
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
 未实现：战斗、敌人、随从攻击、技能、掉落、随从属性成长（`SetMoveStats` 已预留入口，等养成系统接）。
+
+## 27. 弹跳 / 粘液方块对所有角色生效（2026-11-16，v0.0005）
+
+### 27.1 需求
+「弹跳方块、粘液方块这些，对所有的人、怪物、随从都是有效的」。
+
+### 27.2 原状与改动
+| 问题 | 原状 | 改法 |
+|---|---|---|
+| 弹跳块只认玩家 | `BlockField.OnTouched` 先 `!body.IsInGroup("master")` 直接 return；感应区 `mask=1` | 改为「角色」判定：`master / spirit / enemy` 三组；`block_bounce.tscn` 的 Touch `mask` 1 → **12**（`LayerActor \| LayerSpirit`） |
+| 随从不会弹 | 随从没实现 `IBounceable` | `SpiritPet` 实现 `IBounceable`（`Bounce()` 只置标志 + `ConsumeBounce()`），`SpiritFollow` 在 `MoveAndSlide` 之后应用上抛 |
+| 弹射被贴地清零 | —— | 新增 `_launchGrace`（0.2 秒离地宽限）：只保护一帧不够，首帧只离开约 0.37 格，第二帧仍在接触范围内会把 Y 清零 |
+| 粘液只对玩家减速 | 减速写在主角的 `PlatformMover.Step` 里 | `SpiritFollow.UpdateFloorContact` 检测脚下 `slime_block` 组；踩上后水平上限 × `SlimeSpeedMul`，且三种跳跃（跨层 / 让路 / 自救）全部禁用 |
+| 怪物（未来） | —— | `GameDefs` 新增 `MasterGroup` / `EnemyGroup` 常量；怪物只要加入 `EnemyGroup` 并实现 `IBounceable`，弹跳与粘液自动生效，方块代码不用改 |
+
+**保持不变的边界**：脆弱木板与宝箱仍只给玩家（随从踩碎木板会让 AI 掉坑，宝箱属于玩家收益）。
+
+### 27.3 改动文件
+| 文件 | 改动 |
+|---|---|
+| `scripts/csharp/core/GameDefs.cs` | 新增 `MasterGroup` / `EnemyGroup` 组名常量 |
+| `scripts/csharp/gameplay/BlockField.cs` | `OnTouched` 改为角色组判定；脆弱 / 宝箱限玩家，弹跳放开给所有角色 |
+| `scenes/blocks/block_bounce.tscn` | Touch Area2D `collision_mask` 1 → 12 |
+| `scripts/csharp/gameplay/SpiritPet.cs` | 实现 `IBounceable` + `ConsumeBounce` |
+| `scripts/csharp/gameplay/SpiritFollow.cs` | 弹射消费与 `_launchGrace`；粘液减速与禁跳；`IsOnSlime` 证据 |
+| `scripts/csharp/gameplay/SpiritFollowGroup.cs` | 冒烟新增 `bounce_affects_spirit` / `slime_affects_spirit` 与诊断字段 |
+| `tools/check_project.py` | 新增 2 项方块效果检查；冒烟断言 13 → 15 项 |
+
+### 27.4 验证（全部实跑）
+| # | 验证 | 结果 |
+|---|---|---|
+| 1 | `dotnet build` | 0 警告 0 错误 |
+| 2 | `tools/check_project.py` | **171/171 PASS** |
+| 3 | `--follow-smoke` 连跑 6 次 | 全 **PASS**：`bounce_peak_vy=-22`（弹射速度已应用）、`slime_affects_spirit=true`（站上粘液且速度被压低） |
+| 4 | `Main --smoke` | **PASS**，主角侧 `bounce_jelly_ok` / `slime_slow_ok` / `slime_no_jump_ok` / `slime_snap_ok`、`slime_hop_rise=0.376` 全部不变 |
+| 5 | 整链 `--smoke` / `--pause-smoke` / `--offer-smoke` | 均 PASS |
+
+测试口径说明：弹跳断言用「上抛速度是否到 -22」，而不是「弹起多高」——弹跳块上方有没有天花板由随机地图决定，
+高度会在 1.7~5.7 格之间变化，但速度 -22 一定能证明弹跳对随从生效。粘液用逐帧采样（块只有 1 格宽，
+随从很快滑出去），只要「站在上面的某一帧」速度受限即通过。
+
+### 27.5 范围边界
+版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
+未实现：战斗、敌人、随从攻击、技能、掉落。怪物系统本身还没做，只预留了 `EnemyGroup` 入口。

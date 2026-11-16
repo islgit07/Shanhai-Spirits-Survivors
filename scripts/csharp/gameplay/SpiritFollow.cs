@@ -30,6 +30,9 @@ public partial class SpiritFollow : Node
     private float _stuckTime;
     private float _dropTimer;
     private bool _onOneWayFloor;
+    private bool _onSlimeFloor;          // 脚下是否粘液块（MAP-009：对所有角色生效）
+    private float _launchGrace;          // 被弹跳块弹射后的离地宽限（秒）：期间不按贴地处理，避免 Y 被清零
+    private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
     // 让路系统状态（2026-11-16 优化）：朝向 / 滞回 / 让路跳跃冷却
     private float _lastDirX = 1f;        // 主角最近一次有效移动方向（+1 右 / -1 左）
     private float _facingX = 1f;         // 落点镜像基准：落点整体放到主角「身后」
@@ -68,6 +71,9 @@ public partial class SpiritFollow : Node
 
     /// <summary>是否已拿到方块网格（冒烟诊断）。</summary>
     public bool HasGrid => _grid != null;
+
+    /// <summary>脚下是否粘液块（冒烟核对「粘液对随从也生效」）。</summary>
+    public bool IsOnSlime => _onSlimeFloor;
 
     /// <summary>进入寻路模式的次数（冒烟诊断）。</summary>
     public int SeekStarts { get; private set; }
@@ -322,7 +328,10 @@ public partial class SpiritFollow : Node
         float dy = wish.Y - pos.Y;
         LastDistance = (wish - pos).Length();
 
-        bool onFloor = _pet.IsOnFloor();
+        // 弹跳块：弹射后的离地宽限期内，即便 IsOnFloor 仍为 true 也按空中处理。
+        // 只保护一帧不够——弹射首帧只离开约 0.37 格，胶囊仍在方块接触范围内，第二帧会把 Y 清零。
+        _launchGrace = Mathf.Max(0f, _launchGrace - dt);
+        bool onFloor = _pet.IsOnFloor() && _launchGrace <= 0f;
         _jumpCooldown = Mathf.Max(0f, _jumpCooldown - dt);
         _dropTimer = Mathf.Max(0f, _dropTimer - dt);
         _yieldJumpCooldown = Mathf.Max(0f, _yieldJumpCooldown - dt);
@@ -338,6 +347,8 @@ public partial class SpiritFollow : Node
             ? GameDefs.SpiritFollowMaxSpeed
             : Mathf.Clamp(GameDefs.SpiritFollowBaseSpeed + Mathf.Abs(dx) * GameDefs.SpiritFollowCatchUp,
                           GameDefs.SpiritFollowBaseSpeed, GameDefs.SpiritFollowMaxSpeed);
+        // MAP-009 粘液块：对所有角色生效 —— 随从踩上去同样降速（连让路满速也一起被压）。
+        if (_onSlimeFloor) cap *= GameDefs.SlimeSpeedMul;
         float targetVx = Mathf.Abs(dx) > GameDefs.SpiritFollowStopRadius ? Mathf.Sign(dx) * cap : 0f;
         float accel = onFloor ? GameDefs.SpiritFollowAccelGround : GameDefs.SpiritFollowAccelAir;
         float vx = Mathf.MoveToward(_pet.Velocity.X, targetVx, accel * dt);
@@ -360,7 +371,7 @@ public partial class SpiritFollow : Node
         bool wantUp = seeking
             ? dy < -0.60f
             : playerDy < -GameDefs.SpiritJumpUpThreshold;
-        if (onFloor && wantUp && Mathf.Abs(dx) < 2.4f && _jumpCooldown <= 0f)
+        if (onFloor && !_onSlimeFloor && wantUp && Mathf.Abs(dx) < 2.4f && _jumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed;
             _jumpCooldown = GameDefs.SpiritFollowJumpCooldown;
@@ -369,7 +380,7 @@ public partial class SpiritFollow : Node
 
         // ---- 让路且贴得近：直接跳过去（从主角身体上方越过，比在脚下横向硬挤快得多）。
         // 只在主角真的在移动时跳——玩家停下后继续让路跳会变成原地弹跳。
-        if (yielding && playerMoving && onFloor && ahead < 0.95f && _yieldJumpCooldown <= 0f)
+        if (yielding && playerMoving && onFloor && !_onSlimeFloor && ahead < 0.95f && _yieldJumpCooldown <= 0f)
         {
             vy = -GameDefs.SpiritFollowJumpSpeed * 0.85f;
             _yieldJumpCooldown = GameDefs.SpiritYieldJumpCooldown;
@@ -378,7 +389,7 @@ public partial class SpiritFollow : Node
 
         // ---- 卡住自救：想走却走不动（台沿 / 拐角）→ 跳一下。
         // 只在距离还远时触发，并拉长冷却：归位途中的微小卡顿不值得连跳。
-        if (onFloor && Mathf.Abs(dx) > 1.0f && Mathf.Abs(vx) < 0.6f)
+        if (onFloor && !_onSlimeFloor && Mathf.Abs(dx) > 1.0f && Mathf.Abs(vx) < 0.6f)
         {
             _stuckTime += dt;
             if (_stuckTime > GameDefs.SpiritFollowStuckTime && _stuckJumpCooldown <= 0f)
@@ -399,6 +410,13 @@ public partial class SpiritFollow : Node
         _pet.Velocity = new Vector2(vx, vy);
         _pet.MoveAndSlide();
         UpdateFloorContact();
+
+        // 弹跳块：MoveAndSlide 之后才应用上抛（否则会被贴地分支清零），下一帧按空中处理。
+        if (_pet.ConsumeBounce())
+        {
+            _pet.Velocity = new Vector2(_pet.Velocity.X, -GameDefs.BounceSpeed);
+            _launchGrace = 0.20f;
+        }
 
         // ---- 硬分离：与主角 AABB 重叠就沿水平轴推出（物理兜底，保证永不同位）
         SeparateFrom(playerPos);
@@ -496,9 +514,10 @@ public partial class SpiritFollow : Node
         if (!_pet.IsOnFloor())
         {
             _onOneWayFloor = false;
+            _onSlimeFloor = false;
             return;
         }
-        bool found = false, oneWay = false;
+        bool found = false, oneWay = false, slime = false;
         for (int i = 0; i < _pet.GetSlideCollisionCount(); i++)
         {
             var ci = _pet.GetSlideCollision(i);
@@ -507,8 +526,11 @@ public partial class SpiritFollow : Node
             {
                 found = true;
                 if ((pb.CollisionLayer & GameDefs.LayerOneWay) != 0u) oneWay = true;
+                if (pb.IsInGroup(SlimeGroup)) slime = true;
             }
         }
-        if (found) _onOneWayFloor = oneWay;
+        if (!found) return;
+        _onOneWayFloor = oneWay;
+        _onSlimeFloor = slime;
     }
 }

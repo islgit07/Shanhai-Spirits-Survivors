@@ -505,6 +505,17 @@ check("随从跟随：BFS 防卡死寻路（可站立网格 + 能力档案参数
       and "public bool IsStandableCell" in block_cs and "StandPoint" in block_cs
       and "SetNavProfile" in follow_cs and "SetMoveStats" in follow_cs
       and "SpiritNavProfile.FromStats" in follow_cs)
+bounce_scene = read(ROOT / "scenes" / "blocks" / "block_bounce.tscn")
+check("方块效果对所有角色生效：弹跳块识别玩家/随从/怪物组，随从实现 IBounceable",
+      "collision_mask = 12" in bounce_scene
+      and "GameDefs.MasterGroup" in block_cs and "GameDefs.SpiritGroup" in block_cs
+      and "GameDefs.EnemyGroup" in block_cs
+      and "IBounceable" in pet_cs and "ConsumeBounce" in pet_cs
+      and "ConsumeBounce" in follow_cs and "BounceSpeed" in follow_cs
+      and "_launchGrace" in follow_cs)
+check("方块效果对所有角色生效：随从踩粘液同样减速且不能起跳",
+      "SlimeSpeedMul" in follow_cs and "_onSlimeFloor" in follow_cs
+      and "IsInGroup(SlimeGroup)" in follow_cs and "IsOnSlime" in follow_cs)
 check("随从跟随：卡死触发条件与兜底（远离 6 格持续 2.5s → BFS；5s 回不去 → 瞬移）",
       "SpiritFindPathDist" in follow_defs and "SpiritFindPathDelay" in follow_defs
       and "SpiritSeekTimeout" in follow_defs and "SpiritRepathInterval" in follow_defs
@@ -572,6 +583,7 @@ check("随从跟随：--follow-smoke 十三项断言（数量/收敛/不重叠/�
                                       "catch_up_when_far", "yield_no_block", "ride_on_head",
                                       "idle_no_hopping", "spirit_no_overlap", "bfs_path_found",
                                       "stuck_recovery_by_bfs", "recall_when_lost",
+                                      "bounce_affects_spirit", "slime_affects_spirit",
                                       "actor_layers", "has_collision_body")))
 check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))

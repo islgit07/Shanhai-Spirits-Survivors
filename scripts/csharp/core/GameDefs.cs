@@ -85,6 +85,10 @@ public static class GameDefs
     public const int SpiritNavMaxDrop = 6;                // BFS 允许的最大下落行数
     public const float SpiritBobHeight = 0.07f;           // 视觉呼吸幅度（只动 Sprite，不动物理体）
     public const string SpiritGroup = "spirit";          // 随从节点组（冒烟 / 查询用）
+    // 角色组名：方块效果（弹跳 / 粘液）按组识别「谁算角色」。
+    // 怪物以后只要加入 EnemyGroup，就自动吃弹跳与粘液，不用改方块代码。
+    public const string MasterGroup = "master";
+    public const string EnemyGroup = "enemy";
 
     // ---------------------------------------------------------------- 方块地图
     // 1×1 世界单位方块网格：列 = 世界 x（-24..+24）；行从 GroundY 向上逐格（row 0 = 地面层）。

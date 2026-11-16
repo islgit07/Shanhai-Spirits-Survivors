@@ -829,17 +829,28 @@ public partial class BlockField : Node2D, IStandableGrid
     /// </summary>
     private void OnTouched(int r, int c, Node body)
     {
-        if (!_alive[r, c] || !body.IsInGroup("master")) return;
+        if (!_alive[r, c]) return;
+
+        // 「角色」= 玩家 / 随从 / 未来怪物。弹跳块对三者都有效；
+        // 脆弱木板与宝箱仍只给玩家（随从踩碎木板会让 AI 掉坑，宝箱属于玩家收益）。
+        bool isMaster = body.IsInGroup(GameDefs.MasterGroup);
+        bool isActor = isMaster
+                       || body.IsInGroup(GameDefs.SpiritGroup)
+                       || body.IsInGroup(GameDefs.EnemyGroup);
+
         switch (_type[r, c])
         {
             case BlockType.Fragile:
+                if (!isMaster) break;
                 StartFragileBlink(r, c);
                 break;
             case BlockType.Bounce:
+                if (!isActor) break;
                 Jelly(r, c);
                 (body as IBounceable)?.Bounce();
                 break;
             case BlockType.Treasure:
+                if (!isMaster) break;
                 OpenTreasure(r, c);
                 break;
         }
