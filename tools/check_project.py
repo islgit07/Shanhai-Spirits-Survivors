@@ -46,8 +46,13 @@ check(f"config/version = {VERSION}", f'config/version="{VERSION}"' in pg)
 csproj_text = read(ROOT / "ShanhaiSpiritsSurvivors.csproj")
 check("ShanhaiSpiritsSurvivors.csproj 存在", (ROOT / "ShanhaiSpiritsSurvivors.csproj").exists())
 check("使用 Godot.NET.Sdk/4.7.2", "Godot.NET.Sdk/4.7.2" in csproj_text)
-check("目标框架 net8.0", "<TargetFramework>net8.0</TargetFramework>" in csproj_text)
+check("目标框架 net9.0", "<TargetFramework>net9.0</TargetFramework>" in csproj_text)
 check("C# 运行时探针存在", (ROOT / "tools" / "CSharpToolchainProbe.cs").exists())
+sln_path = ROOT / "ShanhaiSpiritsSurvivors.sln"
+sln_text = read(sln_path) if sln_path.exists() else ""
+check(".NET 导出必需 .sln 且含 ExportDebug/ExportRelease 配置",
+      sln_path.exists() and "ExportDebug|Any CPU" in sln_text
+      and "ExportRelease|Any CPU" in sln_text)
 
 # ---------------------------------------------------------------- 3. 脚本与 UID
 cs_files = sorted((ROOT / "scripts").rglob("*.cs"))

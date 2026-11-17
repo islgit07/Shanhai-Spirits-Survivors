@@ -1,7 +1,7 @@
 # 2026-11-15 验证记录（交接整改）
 
 范围：统一英文名、键鼠映射精简、开始页适配、白箱零 PNG、版本口径补齐。**玩法未改动**。
-引擎：Godot 4.7.2.stable.mono / C# net8.0 / 程序集 `ShanhaiSpiritsSurvivors`。
+引擎：Godot 4.7.2.stable.mono / C# `net9.0`（§28 起；§1–27 验证时为 `net8.0`）/ 程序集 `ShanhaiSpiritsSurvivors`。
 
 ## 1. 验证结果（全部实跑，非纸面）
 
@@ -1250,3 +1250,61 @@ catch_up_when_far / recall_when_lost / actor_layers / has_collision_body` 全 tr
 ### 27.5 范围边界
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
 未实现：战斗、敌人、随从攻击、技能、掉落。怪物系统本身还没做，只预留了 `EnemyGroup` 入口。
+
+---
+
+## 28. 目标框架升 `net9.0`（2026-11-17）
+
+### 28.1 改动
+
+| 文件 | 改动 |
+|---|---|
+| `ShanhaiSpiritsSurvivors.csproj` | `TargetFramework`：`net8.0` → `net9.0` |
+| `ShanhaiSpiritsSurvivors.sln` | **新增**（原来没有）；配置为 `Debug` / `ExportDebug` / `ExportRelease` 三套 |
+| `tools/check_project.py` | 断言改 `net9.0`；新增「`.sln` 存在且含 `ExportDebug`/`ExportRelease`」一条 |
+| `docs/overview-v0.003.md` | 基线表语言行改 `net9.0`；新增「构建/导出」行 |
+
+### 28.2 为什么必须补 .sln（本次真正的坑）
+
+第一次导出时 Godot 报：
+
+```
+ERROR: Export .NET Project: This project contains C# files but no solution file
+       was found at the following path: D:/GameProjects/山海幻灵/ShanhaiSpiritsSurvivors.sln
+ERROR: System.InvalidOperationException: res://scripts/csharp/core/GameDefs.cs
+       is a C# file but no solution file exists.
+```
+
+后果是**导出的 exe 里没有程序集**：只有 103MB 模板 + 一张 pck，`dotnet publish` 根本没跑，双击必崩。
+工程从回退那轮起就只有 `.csproj` 没有 `.sln`（CLI 建工程留下），平时 `dotnet build` 直接编 csproj 看不出来。
+
+补上 `.sln` 后 `dotnet_publish_project` 才真正执行。注意 `.sln` 的配置段必须是 Godot 期望的
+`Debug` / `ExportDebug` / `ExportRelease`——`dotnet new sln` 默认生成的 `Debug|Release` 配置不够用。
+
+### 28.3 运行时口径
+
+- 本机只装 .NET **10** 的 SDK 与运行时（无 8、无 9）。编辑器内运行 net9 程序集走 Godot 的 roll-forward，
+  实测正常（导入 0 ERROR、各冒烟全 PASS）。
+- 导出是 **self-contained**：产物 `data_ShanhaiSpiritsSurvivors_windows_x86_64/` 里
+  `runtimeconfig.json` 写 `includedFrameworks: 9.0.21`，189 个文件含 coreclr。
+  **目标机不需要另外装 .NET**，这正是本轮升版想要的效果。
+
+### 28.4 验证（全部实跑）
+
+| # | 命令 | 结果 |
+|---|---|---|
+| 1 | `dotnet build`（Debug 与 `-c ExportRelease` 各一次） | 均 **0 警告 0 错误** |
+| 2 | `tools/check_project.py` | **172/172 PASS** |
+| 3 | 编辑器导入 `--editor --quit` | **0 ERROR / 0 SCRIPT ERROR** |
+| 4 | `Main --smoke` | **PASS**（`player_moved=true`、`follow_entity_ok=true`） |
+| 5 | 整链 `--smoke` / `--pause-smoke` / `--offer-smoke` | 均 **PASS** |
+| 6 | `--follow-smoke` 连跑 2 次 | 均 **PASS**：`idle_jumps=0`、`min_pet_distance=0.64 / 0.652`、`stuck_final_dist=1.68 / 1.09` |
+| 7 | 真导出（临时预设 `TempNet9Check`，验后删除） | `dotnet_publish_project` **DONE**，产物自带 9.0.21 |
+| 8 | 运行导出的 `Shanhai.console.exe --headless --smoke` | **PASS**（`result=PASS`、`player_moved`、`follow_entity_ok`） |
+
+第 7、8 条是这轮唯一能证明「导出真的能用」的证据——单看 `dotnet build` 通过是发现不了缺 `.sln` 的。
+
+### 28.5 范围边界
+
+版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
+临时 `export_presets.cfg` 与导出产物在验证后已删除，未留在仓库内。

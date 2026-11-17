@@ -54,12 +54,17 @@
       "detail": ""
     },
     {
-      "name": "目标框架 net8.0",
+      "name": "目标框架 net9.0",
       "ok": true,
       "detail": ""
     },
     {
       "name": "C# 运行时探针存在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".NET 导出必需 .sln 且含 ExportDebug/ExportRelease 配置",
       "ok": true,
       "detail": ""
     },

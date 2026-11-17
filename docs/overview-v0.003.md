@@ -18,11 +18,12 @@
 | 维度 | 现状 |
 |---|---|
 | 引擎 | Godot 4.7.2-stable_mono_win64，`gl_compatibility`，1280×720 / `canvas_items` / `expand` |
-| 语言 | 全量 C#，`net8.0`，`Godot.NET.Sdk/4.7.2`，程序集与 namespace `ShanhaiSpiritsSurvivors` |
+| 语言 | 全量 C#，`net9.0`，`Godot.NET.Sdk/4.7.2`，程序集与 namespace `ShanhaiSpiritsSurvivors` |
 | 版本 | `0.0005`（2026-11-16 由 `0.0004` 升版；`project.godot` / README / 静态自检 / 启动日志一致），附注 tag `v0.0005`；本次更新内容：**加入随从系统** |
 | 规模 | 13 个 `.cs`（`scripts/csharp/` 11 个 + `tools/` 2 个探针）约 3.1k 行；13 个 `.tscn`；零 GDScript、零 autoload、零第三方插件 |
 | 主场景 | `res://scenes/StartPage.tscn`；游戏 `res://scenes/Main.tscn`；白箱 `res://scenes/Whitebox.tscn` |
 | 架构 | **无静态状态类、无事件总线**：`Signals` / `Run` / `Meta` 均已随回退拆除；节点间靠 `+=` 信号与直接方法调用 |
+| 构建/导出 | 构建 `dotnet build ShanhaiSpiritsSurvivors.sln`；**导出必须有 `.sln`**（含 `ExportDebug` / `ExportRelease` 配置），否则 C# 程序集不会被编译打包，导出的 exe 只是空壳；导出自包含，产物 `data_*/` 自带 .NET 9 运行时（`includedFrameworks` 9.0.21） |
 
 ## 2. 脚本清单与职责
 
