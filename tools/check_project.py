@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0005 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0006 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0005"
+VERSION = "0.0006"
 EXPECTED_CS = 30
 checks = []
 
@@ -41,6 +41,19 @@ check("Main.tscn 挂 GameRoot.cs", "res://scripts/csharp/core/GameRoot.cs" in re
 check("StartPage.tscn 挂 StartPage.cs", "res://scripts/csharp/ui/StartPage.cs" in read(ROOT / "scenes" / "StartPage.tscn"))
 check("2D 渲染 gl_compatibility", 'renderer/rendering_method="gl_compatibility"' in pg)
 check(f"config/version = {VERSION}", f'config/version="{VERSION}"' in pg)
+
+# ------------------------------------------------------- 1.1 版本口径（升版须知见 docs/versioning.md）
+root_cs = read(ROOT / "scripts" / "csharp" / "core" / "GameRoot.cs")
+check("冒烟报告版本号读 ProjectSettings（硬编码会漏改，升版必有坑）",
+      'application/config/version' in root_cs and '["version"] = "0.' not in root_cs)
+overview_text = read(ROOT / "docs" / "overview-v0.003.md")
+check(f"overview 现行版本与脚本一致（现行 {VERSION}）",
+      f"现行 {VERSION}" in overview_text and f"`{VERSION}`" in overview_text)
+versioning_text = read(ROOT / "docs" / "versioning.md")
+check("升版流程文档 docs/versioning.md 存在且列全各处口径",
+      all(k in versioning_text for k in ("project.godot", "check_project.py", "README.md",
+                                         "overview-v0.003.md", "verification-2026-11-15.md",
+                                         "self-check.json", "tag")))
 
 # ---------------------------------------------------------------- 2. C# 工具链
 csproj_text = read(ROOT / "ShanhaiSpiritsSurvivors.csproj")

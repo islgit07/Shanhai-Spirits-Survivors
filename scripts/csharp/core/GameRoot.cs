@@ -581,7 +581,7 @@ public partial class GameRoot : Node2D
 		var report = new Dictionary<string, object>
 		{
 			["project"] = "山海幻灵",
-			["version"] = "0.0005",
+			["version"] = ProjectSettings.GetSetting("application/config/version", "dev").AsString(),
 			["mode"] = "headless-smoke",
 			["result"] = ok ? "PASS" : "FAIL",
 			["platforms"] = PlatformCount,

@@ -1369,3 +1369,43 @@ godot --headless --path <项目> --export-release "Windows Desktop"
 release 导出要跑 `dotnet publish` 自包含发布（约数分钟），别用短超时掐断。
 
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
+
+---
+
+## 30. 版本升 `0.0006` + 升版流程文档化（2026-11-17）
+
+用户开口升版，说明写作「优化代码，改写为 net9」，并要求把升版流程写成文档供以后的 AI 遵循。
+
+### 30.1 同步的口径
+
+| 位置 | 改动 |
+|---|---|
+| `project.godot` | `config/version` `0.0005` → `0.0006` |
+| `tools/check_project.py` | `VERSION` 与文件头 docstring → `0.0006` |
+| `README.md` | `Current` / `Updates` → `v0.0006`（说明照用户原话） |
+| `docs/overview-v0.003.md` | 标题「现行 0.0006」+ 版本行（升版日期 / tag / 更新内容 / 指向流程文档） |
+| `docs/self-check.json` | 脚本重新生成 |
+| `docs/versioning.md` | **新增**：升版必须同步的 7 处、标准动作顺序、纪律、自检兜底 |
+
+历史小节（§16–§29）里的 `0.0005` 属当时记录，**未回改**。
+
+### 30.2 顺手修掉的漂移点
+
+`GameRoot.cs` 的冒烟报告里 `["version"] = "0.0005"` 是**写死的字面量**——升版时只要忘了它，
+冒烟证据就会继续打印旧版本号，属于典型的「证据骗人」。已改为读
+`ProjectSettings.GetSetting("application/config/version")`，以后升版不用再碰它。
+
+### 30.3 自检新增 3 条（177 → 180）
+
+1. 冒烟报告版本号读 `ProjectSettings`，禁止硬编码（正则禁 `["version"] = "0.`）
+2. `overview` 的现行版本与脚本 `VERSION` 一致
+3. `docs/versioning.md` 存在且列全各处口径
+
+### 30.4 验证
+
+编译 **0 警告 0 错误**；自检 **180/180 PASS**；
+`Main --smoke` 与整链 `--smoke` 均 **PASS**，两边输出 `"version": "0.0006"`（旧值已不再出现）。
+
+### 30.5 发布
+
+提交后打附注 tag `v0.0006`（说明「优化代码，改写为 net9」），代码与 tag 一并推送远程。

@@ -9,9 +9,9 @@
 
 ## 版本
 
-Current: `v0.0005`
+Current: `v0.0006`
 
-Updates: `v0.0005` — 加入了宠物系统
+Updates: `v0.0006` — 优化代码，改写为 net9
 
 ## 协议
 

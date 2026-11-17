@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0005",
+  "version": "0.0006",
   "result": "PASS",
   "checks": [
     {
@@ -39,7 +39,22 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0005",
+      "name": "config/version = 0.0006",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "冒烟报告版本号读 ProjectSettings（硬编码会漏改，升版必有坑）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "overview 现行版本与脚本一致（现行 0.0006）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "升版流程文档 docs/versioning.md 存在且列全各处口径",
       "ok": true,
       "detail": ""
     },

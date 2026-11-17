@@ -1,4 +1,4 @@
-# 山海幻灵 · 项目现状全景（0.0003 回退后基线 · 现行 0.0005）
+# 山海幻灵 · 项目现状全景（0.0003 回退后基线 · 现行 0.0006）
 
 > 复核日期 2026-11-15　｜　依据：`b33c71b` 之后仓库实际代码，逐文件核对。
 > **文件名沿用历史命名 `overview-v0.003.md`，但内容已按回退提交 `e815b5c` 之后的真实基线整体重写。**
@@ -19,7 +19,7 @@
 |---|---|
 | 引擎 | Godot 4.7.2-stable_mono_win64，`gl_compatibility`，1280×720 / `canvas_items` / `expand` |
 | 语言 | 全量 C#，`net9.0`，`Godot.NET.Sdk/4.7.2`，程序集与 namespace `ShanhaiSpiritsSurvivors` |
-| 版本 | `0.0005`（2026-11-16 由 `0.0004` 升版；`project.godot` / README / 静态自检 / 启动日志一致），附注 tag `v0.0005`；本次更新内容：**加入随从系统** |
+| 版本 | `0.0006`（2026-11-17 由 `0.0005` 升版；`project.godot` / README / 静态自检 / 启动日志一致），附注 tag `v0.0006`；本次更新内容：**优化代码，改写为 net9**。升版流程见 `docs/versioning.md` |
 | 规模 | 13 个 `.cs`（`scripts/csharp/` 11 个 + `tools/` 2 个探针）约 3.1k 行；13 个 `.tscn`；零 GDScript、零 autoload、零第三方插件 |
 | 主场景 | `res://scenes/StartPage.tscn`；游戏 `res://scenes/Main.tscn`；白箱 `res://scenes/Whitebox.tscn` |
 | 架构 | **无静态状态类、无事件总线**：`Signals` / `Run` / `Meta` 均已随回退拆除；节点间靠 `+=` 信号与直接方法调用 |
