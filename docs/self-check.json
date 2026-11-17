@@ -69,6 +69,31 @@
       "detail": ""
     },
     {
+      "name": "导出预设 export_presets.cfg 入库（Windows Desktop，产物落 ./export/）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "导出预设：pck 内嵌 + 只启 OpenGL3（对齐 gl_compatibility 渲染器）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "导出预设产品名 / 描述与 project.godot 一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": ".gitignore 排除 .godot/ 与 export/（缓存与产物不入库）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "运行期不写 res://（导出构建下 res:// 只读，可写数据必须走 user://）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "C# 脚本数量 = 30",
       "ok": true,
       "detail": "30 个"

@@ -1308,3 +1308,64 @@ ERROR: System.InvalidOperationException: res://scripts/csharp/core/GameDefs.cs
 
 版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。
 临时 `export_presets.cfg` 与导出产物在验证后已删除，未留在仓库内。
+
+---
+
+## 29. 套用导出模板 + 代码层导出就绪（2026-11-17）
+
+### 29.1 模板来源
+
+参考 `D:/GameProjects/SnakeSchool/export_presets.cfg`（同引擎 4.7.2、同目标框架 net9.0，
+且该预设是提交进库的）。逐字段比对后按本项目适配，落地为仓库内的 `export_presets.cfg`。
+
+### 29.2 与模板的差异（只改必要项）
+
+| 字段 | SnakeSchool | 山海幻灵 | 原因 |
+|---|---|---|---|
+| `export_path` | `./export/SnakeSchool.exe` | `./export/ShanhaiSpiritsSurvivors.exe` | 产物命名 |
+| `application/product_name` | 贪吃蛇减肥 | 山海幻灵 | 与 `project.godot` 的 `config/name` 对齐 |
+| `application/file_description` | 反向贪吃蛇：催吐减肥 | 山海谷的幻灵师 | 与 `config/description` 对齐 |
+| `application/icon` | `uid://...`（其工程图标） | `""`（用引擎默认） | 本项目还没做图标；留空不阻塞导出 |
+| Android 预设 | 有 | **不带** | 本项目目前只做桌面；要用时按同一份模板补 `[preset.1]` |
+
+其余保留模板值：`embed_pck=true`（单 exe，无外挂 pck）、`export_console_wrapper=1`、
+`export_opengl3=1` 且 vulkan/d3d12/d3d11 全 0（对齐 `gl_compatibility`）、
+`dotnet/include_scripts_content=false`、`dotnet/embed_build_outputs=false`。
+
+### 29.3 代码层导出就绪审计（本轮重点）
+
+| 检查项 | 结论 |
+|---|---|
+| 编辑器专用 API（`EditorInterface` / `IsEditorHint` / `#if TOOLS`） | **0 处**，导出构建不会缺类 |
+| 写 `res://` | **0 处**；存档/截图/调参全走 `user://`（`SaveGame`、`GameRoot` 截图、`WhiteboxRoot`） |
+| 运行时枚举 `res://` 目录 | `SpiritCatalog` / `UpgradeCatalog` 已 `TrimSuffix(".remap")`——导出后 `.tres` 转 `.res` 并留 `.remap`，这两处原本就会跟 |
+| 贴图加载 | `ArtBank` 走 `ResourceLoader.Exists` + `GD.Load`，不读原始文件路径，导出可用 |
+| `#if DEBUG` 分支 | 0 处，不存在「编辑器能跑、导出跑另一条代码」的隐患 |
+
+### 29.4 自检新增 5 条（172 → 177）
+
+1. 导出预设入库且平台为 Windows Desktop、产物落 `./export/`
+2. pck 内嵌 + 只启 OpenGL3（渲染器与预设不匹配是导出黑屏常见原因）
+3. 预设产品名 / 描述与 `project.godot` 一致（防改名漏改一处）
+4. `.gitignore` 排除 `.godot/` 与 `export/`
+5. 运行期不写 `res://`（正则守卫 `FileAccess.Write` / `SavePng` / `DirAccess` 写模式）
+
+第 5 条做过有效性验证：喂违规样例能被挡、喂合法样例（`user://` 写、`res://` 只读枚举）不误伤。
+
+### 29.5 验证
+
+`tools/check_project.py` → **177/177 PASS**；编辑器加载该预设 `--editor --quit` → **0 ERROR**。
+
+### 29.6 范围边界
+
+用户明确要求本轮**先不导出、只做代码/配置层面的导出就绪**，所以没有跑端到端导出。
+导出链路本身已在 §28 用临时预设验证过（含运行导出的 exe 冒烟 PASS），换成本预设后
+需要时执行一次即可：
+
+```
+godot --headless --path <项目> --export-release "Windows Desktop"
+```
+
+release 导出要跑 `dotnet publish` 自包含发布（约数分钟），别用短超时掐断。
+
+版本保持 `0.0005`，未升版、未打 tag、未 push；`project.godot` 未碰。

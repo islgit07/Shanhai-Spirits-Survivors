@@ -54,6 +54,34 @@ check(".NET 导出必需 .sln 且含 ExportDebug/ExportRelease 配置",
       sln_path.exists() and "ExportDebug|Any CPU" in sln_text
       and "ExportRelease|Any CPU" in sln_text)
 
+# ------------------------------------------------- 2.1 导出就绪（配置 + 代码约束）
+preset_path = ROOT / "export_presets.cfg"
+preset_text = read(preset_path)
+check("导出预设 export_presets.cfg 入库（Windows Desktop，产物落 ./export/）",
+      preset_path.exists() and 'platform="Windows Desktop"' in preset_text
+      and 'export_path="./export/' in preset_text)
+check("导出预设：pck 内嵌 + 只启 OpenGL3（对齐 gl_compatibility 渲染器）",
+      "binary_format/embed_pck=true" in preset_text
+      and "application/export_opengl3=1" in preset_text
+      and "application/export_vulkan=0" in preset_text
+      and "application/export_d3d12=0" in preset_text)
+# 产品名/描述在 project.godot 与预设里各有一份，改名时必须两处同步，这里守住。
+check("导出预设产品名 / 描述与 project.godot 一致",
+      'application/product_name="山海幻灵"' in preset_text
+      and 'application/file_description="山海谷的幻灵师"' in preset_text
+      and 'config/description="山海谷的幻灵师"' in pg)
+gi = read(ROOT / ".gitignore")
+check(".gitignore 排除 .godot/ 与 export/（缓存与产物不入库）",
+      ".godot/" in gi and "export/" in gi)
+res_write = re.compile(
+    r'FileAccess\.Open\(\s*"res://[^"]*"\s*,\s*FileAccess\.ModeFlags\.Write'
+    r'|SavePng\(\s*"res://'
+    r'|DirAccess\.Open\(\s*"res://[^"]*"\).{0,120}?ModeFlags\.Write')
+bad_res_writes = [str(p.relative_to(ROOT)) for p in sorted((ROOT / "scripts").rglob("*.cs"))
+                  if res_write.search(read(p))]
+check("运行期不写 res://（导出构建下 res:// 只读，可写数据必须走 user://）",
+      not bad_res_writes, ",".join(bad_res_writes))
+
 # ---------------------------------------------------------------- 3. 脚本与 UID
 cs_files = sorted((ROOT / "scripts").rglob("*.cs"))
 gd_files = sorted((ROOT / "scripts").rglob("*.gd"))
