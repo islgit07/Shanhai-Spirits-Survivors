@@ -17,11 +17,15 @@ DOCS = ROOT / "docs"
 VERSION = "0.0006"
 # BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
 # 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
-EXPECTED_CS = 36
+EXPECTED_CS = 39
 BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
                     "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
                     "gameplay/BlockField.Touch.cs"]
 GAMEROOT_PARTS = ["core/GameRoot.cs", "core/GameRoot.Smoke.cs"]
+SPIRITFOLLOW_PARTS = ["gameplay/SpiritFollow.cs",
+                    "gameplay/SpiritFollow.Body.cs",
+                    "gameplay/SpiritFollow.Seek.cs",
+                    "gameplay/SpiritFollow.Yield.cs"]
 checks = []
 
 
@@ -52,6 +56,11 @@ check("BlockField partial 拆分清单与磁盘一致（新增 partial 必须同
 check("GameRoot partial 拆分清单与磁盘一致（冒烟在 GameRoot.Smoke.cs）",
       glob_names("core", "GameRoot*.cs") == sorted(p.split("/")[-1] for p in GAMEROOT_PARTS),
       ",".join(glob_names("core", "GameRoot*.cs")))
+check("SpiritFollow partial 拆分清单与磁盘一致（让路/寻路/身体规则为独立 partial）",
+      sorted(p.name for p in (ROOT / "scripts" / "csharp" / "gameplay").glob("SpiritFollow*.cs")
+             if p.name != "SpiritFollowGroup.cs")
+      == sorted(p.split("/")[-1] for p in SPIRITFOLLOW_PARTS),
+      ",".join(sorted(p.split("/")[-1] for p in SPIRITFOLLOW_PARTS)))
 check("冒烟注入与断言已抽到 GameRoot.Smoke.cs（GameRoot.cs 只留自举 + 相机 + 场景装配）",
       "SMOKE_JSON_BEGIN" in cs("core/GameRoot.Smoke.cs")
       and "SMOKE_JSON_BEGIN" not in cs("core/GameRoot.cs")
@@ -562,7 +571,7 @@ check("随从第2块：GameRoot 读 meta 选本命、交给 SpiritFollowGroup �
                                           "fate_companion_tint", "spirits_tints")))
 
 # ---------------------------------------------------------------- 7f. SPIRIT-FOLLOW 随从跟随（2026-11-16）
-follow_cs = cs("gameplay/SpiritFollow.cs")
+follow_cs = cs_parts(SPIRITFOLLOW_PARTS)
 group_cs = cs("gameplay/SpiritFollowGroup.cs")
 follow_defs = cs("core/GameDefs.cs")
 follow_master = cs("gameplay/Master.cs")

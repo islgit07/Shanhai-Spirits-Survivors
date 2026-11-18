@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 namespace ShanhaiSpiritsSurvivors;
@@ -16,6 +15,11 @@ namespace ShanhaiSpiritsSurvivors;
 ///   · 被踩：主角站在头上时停止水平移动，让玩家站稳（离开后自动恢复跟随）。
 ///
 /// 本组件只驱动移动与朝向，不产生伤害 / 技能 / 数值；敌人系统以后复用同一套层与分离规则。
+///
+/// P1 拆分（partial，同一个类）：本文件 = 状态 + 接入 + _PhysicsProcess 编排与移动积分；
+/// 让路 / 朝向在 SpiritFollow.Yield.cs；BFS 防卡死寻路在 SpiritFollow.Seek.cs；
+/// 被踩 / 分离 / 地板接触在 SpiritFollow.Body.cs。拆方法时逐字搬移，仅把段间共享局部量
+/// 改为参数 / 返回值，求值顺序与数值口径不变。
 /// </summary>
 public partial class SpiritFollow : Node
 {
@@ -29,26 +33,9 @@ public partial class SpiritFollow : Node
     private float _jumpCooldown;
     private float _stuckTime;
     private float _dropTimer;
-    private bool _onOneWayFloor;
-    private bool _onSlimeFloor;          // 脚下是否粘液块（MAP-009：对所有角色生效）
     private float _launchGrace;          // 被弹跳块弹射后的离地宽限（秒）：期间不按贴地处理，避免 Y 被清零
-    // 让路系统状态（2026-11-16 优化）：朝向 / 滞回 / 让路跳跃冷却
-    private float _lastDirX = 1f;        // 主角最近一次有效移动方向（+1 右 / -1 左）
-    private float _facingX = 1f;         // 落点镜像基准：落点整体放到主角「身后」
-    private float _facingHoldT;          // 朝向翻转滞回倒计时
-    private float _yieldJumpCooldown;    // 让路跳跃冷却
+    private float _yieldJumpCooldown;    // 让路跳跃冷却（2026-11-16 让路系统，判定在移动积分段）
     private float _stuckJumpCooldown;    // 卡住自救跳冷却（原地连跳修复）
-    // 防卡死寻路（SPIRIT-PATH）
-    private IStandableGrid? _grid;       // 方块网格（BFS 寻路用；null = 不做寻路）
-    private float _farTimer;             // 远离玩家的累计时长
-    private float _seekTimer;            // 重算路径倒计时
-    private float _seekDuration;         // 已处于寻路模式的时长
-    private List<Vector2>? _path;        // 当前 BFS 路径（世界坐标）
-    private int _pathIndex;              // 当前走向第几个路径点
-    // 移动能力档案：BFS 认为这只随从能跳多高 / 跨多远。默认与主角满跳同量级；
-    // 以后随从的移速 / 敏捷接入养成后，用 SpiritNavProfile.FromStats 换一份即可。
-    private SpiritNavProfile _navProfile = SpiritNavProfile.Default;
-    private bool _forceSeek;             // 冒烟专用：模拟「被地形卡死」，强制走寻路模式
 
     /// <summary>是否已接入跟随（UI 预览里保持 false，实体静止）。</summary>
     public bool Enabled { get; private set; }
@@ -61,23 +48,6 @@ public partial class SpiritFollow : Node
 
     /// <summary>累计主动起跳次数（跨层 / 让路 / 自救），冒烟用「静止时不该连跳」。</summary>
     public int JumpCount { get; private set; }
-
-    /// <summary>最近一次 BFS 寻路是否找到路径。</summary>
-    public bool LastPathFound { get; private set; }
-
-    /// <summary>本次接入以来是否成功找到过路径（冒烟核对「卡死时确实靠寻路回来」）。</summary>
-    public bool EverFoundPath { get; private set; }
-
-    /// <summary>是否已拿到方块网格（冒烟诊断）。</summary>
-    public bool HasGrid => _grid != null;
-
-    /// <summary>脚下是否粘液块（冒烟核对「粘液对随从也生效」）。</summary>
-    public bool IsOnSlime => _onSlimeFloor;
-
-    /// <summary>进入寻路模式的次数（冒烟诊断）。</summary>
-    public int SeekStarts { get; private set; }
-
-    private bool _wasSeeking;
 
     public override void _Ready()
     {
@@ -125,26 +95,6 @@ public partial class SpiritFollow : Node
         SetPhysicsProcess(false);
     }
 
-    /// <summary>
-    /// 设置移动能力档案（移速 / 敏捷 → 跳高与跨度）。属性变化后调用一次即可，
-    /// 下一次寻路就按新能力算；不调用则一直用基础档案。
-    /// </summary>
-    public void SetNavProfile(SpiritNavProfile profile) => _navProfile = profile;
-
-    /// <summary>按移速 / 敏捷直接换算并设置（以后接随从养成时的入口）。</summary>
-    public void SetMoveStats(float moveSpeed, float agility) =>
-        _navProfile = SpiritNavProfile.FromStats(moveSpeed, agility);
-
-    /// <summary>
-    /// 冒烟专用：模拟「被地形卡死，直线回不去」——强制进入寻路模式，直到真的回到玩家身边。
-    /// 正常游戏不会调用；用来验证 BFS 路径确实被采用并走通。
-    /// </summary>
-    public void ForceSeekForSmoke()
-    {
-        _forceSeek = true;
-        _farTimer = GameDefs.SpiritFindPathDelay;
-    }
-
     /// <summary>立即贴到落点（生成 / 瞬移用，避免新实体从远处跑过来）。</summary>
     public void SnapToTarget()
     {
@@ -186,47 +136,15 @@ public partial class SpiritFollow : Node
         IsStoodOn = ProbeStoodOn(playerPos);
         if (IsStoodOn)
         {
-            float rideVy = _pet.IsOnFloor()
-                ? 0f
-                : Mathf.Min(_pet.Velocity.Y + GameDefs.Gravity * dt, GameDefs.MasterMaxFallSpeed);
-            _pet.Velocity = new Vector2(0f, rideVy);
-            _pet.MoveAndSlide();
-            UpdateFloorContact();
-            SeparateFrom(playerPos);   // 被踩时也不许和主角同位
+            ProcessRidden(playerPos, dt);
             return;
         }
 
-        // ---- 闲逛漂移（参考 vIdle_X/Y）：小目标 + 平滑，跟随有生气而不是硬贴
-        _wanderT -= dt;
-        if (_wanderT <= 0f)
-        {
-            _wanderT = (float)GD.RandRange(1.2, 2.8);
-            float r = GameDefs.SpiritFollowWanderRange;
-            _wanderGoal = new Vector2((float)GD.RandRange(-r, r), 0f);
-        }
-        _wander = _wander.Lerp(_wanderGoal, Mathf.Clamp(dt * 0.9f, 0f, 1f));
-
-        // ---- 呼吸浮动：只动 Sprite，不动物理体（否则会和落点互相拉扯）
-        _phase += dt * 2.1f;
-        if (_pet.Sprite != null)
-            _pet.Sprite.Position = new Vector2(0f, Mathf.Sin(_phase) * GameDefs.SpiritBobHeight);
-
-        // ---- 主角速度：判断它「在往哪走」。让路必须让到身后，否则会越让越挡。
-        Vector2 playerVel = _target is CharacterBody2D cb ? cb.Velocity : Vector2.Zero;
-        bool playerMoving = Mathf.Abs(playerVel.X) > GameDefs.SpiritYieldMinSpeed;
-        if (playerMoving) _lastDirX = Mathf.Sign(playerVel.X);
+        // ---- 闲逛漂移 + 呼吸浮动：跟随有生气而不是硬贴（只动状态与 Sprite，不动物理体）
+        ProcessIdle(dt);
 
         // ---- 落点朝向：主角持续往一边走时，整组落点镜像到「身后」（带滞回，防左右横跳）
-        _facingHoldT = Mathf.Max(0f, _facingHoldT - dt);
-        if (playerMoving && _lastDirX != _facingX && _facingHoldT <= 0f)
-        {
-            _facingX = _lastDirX;
-            _facingHoldT = GameDefs.SpiritFacingHoldTime;
-        }
-        // 纵向偏移夹紧：落在「站同一地面就够得到」的范围内，否则会一直被判定为要跨层 → 原地连跳。
-        Vector2 dynamicSlot = new Vector2(
-            _slotOffset.X * -_facingX,
-            Mathf.Clamp(_slotOffset.Y, -GameDefs.SpiritSlotLiftMax, GameDefs.SpiritSlotDropMax));
+        Vector2 dynamicSlot = UpdateFacing(dt, out bool playerMoving);
 
         Vector2 pos = _pet.GlobalPosition;
         // 主角与随从的「实际高度差」：跨层跳跃只认这个，不认落点高度 ——
@@ -234,94 +152,16 @@ public partial class SpiritFollow : Node
         float playerDy = playerPos.Y - pos.Y;
         Vector2 wish = playerPos + dynamicSlot + _wander;
 
-        // ---- 让路 v2：清空主角前进方向的「通道」。
-        // 旧版是「从主角径向退开」——主角向左走、随从也在左边时，径向退同样是向左，于是它一路退、
-        // 一路挡在主角前面。新版改成：主角前方通道内 → 让到身后；贴太近 → 径向兜底退开。
-        Vector2 relNow = pos - playerPos;
-        float ahead = relNow.X * _lastDirX;   // > 0 表示位于主角前进方向那一侧
-        bool inLane = playerMoving
-                      && ahead > -0.15f && ahead < GameDefs.SpiritYieldLaneLength
-                      && Mathf.Abs(relNow.Y) < GameDefs.SpiritYieldLaneHalfHeight;
-        bool yielding = false;
-        if (inLane)
-        {
-            wish = playerPos + new Vector2(-_lastDirX * 1.25f, -0.15f);   // 身后 1.25 格，略抬高
-            yielding = true;
-        }
-        else if (relNow.LengthSquared() < GameDefs.SpiritAvoidRadius * GameDefs.SpiritAvoidRadius
-                 && relNow.LengthSquared() > 0.0001f)
-        {
-            wish = pos + relNow.Normalized() * GameDefs.SpiritAvoidRadius;
-            yielding = true;
-        }
+        // ---- 让路 v2：清空主角前进方向的「通道」（策略与历史见 SpiritFollow.Yield.cs）
+        bool yielding;
+        float ahead;
+        wish = ApplyYield(pos, playerPos, wish, playerMoving, out yielding, out ahead);
 
-        // ---- 防卡死寻路（SPIRIT-PATH）：长时间离玩家很远 → 在方块网格上 BFS 找一条回得去的路。
-        // 正常跟随（直线够得到）用不上它；只有被墙 / 高台隔断、怎么走都回不去时才接管。
-        bool seeking = false;
-        float distToPlayer = relNow.Length();
-        if (_grid != null)
-        {
-            bool farEnough = distToPlayer > GameDefs.SpiritFindPathDist;
-            if (_forceSeek)
-            {
-                farEnough = true;
-                if (distToPlayer < 2.5f) _forceSeek = false;   // 真回到身边才解除（冒烟用）
-            }
-            if (farEnough) _farTimer += dt;
-            else _farTimer = Mathf.Max(0f, _farTimer - dt * 2f);   // 靠近比远离消得快，避免状态残留
-
-            if (_farTimer >= GameDefs.SpiritFindPathDelay)
-            {
-                if (!_wasSeeking)
-                {
-                    _wasSeeking = true;
-                    SeekStarts++;
-                }
-                seeking = true;
-                _seekDuration += dt;
-                _seekTimer -= dt;
-                if (_path == null || _seekTimer <= 0f)
-                {
-                    _path = SpiritPathfinder.FindPath(_grid, pos, playerPos, _navProfile);
-                    LastPathFound = _path != null;
-                    if (_path != null) EverFoundPath = true;
-                    _pathIndex = 0;
-                    _seekTimer = GameDefs.SpiritRepathInterval;
-                }
-
-                if (_path != null)
-                {
-                    while (_pathIndex < _path.Count
-                           && pos.DistanceTo(_path[_pathIndex]) < 0.45f)
-                        _pathIndex++;   // 到达当前路径点 → 走下一个
-
-                    if (_pathIndex < _path.Count)
-                    {
-                        wish = _path[_pathIndex];
-                    }
-                    else
-                    {
-                        // 路径走完：交回普通跟随
-                        _farTimer = 0f;
-                        _seekDuration = 0f;
-                        _path = null;
-                    }
-                }
-
-                // 兜底：寻路模式下迟迟回不去（路被堵死 / BFS 太乐观）→ 直接瞬移
-                if (_seekDuration > GameDefs.SpiritSeekTimeout)
-                {
-                    _pet.GlobalPosition = playerPos + dynamicSlot + new Vector2(0f, -0.5f);
-                    _pet.Velocity = Vector2.Zero;
-                    _farTimer = 0f;
-                    _seekDuration = 0f;
-                    _path = null;
-                    _dropTimer = 0f;
-                    return;
-                }
-            }
-            else _wasSeeking = false;
-        }
+        // ---- 防卡死寻路（SPIRIT-PATH）：长时间离玩家很远 → BFS 找一条回得去的路（见 SpiritFollow.Seek.cs）
+        bool seeking;
+        bool teleported;
+        wish = ApplySeek(pos, playerPos, wish, dynamicSlot, dt, out seeking, out teleported);
+        if (teleported) return;
 
         float dx = wish.X - pos.X;
         float dy = wish.Y - pos.Y;
@@ -443,84 +283,21 @@ public partial class SpiritFollow : Node
             _pet.Sprite.FlipH = vx < 0f;
     }
 
-    /// <summary>
-    /// 被踩检测：在随从头顶放一个薄矩形做形状查询，只查 LayerActor（主角 / 未来敌人）。
-    /// 用几何查询而不是反查主角的碰撞列表，是因为主角的物理步进晚于随从（本节点优先级 -10）。
-    /// 查询参数与形状在字段里缓存（P3：_PhysicsProcess 每帧调用，原先每次都 new 两个原生对象）；
-    /// 形状尺寸 / 碰撞层不变，只有 Transform 逐帧刷新，判定结果与逐帧新建完全一致。
-    /// </summary>
-    private static readonly RectangleShape2D StoodOnShape = new() { Size = new Vector2(0.70f, 0.30f) };
-    private readonly PhysicsShapeQueryParameters2D _stoodOnQuery = new()
+    /// <summary>闲逛漂移（参考 vIdle_X/Y）：每 1.2~2.8 秒换一个 ±范围 的小目标，平滑过去；
+    /// 加上正弦呼吸浮动（只动 Sprite，不动物理体，否则会和落点互相拉扯）。</summary>
+    private void ProcessIdle(float dt)
     {
-        Shape = StoodOnShape,
-        CollisionMask = GameDefs.LayerActor,
-        CollideWithBodies = true,
-        CollideWithAreas = false,
-    };
-
-    private bool ProbeStoodOn(Vector2 playerPos)
-    {
-        if (Mathf.Abs(playerPos.X - _pet.GlobalPosition.X) > 0.75f) return false;
-        if (playerPos.Y > _pet.GlobalPosition.Y - 0.2f) return false;
-
-        _stoodOnQuery.Transform = new Transform2D(0f,
-            _pet.GlobalPosition + new Vector2(0f, -(GameDefs.SpiritBodyHeight * 0.5f + 0.10f)));
-        return _pet.GetWorld2D().DirectSpaceState.IntersectShape(_stoodOnQuery, 1).Count > 0;
-    }
-
-    /// <summary>
-    /// AABB 硬分离：与主角水平投影重叠时，沿水平轴把随从推到刚好不重叠。
-    /// 只推水平轴——垂直推会把随从塞进地板或顶到主角头顶。
-    /// </summary>
-    private void SeparateFrom(Vector2 playerPos)
-    {
-        // 额外留 0.12 格余量：在真正撞上之前就推开，主角的物理碰撞基本碰不到随从。
-        float halfW = (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f + GameDefs.SpiritPushMargin;
-        float halfH = (GameDefs.SpiritBodyHeight + GameDefs.MasterSize.Y) * 0.5f;
-        Vector2 d = _pet.GlobalPosition - playerPos;
-        if (Mathf.Abs(d.X) >= halfW || Mathf.Abs(d.Y) >= halfH) return;
-
-        // 主角在随从正上方（踩头 / 从头顶越过）时不横推，否则会把随从从脚下挤走、玩家会掉下来。
-        // y-down：主角在上方 → d.Y > 0。
-        if (d.Y > halfH * 0.55f) return;
-
-        float push = halfW - Mathf.Abs(d.X) + 0.02f;
-        float sign = d.X > 0.001f ? 1f
-                   : d.X < -0.001f ? -1f
-                   : -_lastDirX;   // 完全重合时推到主角身后
-        _pet.GlobalPosition = new Vector2(_pet.GlobalPosition.X + sign * push, _pet.GlobalPosition.Y);
-    }
-
-    /// <summary>
-    /// 与其他随从保持间距：按胶囊真实形状算距离，不足一个碰撞宽度就把自己推开。
-    /// 只推自己（不推对方）——双方都只负责「离开」，不会互相加力导致抖动。
-    /// </summary>
-    private void SeparateFromPets()
-    {
-        float minDist = GameDefs.SpiritBodyWidth + 0.02f;
-        foreach (Node node in GetTree().GetNodesInGroup(GameDefs.SpiritGroup))
+        _wanderT -= dt;
+        if (_wanderT <= 0f)
         {
-            if (node == _pet || node is not SpiritPet other) continue;
-            var (dist, d) = SpiritFollowGroup.Capsule(_pet.GlobalPosition, other.GlobalPosition);
-            if (dist >= minDist) continue;
-            Vector2 dir = d.LengthSquared() > 0.0001f ? d.Normalized() : new Vector2(-_lastDirX, 0f);
-            _pet.GlobalPosition += dir * (minDist - dist);
+            _wanderT = (float)GD.RandRange(1.2, 2.8);
+            float r = GameDefs.SpiritFollowWanderRange;
+            _wanderGoal = new Vector2((float)GD.RandRange(-r, r), 0f);
         }
-    }
+        _wander = _wander.Lerp(_wanderGoal, Mathf.Clamp(dt * 0.9f, 0f, 1f));
 
-    /// <summary>记录脚下是否单向平台（决定能不能主动下穿）；静止帧沿用上次结论。
-    /// 判定与主角共用 PlatformMover.SampleFloorContact（原两份逐字同构实现，P2 收口）。</summary>
-    private void UpdateFloorContact()
-    {
-        if (!_pet.IsOnFloor())
-        {
-            _onOneWayFloor = false;
-            _onSlimeFloor = false;
-            return;
-        }
-        var contact = PlatformMover.SampleFloorContact(_pet);
-        if (contact == null) return;   // 站立静止帧沿用上一次结论
-        _onOneWayFloor = contact.Value.OneWay;
-        _onSlimeFloor = contact.Value.Slime;
+        _phase += dt * 2.1f;
+        if (_pet.Sprite != null)
+            _pet.Sprite.Position = new Vector2(0f, Mathf.Sin(_phase) * GameDefs.SpiritBobHeight);
     }
 }

@@ -14,6 +14,11 @@
       "detail": "GameRoot.Smoke.cs,GameRoot.cs"
     },
     {
+      "name": "SpiritFollow partial 拆分清单与磁盘一致（让路/寻路/身体规则为独立 partial）",
+      "ok": true,
+      "detail": "SpiritFollow.Body.cs,SpiritFollow.Seek.cs,SpiritFollow.Yield.cs,SpiritFollow.cs"
+    },
+    {
       "name": "冒烟注入与断言已抽到 GameRoot.Smoke.cs（GameRoot.cs 只留自举 + 相机 + 场景装配）",
       "ok": true,
       "detail": ""
@@ -129,9 +134,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 36",
+      "name": "C# 脚本数量 = 39",
       "ok": true,
-      "detail": "36 个"
+      "detail": "39 个"
     },
     {
       "name": "零 GDScript",
