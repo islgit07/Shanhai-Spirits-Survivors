@@ -32,7 +32,6 @@ public partial class SpiritFollow : Node
     private bool _onOneWayFloor;
     private bool _onSlimeFloor;          // 脚下是否粘液块（MAP-009：对所有角色生效）
     private float _launchGrace;          // 被弹跳块弹射后的离地宽限（秒）：期间不按贴地处理，避免 Y 被清零
-    private static readonly StringName SlimeGroup = new(GameDefs.SlimeBlockGroup);
     // 让路系统状态（2026-11-16 优化）：朝向 / 滞回 / 让路跳跃冷却
     private float _lastDirX = 1f;        // 主角最近一次有效移动方向（+1 右 / -1 左）
     private float _facingX = 1f;         // 落点镜像基准：落点整体放到主角「身后」
@@ -499,20 +498,18 @@ public partial class SpiritFollow : Node
     private void SeparateFromPets()
     {
         float minDist = GameDefs.SpiritBodyWidth + 0.02f;
-        float segSpan = GameDefs.SpiritBodyHeight - GameDefs.SpiritBodyWidth;
         foreach (Node node in GetTree().GetNodesInGroup(GameDefs.SpiritGroup))
         {
             if (node == _pet || node is not SpiritPet other) continue;
-            Vector2 d = _pet.GlobalPosition - other.GlobalPosition;
-            float vertical = Mathf.Max(0f, Mathf.Abs(d.Y) - segSpan);
-            float dist = Mathf.Sqrt(d.X * d.X + vertical * vertical);
+            var (dist, d) = SpiritFollowGroup.Capsule(_pet.GlobalPosition, other.GlobalPosition);
             if (dist >= minDist) continue;
             Vector2 dir = d.LengthSquared() > 0.0001f ? d.Normalized() : new Vector2(-_lastDirX, 0f);
             _pet.GlobalPosition += dir * (minDist - dist);
         }
     }
 
-    /// <summary>记录脚下是否单向平台（决定能不能主动下穿）；静止帧沿用上次结论。</summary>
+    /// <summary>记录脚下是否单向平台（决定能不能主动下穿）；静止帧沿用上次结论。
+    /// 判定与主角共用 PlatformMover.SampleFloorContact（原两份逐字同构实现，P2 收口）。</summary>
     private void UpdateFloorContact()
     {
         if (!_pet.IsOnFloor())
@@ -521,20 +518,9 @@ public partial class SpiritFollow : Node
             _onSlimeFloor = false;
             return;
         }
-        bool found = false, oneWay = false, slime = false;
-        for (int i = 0; i < _pet.GetSlideCollisionCount(); i++)
-        {
-            var ci = _pet.GetSlideCollision(i);
-            if (ci.GetNormal().Y >= -0.7f) continue;
-            if (ci.GetCollider() is PhysicsBody2D pb)
-            {
-                found = true;
-                if ((pb.CollisionLayer & GameDefs.LayerOneWay) != 0u) oneWay = true;
-                if (pb.IsInGroup(SlimeGroup)) slime = true;
-            }
-        }
-        if (!found) return;
-        _onOneWayFloor = oneWay;
-        _onSlimeFloor = slime;
+        var contact = PlatformMover.SampleFloorContact(_pet);
+        if (contact == null) return;   // 站立静止帧沿用上一次结论
+        _onOneWayFloor = contact.Value.OneWay;
+        _onSlimeFloor = contact.Value.Slime;
     }
 }

@@ -38,7 +38,7 @@ public partial class GameRoot
 	private float _bounceStartY, _bounceMinY;
 
 	/// <summary>冒烟测试用：把主角放到第一块单向平台的中心上方，供「下 + 跳」下穿验证。</summary>
-	public bool SmokeTeleportToPlatform()
+	private bool SmokeTeleportToPlatform()
 	{
 		if (Player == null || !IsInstanceValid(Player)) return false;
 		if (!_blocks.GetFirstOneWay(out float x, out float y)) return false;
@@ -443,7 +443,7 @@ public partial class GameRoot
 			["assertions"] = assertions,
 		};
 		GD.Print("SMOKE_JSON_BEGIN");
-		GD.Print(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+		GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
 		GD.Print("SMOKE_JSON_END");
 		GetTree().Quit(ok ? 0 : 1);
 	}

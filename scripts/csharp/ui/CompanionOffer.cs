@@ -63,10 +63,12 @@ public partial class CompanionOffer : CanvasLayer
         }
     }
 
+    private static readonly Random OfferRng = new(System.Environment.TickCount);   // 单线程 UI，复用实例
+
     /// <summary>正式入口：随机抽三张不重复的占位随从。</summary>
     public void Open()
     {
-        OpenWithIds(RunRoster.PickOffer(new Random(System.Environment.TickCount)));
+        OpenWithIds(RunRoster.PickOffer(OfferRng));
     }
 
     /// <summary>确定性入口：冒烟注入固定卡片。</summary>
@@ -180,7 +182,7 @@ public partial class CompanionOffer : CanvasLayer
             ["assertions"] = assertions,
         };
         GD.Print("OFFER_SMOKE_JSON_BEGIN");
-        GD.Print(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
         GD.Print("OFFER_SMOKE_JSON_END");
         GD.Print($"[OFFER] smoke result={(ok ? "PASS" : "FAIL")}");
         GetTree().Paused = false;

@@ -10,11 +10,6 @@ namespace ShanhaiSpiritsSurvivors;
 /// </summary>
 public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
 {
-    // 与 Master.cs 一致：输入动作名缓存为 StringName，避免每帧构造。
-    private static readonly StringName Left = new("move_left");
-    private static readonly StringName Right = new("move_right");
-    private static readonly StringName Jump = new("jump");
-    private static readonly StringName Down = new("move_down");
 
     private MoveTuning _tuning = MoveTuning.GameDefaults();
 
@@ -73,16 +68,9 @@ public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
 
     public override void _PhysicsProcess(double delta)
     {
-        float dt = (float)delta;
-        float dir = Input.GetAxis(Left, Right);
-        _mover.Step(this, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump),
-            Input.IsActionPressed(Down), dt);
-
-        if (BounceRequested)
-        {
-            BounceRequested = false;
-            _mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed);
-        }
+        // 输入读取 / 内核推进 / 弹跳后发制人与游戏主角共用 MoverDriver（保证白箱手感一致）
+        MoverDriver.StepBody(this, _mover, delta, BounceRequested);
+        BounceRequested = false;   // 弹跳请求已由驱动层消费（Step 之后应用，避免被贴地清零）
 
         if (_mover.JustJumped)
         {

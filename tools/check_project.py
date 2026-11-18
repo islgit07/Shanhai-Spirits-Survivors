@@ -442,7 +442,7 @@ check("BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 
       "ApplyExternalLaunch" in _mover_cs
       and "_externalLaunch" in _mover_cs
       and "Grounded = body.IsOnFloor() && !launched" in _mover_cs
-      and all("_mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed)" in p
+      and all("MoverDriver.StepBody(this, _mover, delta, BounceRequested)" in p
               for p in (cs("gameplay/Master.cs"), cs("tools/WhiteboxPlayer.cs"))))
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
@@ -590,7 +590,7 @@ check("方块效果对所有角色生效：弹跳块识别玩家/随从/怪物�
       and "_launchGrace" in follow_cs)
 check("方块效果对所有角色生效：随从踩粘液同样减速且不能起跳",
       "SlimeSpeedMul" in follow_cs and "_onSlimeFloor" in follow_cs
-      and "IsInGroup(SlimeGroup)" in follow_cs and "IsOnSlime" in follow_cs)
+      and "SampleFloorContact" in follow_cs and "IsOnSlime" in follow_cs)
 check("随从跟随：卡死触发条件与兜底（远离 6 格持续 2.5s → BFS；5s 回不去 → 瞬移）",
       "SpiritFindPathDist" in follow_defs and "SpiritFindPathDelay" in follow_defs
       and "SpiritSeekTimeout" in follow_defs and "SpiritRepathInterval" in follow_defs

@@ -16,10 +16,6 @@ public partial class Master : CharacterBody2D, IBounceable
 	[Export] public PackedScene? DustScene;
 	// 移动内核与白箱共用（见 PlatformMover）：白箱里调出的数值写回 GameDefs 即生效
 	private readonly PlatformMover _mover = new(MoveTuning.GameDefaults());
-	private static readonly StringName Left = new("move_left");
-	private static readonly StringName Right = new("move_right");
-	private static readonly StringName Jump = new("jump");
-	private static readonly StringName Down = new("move_down");
 
 	public override void _Ready()
 	{
@@ -61,17 +57,9 @@ public partial class Master : CharacterBody2D, IBounceable
 
 	public override void _PhysicsProcess(double delta)
 	{
-		float dt = (float)delta;
-		float dir = Input.GetAxis(Left, Right);
-		_mover.Step(this, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump),
-			Input.IsActionPressed(Down), dt);
-
-		// 弹跳方块：Step 之后再应用弹射速度（贴地逻辑会把 Y 清零，弹射必须后发制人）
-		if (BounceRequested)
-		{
-			BounceRequested = false;
-			_mover.ApplyExternalLaunch(this, GameDefs.BounceSpeed);
-		}
+		// 输入读取 / 内核推进 / 弹跳后发制人与白箱共用 MoverDriver（白箱手感 == 游戏手感）
+		MoverDriver.StepBody(this, _mover, delta, BounceRequested);
+		BounceRequested = false;   // 弹跳请求已由驱动层消费（Step 之后应用，避免被贴地清零）
 
 		// 表现层反馈：落地挤压 / 起跳拉伸 + 脚下灰尘（纯视觉，不碰物理）
 		bool groundedNow = IsOnFloor();

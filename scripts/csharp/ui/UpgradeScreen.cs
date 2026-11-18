@@ -293,7 +293,7 @@ public partial class UpgradeScreen : Control
             ["assertions"] = assertions,
         };
         GD.Print("UPGRADE_SMOKE_JSON_BEGIN");
-        GD.Print(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
         GD.Print("UPGRADE_SMOKE_JSON_END");
         GD.Print($"[UPGRADE] smoke result={(ok ? "PASS" : "FAIL")}");
         // 冒烟不该污染玩家存档：验证完往返后复位到干净初始档（300 魂、零加点）。

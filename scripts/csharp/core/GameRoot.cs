@@ -139,14 +139,8 @@ public partial class GameRoot : Node2D
 			CallDeferred(new StringName(nameof(CaptureShot)));
 	}
 
-	private async void CaptureShot()
-	{
-		await ToSignal(GetTree().CreateTimer(1.5), SceneTreeTimer.SignalName.Timeout);
-		await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-		Error err = GetViewport().GetTexture().GetImage().SavePng("user://game_shot.png");
-		GD.Print($"[BOOT] shot err={err}");
-		GetTree().Quit(0);
-	}
+	/// <summary>仅截图自检用：--shot 时存图并退出（实现与白箱共用 SmokeFlags.Capture）。</summary>
+	private void CaptureShot() => SmokeFlags.Capture(this, "user://game_shot.png", "BOOT");
 
 	private static int TimeSeed() => (int)Time.GetUnixTimeFromSystem() & 0x7FFFFFFF;
 
@@ -154,10 +148,10 @@ public partial class GameRoot : Node2D
 	private string SeedUiText() => _seedLabel != null && IsInstanceValid(_seedLabel)
 		? _seedLabel.Text : string.Empty;
 
-	/// <summary>开局：设相机缩放、按种子建地形、把主角复位到出生点。</summary>
 	/// <summary>三选一领到新随从 / 合成后调用：同步场上实体（加人、换资质、重排槽位）。</summary>
 	public void RefreshCompanions() => _spiritGroup?.Refresh();
 
+	/// <summary>开局：设相机缩放、按种子建地形、把主角复位到出生点。</summary>
 	private void BeginRun(int seed)
 	{
 		_currentSeed = seed;

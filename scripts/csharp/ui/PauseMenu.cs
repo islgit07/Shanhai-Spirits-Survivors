@@ -307,7 +307,7 @@ public partial class PauseMenu : CanvasLayer
             ["assertions"] = assertions,
         };
         GD.Print("PAUSE_SMOKE_JSON_BEGIN");
-        GD.Print(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
         GD.Print("PAUSE_SMOKE_JSON_END");
         GD.Print($"[PAUSE] smoke result={(ok ? "PASS" : "FAIL")}");
         GetTree().Paused = false;

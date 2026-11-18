@@ -482,7 +482,8 @@ public sealed class PlatformMover
     /// <summary>
     /// 记录脚下地面类型（是否单向平台 / 是否粘液块）：读本次 MoveAndSlide 的地板碰撞体。
     /// 站立静止帧（vy=0 无新滑动碰撞）沿用上一次结论，保证「站着按 下+跳」可靠下穿，
-    /// 也保证站在粘液块上不动时减速不会抖动。粘液块靠碰撞体组别识别（BlockField 实例化时加入）。
+    /// 也保证站在粘液块上不动时减速不会抖动。判定本体收口在 SampleFloorContact，
+    /// 与 SpiritFollow 随从跟随共用同一份（原两份逐字同构实现，P2 收口）。
     /// </summary>
     private void UpdateFloorContact(CharacterBody2D body, bool onFloorNow)
     {
@@ -492,6 +493,19 @@ public sealed class PlatformMover
             _onSlimeFloor = false;
             return;
         }
+        var contact = SampleFloorContact(body);
+        if (contact == null) return;   // 站立静止帧沿用上一次结论
+        _onOneWayFloor = contact.Value.OneWay;
+        _onSlimeFloor = contact.Value.Slime;
+    }
+
+    /// <summary>
+    /// 采样本次 MoveAndSlide 的地板碰撞类型：是否单向平台（可主动下穿）/ 是否粘液块（减速黏跳）。
+    /// 没有朝上的地板碰撞（站立静止帧）返回 null = 调用方沿用上一次结论；
+    /// 粘液块靠碰撞体组别识别（BlockField 实例化时加入），跨块站立时任一粘液块都算。
+    /// </summary>
+    public static (bool OneWay, bool Slime)? SampleFloorContact(CharacterBody2D body)
+    {
         bool found = false, oneWay = false, slime = false;
         for (int i = 0; i < body.GetSlideCollisionCount(); i++)
         {
@@ -501,12 +515,10 @@ public sealed class PlatformMover
             {
                 found = true;
                 if ((pb.CollisionLayer & GameDefs.LayerOneWay) != 0u) oneWay = true;
-                if (pb.IsInGroup(SlimeGroup)) slime = true;   // 跨块站立时任一粘液块都算
+                if (pb.IsInGroup(SlimeGroup)) slime = true;
             }
         }
-        if (!found) return;   // 站立静止帧沿用上一次结论
-        _onOneWayFloor = oneWay;
-        _onSlimeFloor = slime;
+        return found ? (oneWay, slime) : null;
     }
 
     /// <summary>重生 / 复位时清空窗口状态，避免复活瞬间误起跳 / 误翻越 / 残留黏滞。</summary>
@@ -520,5 +532,33 @@ public sealed class PlatformMover
         _onOneWayFloor = false;
         _onSlimeFloor = false;
         _slimeSnap = 0.0f;
+    }
+}
+
+/// <summary>
+/// 角色输入驱动的共用注入层：游戏主角（Master）与白箱角色（WhiteboxPlayer）的 _PhysicsProcess
+/// 原先各写一份逐字相同的「读输入轴 + 推进移动内核 + 弹跳后发制人」。收口到内核旁一处，
+/// 保证「白箱手感 == 游戏手感」在注入层也成立（改手感注入只改这一处）。
+/// </summary>
+public static class MoverDriver
+{
+    private static readonly StringName Left = new("move_left");
+    private static readonly StringName Right = new("move_right");
+    private static readonly StringName Jump = new("jump");
+    private static readonly StringName Down = new("move_down");
+
+    /// <summary>
+    /// 读输入并推进一步移动内核；若本次物理帧有弹跳块请求，在 Step 之后应用弹射
+    /// （先应用会被贴地逻辑当帧把 Y 清零）。调用方随后自行清掉自己的弹跳请求标志。
+    /// </summary>
+    public static void StepBody(CharacterBody2D body, PlatformMover mover, double delta, bool bounceRequested)
+    {
+        float dt = (float)delta;
+        float dir = Input.GetAxis(Left, Right);
+        mover.Step(body, dir, Input.IsActionJustPressed(Jump), Input.IsActionPressed(Jump),
+            Input.IsActionPressed(Down), dt);
+
+        if (bounceRequested)
+            mover.ApplyExternalLaunch(body, GameDefs.BounceSpeed);
     }
 }

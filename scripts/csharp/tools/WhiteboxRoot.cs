@@ -52,14 +52,8 @@ public partial class WhiteboxRoot : Node2D
             CallDeferred(new StringName(nameof(CaptureShot)));
     }
 
-    private async void CaptureShot()
-    {
-        await ToSignal(GetTree().CreateTimer(1.5), SceneTreeTimer.SignalName.Timeout);
-        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        Error err = GetViewport().GetTexture().GetImage().SavePng("user://whitebox_shot.png");
-        GD.Print($"[WHITEBOX] shot err={err}");
-        GetTree().Quit(0);
-    }
+    /// <summary>仅截图自检用：--shot 时存图并退出（实现与游戏共用 SmokeFlags.Capture）。</summary>
+    private void CaptureShot() => SmokeFlags.Capture(this, "user://whitebox_shot.png", "WHITEBOX");
 
     public override void _UnhandledInput(InputEvent @event)
     {
@@ -70,8 +64,7 @@ public partial class WhiteboxRoot : Node2D
                 _player.Respawn();
                 break;
             case Key.T:
-                _seed = (int)((ulong)Time.GetUnixTimeFromSystem() & 0x7FFFFFFFu);
-                RebuildPlatforms();
+                NewRandomTerrain();
                 break;
             case Key.Tab:
                 _panel.Visible = !_panel.Visible;
@@ -103,6 +96,13 @@ public partial class WhiteboxRoot : Node2D
             _player.AddChild(_camera);
         }
         else { _camera.Zoom = new Vector2(zoom2, zoom2); _camera.Enabled = true; }
+    }
+
+    /// <summary>T 键与「换地形」按钮共用：取一个随机种子并重建地形。</summary>
+    private void NewRandomTerrain()
+    {
+        _seed = (int)((ulong)Time.GetUnixTimeFromSystem() & 0x7FFFFFFFu);
+        RebuildPlatforms();
     }
 
     private void RebuildPlatforms()
@@ -193,11 +193,7 @@ public partial class WhiteboxRoot : Node2D
         var respawn = UiSkin.MakeButton("复位(R)", 14);
         respawn.Pressed += () => _player.Respawn();
         var terrain = UiSkin.MakeButton("换地形(T)", 14);
-        terrain.Pressed += () =>
-        {
-            _seed = (int)((ulong)Time.GetUnixTimeFromSystem() & 0x7FFFFFFFu);
-            RebuildPlatforms();
-        };
+        terrain.Pressed += NewRandomTerrain;
         var climb = UiSkin.MakeButton($"自动上攀:{(_tuning.AutoClimbEnabled ? "开" : "关")}", 14);
         climb.Pressed += () =>
         {

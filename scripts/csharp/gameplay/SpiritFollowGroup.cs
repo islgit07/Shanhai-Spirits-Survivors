@@ -284,7 +284,7 @@ public partial class SpiritFollowGroup : Node2D
             ["assertions"] = assertions,
         };
         GD.Print("FOLLOW_SMOKE_JSON_BEGIN");
-        GD.Print(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
         GD.Print("FOLLOW_SMOKE_JSON_END");
         GD.Print($"[SPIRIT] smoke result={(ok ? "PASS" : "FAIL")}");
         root.Companions.Clear();
@@ -307,18 +307,26 @@ public partial class SpiritFollowGroup : Node2D
     private float MinPetDistance()
     {
         float min = float.MaxValue;
-        float segSpan = GameDefs.SpiritBodyHeight - GameDefs.SpiritBodyWidth;   // 两段端点的抵扣长度
         for (int i = 0; i < _pets.Count; i++)
-        {
             for (int j = i + 1; j < _pets.Count; j++)
             {
-                Vector2 d = _pets[i].GlobalPosition - _pets[j].GlobalPosition;
-                float vertical = Mathf.Max(0f, Mathf.Abs(d.Y) - segSpan);
-                float dist = Mathf.Sqrt(d.X * d.X + vertical * vertical);
+                float dist = Capsule(_pets[i].GlobalPosition, _pets[j].GlobalPosition).Dist;
                 if (dist < min) min = dist;
             }
-        }
         return min;
+    }
+
+    /// <summary>
+    /// 两只随从（竖直胶囊碰撞体：半长 (H-W)/2 的线段 + 半径 W/2）中心间的最短距离，
+    /// 同时带回中心差向量（调用方可能还要用它算推离方向）。
+    /// P2 收口：SpiritFollow.SeparateFromPets 与本组的重叠诊断共用同一份公式。
+    /// </summary>
+    public static (float Dist, Vector2 Delta) Capsule(Vector2 a, Vector2 b)
+    {
+        float segSpan = GameDefs.SpiritBodyHeight - GameDefs.SpiritBodyWidth;   // 两段端点的抵扣长度
+        Vector2 delta = a - b;
+        float vertical = Mathf.Max(0f, Mathf.Abs(delta.Y) - segSpan);
+        return (Mathf.Sqrt(delta.X * delta.X + vertical * vertical), delta);
     }
 
     /// <summary>随从与某角色的 AABB 重叠判定（P2 收口：GameRoot 冒烟断言复用同一份公式）。</summary>
