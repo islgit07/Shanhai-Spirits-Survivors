@@ -17,7 +17,7 @@ DOCS = ROOT / "docs"
 VERSION = "0.0007"
 # BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
 # 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
-EXPECTED_CS = 41
+EXPECTED_CS = 44
 BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
                     "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
                     "gameplay/BlockField.Touch.cs"]
@@ -723,6 +723,49 @@ check("随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进�
       not any(k in pet_cs for k in ("Skill", "Attack", "Damage"))
       and not any(k in follow_cs for k in ("Skill", "Attack", "Damage"))
       and "Damage" not in spirit_root)
+
+# ---------------------------------------------------------------- 7g. 随从近战攻击（MONSTER-001 追加，v0.0007）
+attack_cs = cs("gameplay/SpiritMeleeAttack.cs")
+soulfield_cs = cs("gameplay/SoulField.cs")
+soulpick_cs = cs("gameplay/SoulPickup.cs")
+soul_tscn = read(ROOT / "scenes" / "fx" / "soul_pickup.tscn")
+check("随从近战：攻击是独立组件节点（pet 场景挂 MeleeAttack，跟随行为文件零改动，7f 边界保持）",
+      "SpiritMeleeAttack.cs" in pet_scene
+      and 'name="MeleeAttack" type="Node"' in pet_scene
+      and all(k not in follow_cs for k in ("Skill", "Attack", "Damage"))
+      and all(k not in pet_cs for k in ("Skill", "Attack", "Damage")))
+check("随从近战：自动攻击最近怪（平方距离零分配 + 冷却 + 只选 Active + 伤害走 GameDefs）",
+      "SpiritAttackRange" in attack_cs and "DistanceSquaredTo" in attack_cs
+      and "SpiritAttackCooldown" in attack_cs and "TakeDamage" in attack_cs
+      and "SpiritAttackDamage" in attack_cs)
+check("随从近战：怪物有血量与死亡（TakeDamage 无敌叠加 + Died 信号 + 死亡停 AI 停接触伤害）",
+      "MonsterHp" in monster_cs and "DiedEventHandler" in monster_cs
+      and "TakeDamage" in monster_cs and "BeginDeath" in monster_cs
+      and "Dead" in monster_cs)
+check("随从近战：MonsterField 死亡链路（移出 Active → 掉魂魄 → 淡出回池）+ 随从攻击批量开关",
+      "OnMonsterDied" in mfield_cs and "_souls?.SpawnAt" in mfield_cs
+      and "MonsterDeathFadeTime" in mfield_cs and "SetMeleeEnabled" in group_cs
+      and "MeleeAttack" in group_cs)
+check("随从近战：魂魄拾取物对象池（预实例化 + 累计掉落计数 + 屏外回收）",
+      "SoulPickupPoolSize" in soulfield_cs and "SpawnedCount" in soulfield_cs
+      and "-10000" in soulfield_cs and "PushWarning" in soulfield_cs)
+check("随从近战：魂魄场景（Area2D mask=LayerActor + coin.png + 圆形感应 + 只有玩家能捡）",
+      (ROOT / "scenes" / "fx" / "soul_pickup.tscn").exists()
+      and "SoulPickup.cs" in soul_tscn and "coin.png" in soul_tscn
+      and "collision_mask = 4" in soul_tscn and "CircleShape2D" in soul_tscn
+      and "body != _player" in soulpick_cs)
+check("随从近战：GameDefs 常量段齐全（怪血/死亡淡出/攻击伤害/范围/冷却/魂魄池/魂值）",
+      all(k in defs for k in ("MonsterHp", "MonsterDeathFadeTime", "SpiritAttackDamage",
+                              "SpiritAttackRange", "SpiritAttackCooldown",
+                              "SoulPickupPoolSize", "SoulPickupValue"))
+      and "MonsterHp = 3" in defs and "SoulPickupPoolSize = 16" in defs)
+check("随从近战：--monster-smoke 新增五条断言（血量/死亡回池/掉魂/随从击杀/拾取加魂）",
+      all(k in mfield_cs for k in ("monster_hp_damage_ok", "monster_die_release_ok",
+                                   "soul_drop_ok", "companion_attack_ok", "soul_pickup_ok"))
+      and "SetMeleeEnabled(false)" in mfield_cs and "soulsSnapshot" in mfield_cs)
+check("随从近战：拾取走 SaveGame.AddSouls（养成货币同一份）+ 冒烟快照还原",
+      "SaveGame.AddSouls" in soulpick_cs and "SetSoulsForSmoke" in cs("gameplay/SaveGame.cs")
+      and "souls_snapshot_restored" in mfield_cs)
 
 # ---------------------------------------------------------------- 7d. 随从系统第 3 块（养成界面 + 存档）
 save_cs = cs("gameplay/SaveGame.cs")

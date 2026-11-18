@@ -33,6 +33,11 @@ public static class SmokeFlags
     public static async Task WaitPhysicsFrames(Node caller, int count)
     {
         for (int i = 0; i < count; i++)
+        {
+            // 场景可能已被切走（如冒烟中玩家死亡回开始页）：节点不在树上立即中止，
+            // 否则 ToSignal 恢复时打已释放节点，冒烟永不退出（无头进程挂死）。
+            if (!GodotObject.IsInstanceValid(caller) || !caller.IsInsideTree()) return;
             await caller.ToSignal(caller.GetTree(), SceneTree.SignalName.PhysicsFrame);
+        }
     }
 }

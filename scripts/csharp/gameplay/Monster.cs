@@ -26,10 +26,20 @@ public partial class Monster : CharacterBody2D, IBounceable
     private float _jumpCooldown;    // 自救跳冷却
     private float _chaseJumpCooldown;   // 追层跳冷却
     private Sprite2D? _sprite;
+    private Tween? _fxTween;        // 受击闪烁 / 死亡淡出共用（互斥，后启动的先 Kill 前一个）
+    private float _spriteScale = 1f;   // 贴图等比缩放（Ready 计算；死亡淡出改缩放后由 Activate 还原）
+
+    /// <summary>当前血量（随从近战扣减，归零即死亡：停 AI、掉魂魄、淡出回池）。</summary>
+    public int Hp { get; private set; } = GameDefs.MonsterHp;
+
+    /// <summary>是否已死亡（停 AI / 停接触伤害；淡出由 BeginDeath 驱动，回池归 MonsterField）。</summary>
+    public bool Dead { get; private set; }
+
+    /// <summary>血量归零（MonsterField 监听：移出 Active、掉魂魄、淡出后回池）。</summary>
+    [Signal] public delegate void DiedEventHandler();
 
     /// <summary>是否处于激活（场上追击）状态（池诊断 / 冒烟读取）。</summary>
     public bool Active => _active;
-
 
     public override void _Ready()
     {
@@ -44,8 +54,8 @@ public partial class Monster : CharacterBody2D, IBounceable
             var tex = _sprite.Texture;
             if (tex != null)
             {
-                float uniform = GameDefs.MonsterSize.Y / Mathf.Max(1f, tex.GetHeight());
-                _sprite.Scale = new Vector2(uniform, uniform);
+                _spriteScale = GameDefs.MonsterSize.Y / Mathf.Max(1f, tex.GetHeight());
+                _sprite.Scale = new Vector2(_spriteScale, _spriteScale);
             }
         }
         var touch = GetNodeOrNull<Area2D>("Touch");
@@ -74,7 +84,16 @@ public partial class Monster : CharacterBody2D, IBounceable
         _jumpCooldown = 0f;
         _chaseJumpCooldown = 0f;
         Velocity = Vector2.Zero;
-        if (_sprite != null) _sprite.FlipH = false;
+        Hp = GameDefs.MonsterHp;
+        Dead = false;
+        _fxTween?.Kill();
+        _fxTween = null;
+        if (_sprite != null)
+        {
+            _sprite.FlipH = false;
+            _sprite.Modulate = Colors.White;
+            _sprite.Scale = Vector2.One * _spriteScale;
+        }
         _active = true;
         Visible = true;
         SetPhysicsProcess(true);
@@ -91,9 +110,43 @@ public partial class Monster : CharacterBody2D, IBounceable
         SetPhysicsProcess(false);
     }
 
+    /// <summary>
+    /// 受击入口（随从近战组件调用）。无无敌帧——多只随从同时命中可叠加；
+    /// 受击白闪反馈（HDR 提亮后回落）；血量归零 → Dead + Died（MonsterField 掉魂魄并回池）。
+    /// </summary>
+    public void TakeDamage(int amount)
+    {
+        if (Dead || amount <= 0) return;
+        Hp -= amount;
+        if (_sprite != null)
+        {
+            _fxTween?.Kill();
+            _fxTween = CreateTween();
+            _fxTween.TweenProperty(_sprite, "modulate", Colors.White, 0.12f)
+                .From(new Color(2.2f, 2.2f, 2.2f, 1f));
+        }
+        if (Hp > 0) return;
+        Hp = 0;
+        Dead = true;
+        EmitSignal(SignalName.Died);
+    }
+
+    /// <summary>死亡淡出（MonsterField 在 Died 后调用）：停处理，缩小淡出；回池由 MonsterField 定时器执行。</summary>
+    public void BeginDeath()
+    {
+        SetPhysicsProcess(false);
+        _fxTween?.Kill();
+        if (_sprite == null) return;
+        _fxTween = CreateTween();
+        _fxTween.SetParallel(true);
+        _fxTween.TweenProperty(_sprite, "modulate:a", 0.0f, GameDefs.MonsterDeathFadeTime);
+        _fxTween.TweenProperty(_sprite, "scale", Vector2.One * (_spriteScale * 0.4f), GameDefs.MonsterDeathFadeTime)
+            .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
+    }
+
     public override void _PhysicsProcess(double delta)
     {
-        if (!_active || _player == null || !IsInstanceValid(_player)) return;
+        if (!_active || Dead || _player == null || !IsInstanceValid(_player)) return;
         float dt = (float)delta;
 
         // ---- 追击方向：朝玩家水平逼近（死区内停，防贴脸抖动）

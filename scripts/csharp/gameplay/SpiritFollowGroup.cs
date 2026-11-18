@@ -293,6 +293,13 @@ public partial class SpiritFollowGroup : Node2D
 
     private System.Threading.Tasks.Task Frames(int count) => SmokeFlags.WaitPhysicsFrames(this, count);
 
+    /// <summary>批量开关场上随从的近战攻击组件（--monster-smoke 确定性用；平时随 Refresh 常开）。</summary>
+    public void SetMeleeEnabled(bool on)
+    {
+        foreach (SpiritPet pet in _pets)
+            pet.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.SetEnabled(on);
+    }
+
     /// <summary>
     /// 随从两两之间是否互相重叠。按胶囊真实形状算中心距（不是 AABB）：
     /// 胶囊 = 竖直线段（半长 (H-W)/2）+ 半径 W/2，两胶囊不重叠 ⇔ 线段最短距离 ≥ W。
@@ -391,6 +398,9 @@ public partial class SpiritFollowGroup : Node2D
             bool firstBind = !follow.Enabled;
             follow.Enable(_player, i, _grid);
             if (firstBind) follow.SnapToTarget();   // 新实体直接落位，不从远处跑过来
+
+            // MONSTER-001：随从近战攻击（独立组件，移动/跟随行为不受影响；伤害数值在 GameDefs）
+            pet.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.Enable(root.MonsterField);
         }
 
         // 3) 列表顺序与槽位保持一致（后续冒烟 / 界面按顺序读）

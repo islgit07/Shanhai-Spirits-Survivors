@@ -134,9 +134,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 41",
+      "name": "C# 脚本数量 = 44",
       "ok": true,
-      "detail": "41 个"
+      "detail": "44 个"
     },
     {
       "name": "零 GDScript",
@@ -845,6 +845,51 @@
     },
     {
       "name": "随从跟随：技能 / 数值 / 本命升级仍未实现（逐块推进，不越界）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：攻击是独立组件节点（pet 场景挂 MeleeAttack，跟随行为文件零改动，7f 边界保持）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：自动攻击最近怪（平方距离零分配 + 冷却 + 只选 Active + 伤害走 GameDefs）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：怪物有血量与死亡（TakeDamage 无敌叠加 + Died 信号 + 死亡停 AI 停接触伤害）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：MonsterField 死亡链路（移出 Active → 掉魂魄 → 淡出回池）+ 随从攻击批量开关",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：魂魄拾取物对象池（预实例化 + 累计掉落计数 + 屏外回收）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：魂魄场景（Area2D mask=LayerActor + coin.png + 圆形感应 + 只有玩家能捡）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：GameDefs 常量段齐全（怪血/死亡淡出/攻击伤害/范围/冷却/魂魄池/魂值）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：--monster-smoke 新增五条断言（血量/死亡回池/掉魂/随从击杀/拾取加魂）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "随从近战：拾取走 SaveGame.AddSouls（养成货币同一份）+ 冒烟快照还原",
       "ok": true,
       "detail": ""
     },

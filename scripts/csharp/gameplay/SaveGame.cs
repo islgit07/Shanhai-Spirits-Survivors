@@ -131,6 +131,13 @@ public static class SaveGame
         Save();
     }
 
+    /// <summary>冒烟专用：直接设定魂魄数并落盘（快照还原用，不触发任何加扣逻辑）。</summary>
+    public static void SetSoulsForSmoke(int souls)
+    {
+        Data.Souls = souls;
+        Save();
+    }
+
     public static bool TrySpendSouls(int cost) => TrySpendSouls(cost, true);
 
     /// <summary>扣魂；saveNow=false 供「扣魂 + 改状态」合并成一次写盘的复合操作使用。</summary>

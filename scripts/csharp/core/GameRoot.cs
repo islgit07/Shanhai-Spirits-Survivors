@@ -56,6 +56,8 @@ public partial class GameRoot : Node2D
 	// MONSTER-001：怪物对象池与刷怪口（预实例化，游玩中零 Instantiate）；波次系统 v0.0008 接此池。
 	private MonsterField _monsterField = null!;
 	public MonsterField MonsterField => _monsterField;
+	// 魂魄拾取物对象池：怪物死亡原地掉落，玩家走过去捡（SaveGame.AddSouls 同一份货币）。
+	private SoulField _soulField = null!;
 	// 死亡处理：血量归零 → Master 发 Died → 这里定格 DeathRestartDelay 秒后回开始页（冒烟断言锚点）。
 	public bool PlayerDiedSeen { get; private set; }
 	private const string StartScenePath = "res://scenes/StartPage.tscn";
@@ -94,6 +96,8 @@ public partial class GameRoot : Node2D
 		Player = GetNode<Master>("Player/CharacterBody2D");
 		_spiritGroup = GetNode<SpiritFollowGroup>("SpiritFollowGroup");
 		_monsterField = GetNode<MonsterField>("MonsterField");
+		_soulField = GetNode<SoulField>("SoulField");
+		_soulField.Bind(Player!);   // 魂魄拾取判定需要主角引用（Area2D 只认这个 body）
 
 		// MONSTER-001：生命 HUD + 死亡处理（信号向上：Master 只发事件，处理权在根）
 		Player.Died += OnPlayerDied;
@@ -142,7 +146,7 @@ public partial class GameRoot : Node2D
 		_spiritGroup.Bind(Player!, _blocks);   // 地形网格供随从 BFS 防卡死寻路
 		_spiritGroup.Refresh();
 		// MONSTER-001：怪物池绑定追击目标与方块几何（怪自动吃粘液 / 弹跳块）。
-		_monsterField.Bind(Player!, _blocks);
+		_monsterField.Bind(Player!, _blocks, _soulField);
 		_companion = _spiritGroup.Primary;
 		if (_chosenSpirit != null && _companion != null)
 			GD.Print($"[FATE] companion spawned id={_chosenSpirit.Id} tint={_chosenSpirit.Tint} scene={SpiritPetScenePath} followers={_spiritGroup.Followers}");
@@ -175,6 +179,7 @@ public partial class GameRoot : Node2D
 		Companions.Clear();   // 当局临时：每次开局从空队伍开始，不碰局外存档
 		_spiritGroup?.Refresh();   // 重开一局：清掉上一局的队友实体，本命保留
 		_monsterField?.ReleaseAll();   // MONSTER-001：每局从空场开始，池实例保留复用
+		_soulField?.ReleaseAll();      // 地上魂魄同样清空（捡了的不追回）
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;

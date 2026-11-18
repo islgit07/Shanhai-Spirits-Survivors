@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritPet.cs" id="1_pet"]
 [ext_resource type="Texture2D" uid="uid://dgh8vnkawjl32" path="res://assets/art/pet.png" id="2_tex"]
 [ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritFollow.cs" id="3_follow"]
+[ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritMeleeAttack.cs" id="4_attack"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_pet"]
 radius = 0.31
@@ -33,3 +34,6 @@ one_way_collision = true
 
 [node name="Follow" type="Node" parent="."]
 script = ExtResource("3_follow")
+
+[node name="MeleeAttack" type="Node" parent="."]
+script = ExtResource("4_attack")

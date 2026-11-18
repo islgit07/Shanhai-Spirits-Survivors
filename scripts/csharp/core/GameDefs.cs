@@ -253,6 +253,13 @@ public static class GameDefs
     public const int MonsterPoolSize = 12;         // 对象池预实例化数量（启动期生成，游玩中零 Instantiate）
     public const int MonsterMaxActive = 8;         // 场上激活上限（达到后拒绝生成，波次系统沿用）
     public const float DeathRestartDelay = 0.8f;   // 玩家死亡定格时长（秒），之后切回开始页
+    public const int MonsterHp = 3;                // 怪物血量（随从近战每次 1 伤，3 次击杀）
+    public const float MonsterDeathFadeTime = 0.25f;  // 死亡淡出时长（秒），淡出后回池
+    public const int SpiritAttackDamage = 1;       // 随从近战单次伤害（用户指定近战；技能系统由用户后续设计）
+    public const float SpiritAttackRange = 1.0f;   // 近战攻击范围（格，随从中心到怪中心）
+    public const float SpiritAttackCooldown = 1.0f;// 单只随从的攻击间隔（秒）
+    public const int SoulPickupPoolSize = 16;      // 魂魄拾取物对象池容量（死亡掉落，原地等玩家捡）
+    public const int SoulPickupValue = 1;          // 每枚魂魄拾取物加的魂魄数
 
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;
