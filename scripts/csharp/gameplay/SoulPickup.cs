@@ -14,6 +14,7 @@ public partial class SoulPickup : Area2D
     private bool _collecting;   // 拾取只触发一次（反馈播完才回池）
     private Sprite2D? _sprite;
     private Tween? _bob;
+    private float _baseScale = 1f;   // 贴图等比缩放基准（coin.png 原图很大，必须按高度归一化到 SoulPickupSize）
 
     /// <summary>是否在地上等待拾取（池诊断 / 冒烟读取）。</summary>
     public bool Active => _active;
@@ -23,6 +24,17 @@ public partial class SoulPickup : Area2D
         CollisionLayer = 0;
         CollisionMask = GameDefs.LayerActor;
         _sprite = GetNodeOrNull<Sprite2D>("Sprite2D");
+        if (_sprite != null)
+        {
+            // 等比缩放到 SoulPickupSize（不拉伸）——与 Monster / SpiritPet 同口径；
+            // 否则大尺寸原图（coin.png）以 scale=1 直接铺满整个屏幕
+            var tex = _sprite.Texture;
+            if (tex != null)
+            {
+                _baseScale = GameDefs.SoulPickupSize.Y / Mathf.Max(1f, tex.GetHeight());
+                _sprite.Scale = Vector2.One * _baseScale;
+            }
+        }
         BodyEntered += OnBodyEntered;
         Deactivate();
     }
@@ -38,7 +50,7 @@ public partial class SoulPickup : Area2D
         if (_sprite != null)
         {
             _sprite.Modulate = Colors.White;
-            _sprite.Scale = Vector2.One;
+            _sprite.Scale = Vector2.One * _baseScale;   // 池激活还原基准缩放（收集反馈会改）
             _sprite.Position = Vector2.Zero;
             _bob?.Kill();
             _bob = CreateTween().SetLoops();
@@ -71,7 +83,7 @@ public partial class SoulPickup : Area2D
         if (_sprite != null)
         {
             var tw = CreateTween();
-            tw.TweenProperty(_sprite, "scale", Vector2.One * 1.6f, 0.12f)
+            tw.TweenProperty(_sprite, "scale", Vector2.One * (_baseScale * 1.6f), 0.12f)
                 .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
             tw.Parallel().TweenProperty(_sprite, "modulate:a", 0.0f, 0.12f);
         }

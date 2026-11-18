@@ -753,7 +753,9 @@ check("随从近战：魂魄场景（Area2D mask=LayerActor + coin.png + 圆形�
       (ROOT / "scenes" / "fx" / "soul_pickup.tscn").exists()
       and "SoulPickup.cs" in soul_tscn and "coin.png" in soul_tscn
       and "collision_mask = 4" in soul_tscn and "CircleShape2D" in soul_tscn
-      and "body != _player" in soulpick_cs)
+      and "body != _player" in soulpick_cs
+      and "SoulPickupSize" in soulpick_cs and "SoulPickupSize" in defs
+      and "_baseScale" in soulpick_cs)   # 贴图必须按高度归一化（coin.png 512px，漏了会铺满全屏）
 check("随从近战：GameDefs 常量段齐全（怪血/死亡淡出/攻击伤害/范围/冷却/魂魄池/魂值）",
       all(k in defs for k in ("MonsterHp", "MonsterDeathFadeTime", "SpiritAttackDamage",
                               "SpiritAttackRange", "SpiritAttackCooldown",

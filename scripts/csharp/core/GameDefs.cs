@@ -260,6 +260,7 @@ public static class GameDefs
     public const float SpiritAttackCooldown = 1.0f;// 单只随从的攻击间隔（秒）
     public const int SoulPickupPoolSize = 16;      // 魂魄拾取物对象池容量（死亡掉落，原地等玩家捡）
     public const int SoulPickupValue = 1;          // 每枚魂魄拾取物加的魂魄数
+    public static readonly Vector2 SoulPickupSize = new(0.5f, 0.5f);  // 拾取物贴图等比缩放到的世界尺寸（coin.png 原图很大，必须归一化）
 
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;
