@@ -729,15 +729,17 @@ attack_cs = cs("gameplay/SpiritMeleeAttack.cs")
 soulfield_cs = cs("gameplay/SoulField.cs")
 soulpick_cs = cs("gameplay/SoulPickup.cs")
 soul_tscn = read(ROOT / "scenes" / "fx" / "soul_pickup.tscn")
-check("随从近战：攻击是独立组件节点（pet 场景挂 MeleeAttack，跟随行为文件零改动，7f 边界保持）",
+check("随从近战：攻击是独立组件节点（pet 场景挂 MeleeAttack 于 Follow 之下，跟随行为文件零改动，7f 边界保持）",
       "SpiritMeleeAttack.cs" in pet_scene
-      and 'name="MeleeAttack" type="Node"' in pet_scene
+      and 'name="MeleeAttack" type="Node" parent="Follow"' in pet_scene
       and all(k not in follow_cs for k in ("Skill", "Attack", "Damage"))
-      and all(k not in pet_cs for k in ("Skill", "Attack", "Damage")))
-check("随从近战：自动攻击最近怪（平方距离零分配 + 冷却 + 只选 Active + 伤害走 GameDefs）",
+      and all(k not in pet_cs for k in ("Skill", "Attack", "Damage"))
+      and "CombatWish" in follow_cs)   # 战斗位移叠加层在跟随文件内（被动字段，主动逻辑仍在组件）
+check("随从近战：自动攻击最近怪（平方距离零分配 + 冷却 + 只选 Active + 伤害走 GameDefs + 迎击输出 CombatWish）",
       "SpiritAttackRange" in attack_cs and "DistanceSquaredTo" in attack_cs
       and "SpiritAttackCooldown" in attack_cs and "TakeDamage" in attack_cs
-      and "SpiritAttackDamage" in attack_cs)
+      and "SpiritAttackDamage" in attack_cs and "SpiritEngageRange" in attack_cs
+      and "CombatWish" in attack_cs and "ComputeEngageOffset" in attack_cs)
 check("随从近战：怪物有血量与死亡（TakeDamage 无敌叠加 + Died 信号 + 死亡停 AI 停接触伤害）",
       "MonsterHp" in monster_cs and "DiedEventHandler" in monster_cs
       and "TakeDamage" in monster_cs and "BeginDeath" in monster_cs
@@ -756,14 +758,16 @@ check("随从近战：魂魄场景（Area2D mask=LayerActor + coin.png + 圆形�
       and "body != _player" in soulpick_cs
       and "SoulPickupSize" in soulpick_cs and "SoulPickupSize" in defs
       and "_baseScale" in soulpick_cs)   # 贴图必须按高度归一化（coin.png 512px，漏了会铺满全屏）
-check("随从近战：GameDefs 常量段齐全（怪血/死亡淡出/攻击伤害/范围/冷却/魂魄池/魂值）",
+check("随从近战：GameDefs 常量段齐全（怪血/死亡淡出/攻击伤害/范围/冷却/迎击范围/魂魄池/魂值）",
       all(k in defs for k in ("MonsterHp", "MonsterDeathFadeTime", "SpiritAttackDamage",
                               "SpiritAttackRange", "SpiritAttackCooldown",
+                              "SpiritEngageRange", "SpiritEngageMaxOffset",
                               "SoulPickupPoolSize", "SoulPickupValue"))
       and "MonsterHp = 3" in defs and "SoulPickupPoolSize = 16" in defs)
-check("随从近战：--monster-smoke 新增五条断言（血量/死亡回池/掉魂/随从击杀/拾取加魂）",
+check("随从近战：--monster-smoke 六条断言（血量/死亡回池/掉魂/随从击杀/追击/拾取加魂）",
       all(k in mfield_cs for k in ("monster_hp_damage_ok", "monster_die_release_ok",
-                                   "soul_drop_ok", "companion_attack_ok", "soul_pickup_ok"))
+                                   "soul_drop_ok", "companion_attack_ok", "companion_engage_ok",
+                                   "soul_pickup_ok"))
       and "SetMeleeEnabled(false)" in mfield_cs and "soulsSnapshot" in mfield_cs)
 check("随从近战：拾取走 SaveGame.AddSouls（养成货币同一份）+ 冒烟快照还原",
       "SaveGame.AddSouls" in soulpick_cs and "SetSoulsForSmoke" in cs("gameplay/SaveGame.cs")

@@ -297,7 +297,8 @@ public partial class SpiritFollowGroup : Node2D
     public void SetMeleeEnabled(bool on)
     {
         foreach (SpiritPet pet in _pets)
-            pet.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.SetEnabled(on);
+            pet.GetNodeOrNull<SpiritFollow>("Follow")
+               ?.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.SetEnabled(on);
     }
 
     /// <summary>
@@ -400,7 +401,8 @@ public partial class SpiritFollowGroup : Node2D
             if (firstBind) follow.SnapToTarget();   // 新实体直接落位，不从远处跑过来
 
             // MONSTER-001：随从近战攻击（独立组件，移动/跟随行为不受影响；伤害数值在 GameDefs）
-            pet.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.Enable(root.MonsterField);
+            pet.GetNodeOrNull<SpiritFollow>("Follow")
+               ?.GetNodeOrNull<SpiritMeleeAttack>("MeleeAttack")?.Enable(root.MonsterField);
         }
 
         // 3) 列表顺序与槽位保持一致（后续冒烟 / 界面按顺序读）

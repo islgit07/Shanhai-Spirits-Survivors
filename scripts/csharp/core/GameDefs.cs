@@ -258,6 +258,8 @@ public static class GameDefs
     public const int SpiritAttackDamage = 1;       // 随从近战单次伤害（用户指定近战；技能系统由用户后续设计）
     public const float SpiritAttackRange = 1.0f;   // 近战攻击范围（格，随从中心到怪中心）
     public const float SpiritAttackCooldown = 1.0f;// 单只随从的攻击间隔（秒）
+    public const float SpiritEngageRange = 4.0f;       // 迎击范围：怪在此距离内随从主动贴近（超出则跟队）
+    public const float SpiritEngageMaxOffset = 1.2f;   // 迎击时偏离跟随落点的上限（格）
     public const int SoulPickupPoolSize = 16;      // 魂魄拾取物对象池容量（死亡掉落，原地等玩家捡）
     public const int SoulPickupValue = 1;          // 每枚魂魄拾取物加的魂魄数
     public static readonly Vector2 SoulPickupSize = new(0.5f, 0.5f);  // 拾取物贴图等比缩放到的世界尺寸（coin.png 原图很大，必须归一化）

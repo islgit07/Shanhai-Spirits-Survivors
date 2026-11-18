@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Text.Json;
 using Godot;
 
@@ -138,11 +139,27 @@ public partial class MonsterField : Node2D
     // ---------------------------------------------------------------- 无头冒烟
     private async void RunSmoke()
     {
+        // 玩家死亡定格 0.8 秒后会切回开始页，场景可能在中途被整体释放：
+        // 任何一步炸掉都必须带 FAIL 退出，绝不挂死无头进程（实测踩坑）。
+        var tree = GetTree();
+        try
+        {
+            await RunSmokeSteps(tree);
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[MONSTER] smoke aborted: {e.Message}");
+            tree.Quit(1);
+        }
+    }
+
+    private async Task RunSmokeSteps(SceneTree tree)
+    {
         GameRoot? root = GameRoot.Instance;
         if (_player == null || _blocks == null || root == null)
         {
             GD.PushError("[MONSTER] monster-smoke 缺少主角 / 地形 / GameRoot");
-            GetTree().Quit(1);
+            tree.Quit(1);
             return;
         }
         root.SpiritGroup.SetMeleeEnabled(false);   // 冒烟期间关闭随从攻击：接触 / 死亡测试时序不受随从补刀干扰
@@ -221,6 +238,23 @@ public partial class MonsterField : Node2D
         root.Companions.Clear();
         root.RefreshCompanions();   // 恢复单本命队伍（临时队友本来就是当局数据）
         root.SpiritGroup.SetMeleeEnabled(false);
+
+        // 5d) 追击：靶子怪放在超出攻击范围（1.0）但迎击范围（4.0）内的 2.5 格处——
+        //     追击优化前单本命永远够不着（干看），优化后主动贴近输出（血量下降 = 追到位了）。
+        root.SpiritGroup.SetMeleeEnabled(true);
+        _player.SetHpForSmoke(GameDefs.MasterMaxHp);
+        pet = root.SpiritGroup.Primary;
+        Monster? distant = pet != null && IsInstanceValid(pet)
+            ? SpawnAt(pet.GlobalPosition + new Vector2(2.5f, -0.5f)) : null;
+        bool companionEngageOk = false;
+        if (distant != null)
+        {
+            int waitEngage = 0;
+            while (!distant.Dead && distant.Hp == GameDefs.MonsterHp && waitEngage < 240)
+            { await SmokeFlags.WaitPhysicsFrames(this, 1); waitEngage++; }
+            companionEngageOk = distant.Hp < GameDefs.MonsterHp;   // 至少挨一刀 = 追到位并出手
+        }
+        root.SpiritGroup.SetMeleeEnabled(false);
         Vector2 lastSoulPos = target?.GlobalPosition ?? Vector2.Zero;   // 死亡点 = 魂魄落点
         await SmokeFlags.WaitPhysicsFrames(this, 25);   // 淡出 + 回池 + 第二枚魂魄落地
 
@@ -283,6 +317,7 @@ public partial class MonsterField : Node2D
             ["soul_drop_ok"] = soulDropOk,
             ["companion_attack_ok"] = companionAttackOk,
             ["soul_pickup_ok"] = soulPickupOk,
+            ["companion_engage_ok"] = companionEngageOk,
         };
         bool ok = assertions.Values.All(v => v);
         SaveGame.SetSoulsForSmoke(soulsSnapshot);   // 还原玩家存档魂魄（拾取测试的净零证明见报告）
@@ -309,6 +344,6 @@ public partial class MonsterField : Node2D
         GD.Print(JsonSerializer.Serialize(report, SmokeFlags.IndentedJson));
         GD.Print("MONSTER_SMOKE_JSON_END");
         GD.Print($"[MONSTER] smoke result={(ok ? "PASS" : "FAIL")}");
-        GetTree().Quit(ok ? 0 : 1);
+        tree.Quit(ok ? 0 : 1);
     }
 }

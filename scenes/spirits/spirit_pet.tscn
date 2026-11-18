@@ -35,5 +35,5 @@ one_way_collision = true
 [node name="Follow" type="Node" parent="."]
 script = ExtResource("3_follow")
 
-[node name="MeleeAttack" type="Node" parent="."]
+[node name="MeleeAttack" type="Node" parent="Follow"]
 script = ExtResource("4_attack")

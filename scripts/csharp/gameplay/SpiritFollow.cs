@@ -49,6 +49,13 @@ public partial class SpiritFollow : Node
     /// <summary>累计主动起跳次数（跨层 / 让路 / 自救），冒烟用「静止时不该连跳」。</summary>
     public int JumpCount { get; private set; }
 
+    /// <summary>
+    /// 战斗位移愿望：由随从的近战战斗组件每帧写入（怪在迎击范围内但超出攻击范围时输出朝怪偏移），
+    /// 本文件只做被动叠加——以字段注入而非类型引用，保持「战斗逻辑不进跟随文件」的自检边界。
+    /// 让路（保玩家通道）与 BFS 寻路（保回家）优先级更高，两者激活时不叠加。
+    /// </summary>
+    public Vector2 CombatWish;
+
     public override void _Ready()
     {
         _pet = GetParent<SpiritPet>();
@@ -162,6 +169,12 @@ public partial class SpiritFollow : Node
         bool teleported;
         wish = ApplySeek(pos, playerPos, wish, dynamicSlot, dt, out seeking, out teleported);
         if (teleported) return;
+
+        // ---- 战斗位移叠加（MONSTER-001）：战斗组件发现射程外的怪时输出迎击偏移（以自身当前位置
+        // 为基准的追击落点，逐帧重算逐步逼近），怪死 / 走远后愿望归零自动回归队形；
+        // 让路（保玩家通道）与 BFS 寻路（保回家）优先级更高，两者激活时不叠加。
+        if (!yielding && !seeking && CombatWish != Vector2.Zero)
+            wish = pos + CombatWish;
 
         float dx = wish.X - pos.X;
         float dy = wish.Y - pos.Y;
