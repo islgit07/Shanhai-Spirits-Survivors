@@ -225,7 +225,7 @@ public partial class SpiritFollowGroup : Node2D
             slimeOk = onSlime && slimeSlowed;
         }
 
-        // 6) 角色碰撞规则：随从 layer=Spirit、mask 含 Actor/Solid；
+        // 12) 角色碰撞规则：随从 layer=Spirit、mask 含 Actor/Solid；
         //    主角只对 LayerSpiritTop（头顶平台）产生碰撞 —— 头上能踩、水平不被顶住。
         bool layersOk = _pets.All(p => p.CollisionLayer == GameDefs.LayerSpirit
                                        && (p.CollisionMask & GameDefs.LayerActor) != 0u
@@ -234,7 +234,7 @@ public partial class SpiritFollowGroup : Node2D
                         && (_player.CollisionMask & GameDefs.LayerSpirit) == 0u
                         && (_player.CollisionMask & GameDefs.LayerActor) != 0u;
 
-        // 7) 随从有真实碰撞体 + 头顶踩踏平台（不是纯贴图）
+        // 13) 随从有真实碰撞体 + 头顶踩踏平台（不是纯贴图）
         bool bodyOk = _pets.All(p => p.GetNodeOrNull<CollisionShape2D>("CollisionShape2D")?.Shape != null
                                      && p.GetNodeOrNull<StaticBody2D>("SpiritTop") != null);
 
@@ -260,7 +260,7 @@ public partial class SpiritFollowGroup : Node2D
         var report = new Dictionary<string, object>
         {
             ["project"] = "山海幻灵",
-            ["version"] = "0.0005",
+            ["version"] = ProjectSettings.GetSetting("application/config/version", "dev").AsString(),
             ["scene"] = "SpiritFollowGroup",
             ["result"] = ok ? "PASS" : "FAIL",
             ["pets"] = _pets.Count,

@@ -277,7 +277,7 @@ public partial class UpgradeScreen : Control
         var report = new Dictionary<string, object>
         {
             ["project"] = "山海幻灵",
-            ["version"] = "0.0005",
+            ["version"] = ProjectSettings.GetSetting("application/config/version", "dev").AsString(),
             ["scene"] = "UpgradeScreen",
             ["result"] = ok ? "PASS" : "FAIL",
             ["souls_before"] = soulsBefore,

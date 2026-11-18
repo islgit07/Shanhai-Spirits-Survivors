@@ -294,7 +294,7 @@ public partial class PauseMenu : CanvasLayer
         var report = new Dictionary<string, object>
         {
             ["project"] = "山海幻灵",
-            ["version"] = "0.0005",
+            ["version"] = ProjectSettings.GetSetting("application/config/version", "dev").AsString(),
             ["scene"] = "PauseMenu",
             ["result"] = ok ? "PASS" : "FAIL",
             ["buttons"] = "继续/设置/退出（左窄栏）",

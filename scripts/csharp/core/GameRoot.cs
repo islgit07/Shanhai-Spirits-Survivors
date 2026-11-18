@@ -107,7 +107,7 @@ public partial class GameRoot : Node2D
 		_seedLabel = UiSkin.MakeSeedBadge(this, _currentSeed);   // 开发用：常驻显示当前地图种子，便于复现
 		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
-		GD.Print("[BOOT] 山海幻灵 v0.0005 · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
+		GD.Print($"[BOOT] 山海幻灵 v{ProjectSettings.GetSetting("application/config/version", "dev").AsString()} · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
 		// 随从系统第 1 块：打印已发现的本命随从目录（定义卡自动扫描，加卡零代码）。
 		_spirits = SpiritCatalog.All;
 		GD.Print($"[BOOT] spirits={_spirits.Count} ids=[{string.Join(",", _spirits.Select(s => s.Id))}]");

@@ -172,7 +172,7 @@ public partial class CompanionOffer : CanvasLayer
         var report = new Dictionary<string, object>
         {
             ["project"] = "山海幻灵",
-            ["version"] = "0.0005",
+            ["version"] = ProjectSettings.GetSetting("application/config/version", "dev").AsString(),
             ["scene"] = "CompanionOffer",
             ["result"] = ok ? "PASS" : "FAIL",
             ["roster_count"] = roster?.Count ?? -1,
