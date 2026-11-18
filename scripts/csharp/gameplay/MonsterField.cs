@@ -96,10 +96,16 @@ public partial class MonsterField : Node2D
         return monster;
     }
 
-    /// <summary>调试入口：玩家附近随机落点（水平 4~8 格，地面层上方 2 格落下）。</summary>
+    /// <summary>调试入口：玩家附近随机落点（水平 4~8 格，地面层上方 2 格落下）。
+    /// 场上已有活怪时跳过——调试就是单纯一只，反复点击不堆积（用户指定）。</summary>
     public void SpawnNearPlayer()
     {
         if (_player == null || !IsInstanceValid(_player)) return;
+        if (_active.Count > 0)
+        {
+            GD.Print($"[MONSTER] 调试刷怪跳过：场上已有 {_active.Count} 只怪（打死后再刷）");
+            return;
+        }
         float side = GD.Randf() < 0.5f ? -1f : 1f;
         float dist = (float)GD.RandRange(GameDefs.MonsterSpawnMinDist, GameDefs.MonsterSpawnMaxDist);
         SpawnAt(new Vector2(_player.GlobalPosition.X + side * dist, GameDefs.LayerY(0) - 2f));

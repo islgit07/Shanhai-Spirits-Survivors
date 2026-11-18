@@ -481,7 +481,8 @@ check("怪物系统：接触伤害走 Area2D 信号维护布尔（逐帧零重�
       and "_touchingPlayer" in monster_cs and "GetOverlappingBodies" not in monster_cs)
 check("怪物系统：MonsterField 对象池（预实例化 + 上限拒绝 + 回收屏外 + 开局清空）",
       "MonsterPoolSize" in mfield_cs and "MonsterMaxActive" in mfield_cs
-      and "-10000" in mfield_cs and "ReleaseAll" in mfield_cs and "PushWarning" in mfield_cs)
+      and "-10000" in mfield_cs and "ReleaseAll" in mfield_cs and "PushWarning" in mfield_cs
+      and "调试刷怪跳过" in mfield_cs)   # 调试刷怪上限一只（用户指定，不堆积）
 check("怪物系统：Main.tscn 挂 MonsterField + HUD 调试刷怪按钮",
       "MonsterField.cs" in read(ROOT / "scenes" / "Main.tscn")
       and 'name="MonsterField"' in read(ROOT / "scenes" / "Main.tscn")

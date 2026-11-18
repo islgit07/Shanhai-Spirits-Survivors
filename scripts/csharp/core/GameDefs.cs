@@ -243,7 +243,7 @@ public static class GameDefs
     public const int MasterMaxHp = 5;              // 玩家血量（接触一次扣 1，归零死亡回开始页）
     public const float MasterInvulnTime = 1.0f;    // 受击无敌窗口（秒）：窗口内不再扣血
     public const int MonsterContactDamage = 1;     // 接触伤害（每次有效接触扣的血量）
-    public const float MonsterMoveSpeed = 3.0f;    // 追击顶速（玩家 8.0：追不上但持续施压）
+    public const float MonsterMoveSpeed = 2.2f;    // 追击顶速（玩家 8.0：明确追不上；用户实测 3.0 偏高，降为 2.2）
     public const float MonsterJumpSpeed = 14.0f;   // 追层跳初速（约 2 行高：玩家满跳 3.4，可垂直甩开）
     public const float MonsterStuckTime = 0.3f;    // 想走却走不动多久后自救跳
     public const float MonsterStuckJumpCooldown = 0.8f;  // 自救跳 / 追层跳共用的最小间隔
