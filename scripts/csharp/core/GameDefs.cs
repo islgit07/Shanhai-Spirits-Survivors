@@ -264,6 +264,18 @@ public static class GameDefs
     public const int SoulPickupValue = 1;          // 每枚魂魄拾取物加的魂魄数
     public static readonly Vector2 SoulPickupSize = new(0.5f, 0.5f);  // 拾取物贴图等比缩放到的世界尺寸（coin.png 原图很大，必须归一化）
 
+    // ---------------------------------------------------------------- 昼夜波次（NIGHT v0.0008）
+    // 节奏循环：白天安静 → 玩家在篝火旁按 E 点燃 → 黑夜 20 波怪一波一波来袭（第 k 波 k 只，
+    // 不断加怪，波间长休整）→ 玩家随时可在篝火旁长按 E 祈祷（需持续不受伤）→ 天亮：
+    // 全场怪消散成魂魄 + 随从三选一弹窗（升级）→ 再按 E 点燃 = 下一夜。波次结构不随夜数变化。
+    public const int NightWaveTotal = 20;             // 每夜总波数（第 k 波刷 k 只，不断加怪）
+    public const float WaveSpawnInterval = 2.0f;      // 波内刷怪间隔（秒）
+    public const float WaveBreatherTime = 10.0f;      // 波间休整（秒，较长——玩家可趁机去篝火祈祷天亮）
+    public const float CampfireHoldTime = 3.0f;       // 祈祷天亮的长按时长（秒），期间受伤即重置
+    public const float CampfireRange = 2.0f;          // 篝火交互半径（格，Area2D 感应区）
+    public static readonly Vector2 CampfirePos = new(0f, -3.2f);   // 篝火位置 = 出生点（GND-001 地面连续硬保证）
+    public static readonly Color NightBackdropTint = new(0.72f, 0.72f, 0.86f);   // 黑夜背景压暗偏冷
+
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;
     public const float CameraSmooth = 6.0f;

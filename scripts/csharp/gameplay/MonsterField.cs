@@ -120,6 +120,26 @@ public partial class MonsterField : Node2D
         monster.GlobalPosition = new Vector2(-10000f, -10000f);
     }
 
+    /// <summary>
+    /// 天亮消散（NIGHT-001 祈祷完成）：全部在场怪物原地掉魂魄并淡出回池，
+    /// 不走 Died 口径（被随从打死才算击杀，消散是昼夜转换的表现）。
+    /// </summary>
+    public void DissolveAll()
+    {
+        for (int i = _active.Count - 1; i >= 0; i--)
+        {
+            Monster m = _active[i];
+            _souls?.SpawnAt(m.GlobalPosition);
+            _active.RemoveAt(i);
+            m.BeginDeath();
+            var tree = GetTree();
+            tree.CreateTimer(GameDefs.MonsterDeathFadeTime + 0.05).Timeout += () =>
+            {
+                if (IsInstanceValid(m) && IsInstanceValid(this)) Release(m);
+            };
+        }
+    }
+
     /// <summary>清空场上怪物（每局开始时调用；池实例保留复用）。</summary>
     public void ReleaseAll()
     {

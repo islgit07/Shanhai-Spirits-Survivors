@@ -1,4 +1,4 @@
-# 山海幻灵 · 项目现状全景（0.0003 回退后基线 · 现行 0.0007）
+# 山海幻灵 · 项目现状全景（0.0003 回退后基线 · 现行 0.0008）
 
 > 复核日期 2026-11-15　｜　依据：`b33c71b` 之后仓库实际代码，逐文件核对。
 > **文件名沿用历史命名 `overview-v0.003.md`，但内容已按回退提交 `e815b5c` 之后的真实基线整体重写。**
@@ -20,8 +20,8 @@
 |---|---|
 | 引擎 | Godot 4.7.2-stable_mono_win64，`gl_compatibility`，1280×720 / `canvas_items` / `expand` |
 | 语言 | 全量 C#，`net9.0`，`Godot.NET.Sdk/4.7.2`，程序集与 namespace `ShanhaiSpiritsSurvivors` |
-| 版本 | `0.0007`（2026-11-19 由 `0.0006` 升版；`project.godot` / README / 静态自检 / 启动日志一致），附注 tag `v0.0007`；本次更新内容：**加入怪物系统（MONSTER-001 地面追击怪 + 玩家血量 + 死亡回开始页）**。升版流程见 `docs/versioning.md` |
-| 规模 | 41 个 `.cs`（`scripts/csharp/` 39 个 + `tools/` 2 个探针）约 7.4k 行；20 个 `.tscn`；零 GDScript、零 autoload、零第三方插件 |
+| 版本 | `0.0008`（2026-11-19 由 `0.0007` 升版；`project.godot` / README / 静态自检 / 启动日志一致），附注 tag `v0.0008`；本次更新内容：**波次系统 + 篝火昼夜循环（NIGHT-001：20 波不断加怪、E 键点燃、长按祈祷天亮、怪消散成魂魄、天亮随从三选一）**。升版流程见 `docs/versioning.md` |
+| 规模 | 46 个 `.cs`（`scripts/csharp/` 44 个 + `tools/` 2 个探针）约 7.9k 行；20 个 `.tscn`；零 GDScript、零 autoload、零第三方插件 |
 | 主场景 | `res://scenes/StartPage.tscn`；游戏 `res://scenes/Main.tscn`；白箱 `res://scenes/Whitebox.tscn` |
 | 架构 | **无静态状态类、无事件总线**：`Signals` / `Run` / `Meta` 均已随回退拆除；节点间靠 `+=` 信号与直接方法调用 |
 | 构建/导出 | 构建 `dotnet build ShanhaiSpiritsSurvivors.sln`；**导出必须有 `.sln`**（含 `ExportDebug` / `ExportRelease` 配置），否则 C# 程序集不会被编译打包，导出的 exe 只是空壳；预设 `export_presets.cfg` 已入库（Windows Desktop / `embed_pck` 单 exe / 只启 OpenGL3，模板来自 SnakeSchool）；导出自包含，产物 `data_*/` 自带 .NET 9 运行时 |
@@ -69,6 +69,8 @@
 | `ui/PauseMenu.cs` | 314 | ESC 双栏暂停菜单：继续/设置/退出 + 队伍列表 + `--pause-smoke` |
 | `ui/CompanionOffer.cs` | 189 | 三选一弹窗：领取/合成，`--offer-smoke` |
 | `ui/CompanionHud.cs` | 37 | 调试 HUD：模拟升级按钮 + **刷一只怪按钮（MONSTER-001）** |
+| `gameplay/NightDirector.cs` | 205 | **NIGHT-001 昼夜波次状态机**：20 波不断加怪、波间休整、天亮消散、`--night-smoke` 十一条断言 |
+| `gameplay/Campfire.cs` | 135 | **NIGHT-001 篝火**：E 键点燃 / 长按祈祷（不受伤约束）、程序化木堆与火焰（零 PNG） |
 | `tools/WhiteboxRoot.cs` | 437 | 白箱调参 UI、图例、换种子/地形、种子徽章、截图 |
 | `tools/WhiteboxPlayer.cs` | 114 | 白箱主角：共用内核 + 实测跳跃最高点 |
 | `tools/CSharpToolchainProbe.cs` | — | C# / Godot 运行时探针 `ok=1 engine=4.7.2-stable` |

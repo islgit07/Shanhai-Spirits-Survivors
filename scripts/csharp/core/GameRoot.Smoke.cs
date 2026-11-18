@@ -289,6 +289,7 @@ public partial class GameRoot
 			["platforms_built"] = PlatformCount > 0,
 			["ground_continuous"] = GroundContinuous,
 			["monster_field_ready"] = _monsterField.PoolSize == GameDefs.MonsterPoolSize && _monsterField.Active.Count == 0,
+			["night_day_start"] = _night.Current == NightDirector.Phase.Day && _night.Wave == 0 && !_campfire.Lit,
 			["player_grounded"] = PlayerGrounded,
 			["player_moved"] = Mathf.Abs(_smokeMovedPos.X - _smokeStartPos.X) > 2.0f,
 			["player_jumped"] = _smokeMinY < _smokeStartPos.Y - 0.5f,

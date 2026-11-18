@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0007",
+  "version": "0.0008",
   "result": "PASS",
   "checks": [
     {
@@ -64,7 +64,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0007",
+      "name": "config/version = 0.0008",
       "ok": true,
       "detail": ""
     },
@@ -74,7 +74,7 @@
       "detail": ""
     },
     {
-      "name": "overview 现行版本与脚本一致（现行 0.0007）",
+      "name": "overview 现行版本与脚本一致（现行 0.0008）",
       "ok": true,
       "detail": ""
     },
@@ -134,9 +134,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 44",
+      "name": "C# 脚本数量 = 46",
       "ok": true,
-      "detail": "44 个"
+      "detail": "46 个"
     },
     {
       "name": "零 GDScript",
@@ -219,7 +219,7 @@
       "detail": ""
     },
     {
-      "name": "基础键鼠映射（4 action × 1 键，键盘保留）",
+      "name": "基础键鼠映射（5 action × 1 键，键盘保留；v0.0008 新增 interact=E）",
       "ok": true,
       "detail": ""
     },
@@ -590,6 +590,66 @@
     },
     {
       "name": "怪物系统：主冒烟新增怪物池就绪断言",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：GameDefs 常量段齐全（20 波/刷怪间隔/波间休整/祈祷时长/篝火半径/夜背景）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：状态机（点燃→波内刷怪→等清场→波间休整→夜深；20 波清完不再刷怪等祈祷）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：点燃/祈祷信号向上，GameRoot 裁决（Director 只管状态，弹窗/背景在根）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：篝火交互走 interact action（E 键，StringName 缓存）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：祈祷不受伤约束（受伤 HealthChanged 即重置进度）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：篝火视觉程序化零 PNG（木堆 ArtBank 方块 + 火焰 CpuParticles2D 点燃才发射）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：天亮消散（DissolveAll 原地掉魂魄 + 淡出回池，不走击杀口径）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：天亮升级 = 复用随从三选一弹窗（自动弹出，自带暂停）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：背景昼夜切换（夜 = bg_eclipse + NightBackdropTint，昼 = bg_dusk）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：HUD（顶部昼夜状态文本缓存去重 + 祈祷进度条）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：--night-smoke 十一条断言（白天起步/点燃/波1刷出/清场休整/波2推进/祈祷重置/天亮/消散/三选一/再点燃）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "昼夜波次：主冒烟新增白天起步断言 + BeginRun 重置昼夜状态",
       "ok": true,
       "detail": ""
     },

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0007 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0008 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,10 +14,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0007"
+VERSION = "0.0008"
 # BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
 # 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
-EXPECTED_CS = 44
+EXPECTED_CS = 46
 BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
                     "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
                     "gameplay/BlockField.Touch.cs"]
@@ -170,9 +170,9 @@ check("自动上攀：翻越吸附写入移动内核（TryClimb + 移动后判�
       "TryClimb" in mover and "onFloorNow" in mover)
 check("自动上攀：攀爬参数常量（ClimbReachUp / ClimbEdgeBand / ClimbStep）",
       "MasterClimbReachUp" in defs and "MasterClimbEdgeBand" in defs and "MasterClimbStep" in defs)
-check("基础键鼠映射（4 action × 1 键，键盘保留）",
-      all(a + "={" in pg for a in ("move_left", "move_right", "move_down", "jump"))
-      and pg.count('"physical_keycode"') == 4)
+check("基础键鼠映射（5 action × 1 键，键盘保留；v0.0008 新增 interact=E）",
+      all(a + "={" in pg for a in ("move_left", "move_right", "move_down", "jump", "interact"))
+      and pg.count('"physical_keycode"') == 5)
 # 手柄：键盘与手柄共用同一 action，游戏代码零改动（input-handling §5 推荐做法）。
 # 校验具体枚举值与方向，避免只有字符串「InputEventJoypad」出现的假阳性。
 def _action_events(action):
@@ -504,6 +504,53 @@ check("怪物系统：--monster-smoke 独立冒烟（池/生成/落地/追踪/�
 check("怪物系统：等帧协程收口 SmokeFlags.WaitPhysicsFrames（follow / monster 冒烟共用）",
       "WaitPhysicsFrames" in cs("core/SmokeFlags.cs") and "WaitPhysicsFrames" in mfield_cs)
 check("怪物系统：主冒烟新增怪物池就绪断言", "monster_field_ready" in root_cs)
+
+# ---------------------------------------------------------------- 11. NIGHT-001 昼夜波次（v0.0008）
+night_cs = cs("gameplay/NightDirector.cs")
+campfire_cs = cs("gameplay/Campfire.cs")
+check("昼夜波次：GameDefs 常量段齐全（20 波/刷怪间隔/波间休整/祈祷时长/篝火半径/夜背景）",
+      all(k in defs for k in ("NightWaveTotal", "WaveSpawnInterval", "WaveBreatherTime",
+                              "CampfireHoldTime", "CampfireRange", "CampfirePos",
+                              "NightBackdropTint"))
+      and "NightWaveTotal = 20" in defs and "WaveBreatherTime = 10.0" in defs
+      and "CampfireHoldTime = 3.0" in defs)
+check("昼夜波次：状态机（点燃→波内刷怪→等清场→波间休整→夜深；20 波清完不再刷怪等祈祷）",
+      "enum Phase" in night_cs and "Phase.Spawning" in night_cs and "Phase.Clearing" in night_cs
+      and "Phase.Breather" in night_cs and "Phase.NightDeep" in night_cs
+      and "NightWaveTotal" in night_cs and "DissolveAll" in night_cs)
+check("昼夜波次：点燃/祈祷信号向上，GameRoot 裁决（Director 只管状态，弹窗/背景在根）",
+      "IgniteRequested" in campfire_cs and "DawnPrayerCompleted" in campfire_cs
+      and "OnIgniteRequested" in root_cs and "OnDawnPrayerCompleted" in root_cs
+      and "NightDirector.Phase.Day" in root_cs)
+check("昼夜波次：篝火交互走 interact action（E 键，StringName 缓存）",
+      'InteractAction' in campfire_cs and '"interact"' in campfire_cs
+      and 'StringName InteractAction' in campfire_cs)
+check("昼夜波次：祈祷不受伤约束（受伤 HealthChanged 即重置进度）",
+      "OnPlayerHealthChanged" in campfire_cs and "_holdTime = 0f" in campfire_cs
+      and "HealthChanged" in campfire_cs)
+check("昼夜波次：篝火视觉程序化零 PNG（木堆 ArtBank 方块 + 火焰 CpuParticles2D 点燃才发射）",
+      "ArtBank.MakeBox" in campfire_cs and "CpuParticles2D" in campfire_cs
+      and "Emitting = lit" in campfire_cs and ".png" not in campfire_cs)
+check("昼夜波次：天亮消散（DissolveAll 原地掉魂魄 + 淡出回池，不走击杀口径）",
+      "DissolveAll" in mfield_cs and "天亮消散" in mfield_cs
+      and "_souls?.SpawnAt" in mfield_cs)
+check("昼夜波次：天亮升级 = 复用随从三选一弹窗（自动弹出，自带暂停）",
+      "_companionOffer.Open()" in root_cs and "CompanionOfferNode" in root_cs
+      and "night_offer_ok" in night_cs)
+check("昼夜波次：背景昼夜切换（夜 = bg_eclipse + NightBackdropTint，昼 = bg_dusk）",
+      "bg_eclipse" in root_cs and "NightBackdropTint" in root_cs and "SetBackdrop" in root_cs
+      and "ApplyBackdropScale" in root_cs)
+check("昼夜波次：HUD（顶部昼夜状态文本缓存去重 + 祈祷进度条）",
+      "BuildNightHud" in root_cs and "UpdateNightHud" in root_cs
+      and "_lastPhaseText" in root_cs and "_prayerBar" in root_cs)
+check("昼夜波次：--night-smoke 十一条断言（白天起步/点燃/波1刷出/清场休整/波2推进/祈祷重置/天亮/消散/三选一/再点燃）",
+      "NIGHT_SMOKE_JSON_BEGIN" in night_cs
+      and all(k in night_cs for k in ("night_day_start", "night_ignite_ok", "night_wave1_spawn_ok",
+                                      "night_wave1_clear_ok", "night_wave2_ok", "night_breather_ok",
+                                      "night_prayer_reset_ok", "night_dawn_ok", "night_dawn_dissolve_ok",
+                                      "night_offer_ok", "night_relight_ok")))
+check("昼夜波次：主冒烟新增白天起步断言 + BeginRun 重置昼夜状态",
+      "night_day_start" in root_cs and "ResetToDay" in root_cs and "SetBackdrop(false)" in root_cs)
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in root_cs)

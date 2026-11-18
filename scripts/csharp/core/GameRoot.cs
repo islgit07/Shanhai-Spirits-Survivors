@@ -56,6 +56,16 @@ public partial class GameRoot : Node2D
 	// MONSTER-001：怪物对象池与刷怪口（预实例化，游玩中零 Instantiate）；波次系统 v0.0008 接此池。
 	private MonsterField _monsterField = null!;
 	public MonsterField MonsterField => _monsterField;
+	// 昼夜波次（NIGHT-001 v0.0008）：状态机 + 篝火交互 + 天亮三选一升级。
+	private NightDirector _night = null!;
+	public NightDirector Night => _night;
+	private Campfire _campfire = null!;
+	public Campfire Campfire => _campfire;
+	private CompanionOffer _companionOffer = null!;
+	public CompanionOffer CompanionOfferNode => _companionOffer;
+	private Label _phaseLabel = null!;
+	private ProgressBar _prayerBar = null!;
+	private string _lastPhaseText = "";
 	// 魂魄拾取物对象池：怪物死亡原地掉落，玩家走过去捡（SaveGame.AddSouls 同一份货币）。
 	private SoulField _soulField = null!;
 	// 死亡处理：血量归零 → Master 发 Died → 这里定格 DeathRestartDelay 秒后回开始页（冒烟断言锚点）。
@@ -97,11 +107,18 @@ public partial class GameRoot : Node2D
 		_spiritGroup = GetNode<SpiritFollowGroup>("SpiritFollowGroup");
 		_monsterField = GetNode<MonsterField>("MonsterField");
 		_soulField = GetNode<SoulField>("SoulField");
+		_night = GetNode<NightDirector>("NightDirector");
+		_campfire = GetNode<Campfire>("Campfire");
+		_companionOffer = GetNode<CompanionOffer>("CompanionOffer");
 		_soulField.Bind(Player!);   // 魂魄拾取判定需要主角引用（Area2D 只认这个 body）
+		_night.Bind(Player!, _monsterField, _soulField);
+		_campfire.Bind(Player!);
 
 		// MONSTER-001：生命 HUD + 死亡处理（信号向上：Master 只发事件，处理权在根）
 		Player.Died += OnPlayerDied;
 		Player.HealthChanged += OnHealthChanged;
+		_campfire.IgniteRequested += OnIgniteRequested;
+		_campfire.DawnPrayerCompleted += OnDawnPrayerCompleted;
 
 		// Backdrop 在 Main.tscn 里摆（Sprite2D ← 贴图 / 色调在编辑器里调）；缺失时代码兜底生成
 		_backdrop = _camera.GetNodeOrNull<Sprite2D>("Backdrop");
@@ -116,14 +133,13 @@ public partial class GameRoot : Node2D
 		else if (_backdrop.Texture != null)
 		{
 			// 场景里有 Backdrop：按视口尺寸算缩放（贴图和色调已在编辑器里设好）
-			_backdrop.Scale = ViewSizeWorld() / new Vector2(
-				Mathf.Max(1f, _backdrop.Texture.GetWidth()),
-				Mathf.Max(1f, _backdrop.Texture.GetHeight()));
+			ApplyBackdropScale();
 		}
 
 		BeginRun(SmokeMode ? SmokeFixedSeed : TimeSeed());
 		_seedLabel = UiSkin.MakeSeedBadge(this, _currentSeed);   // 开发用：常驻显示当前地图种子，便于复现
 		BuildHpHud();   // MONSTER-001：左上角生命显示（HealthChanged 时重绘）
+		BuildNightHud();   // NIGHT-001：顶部昼夜状态 + 祈祷进度
 		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
 		GD.Print($"[BOOT] 山海幻灵 v{ProjectSettings.GetSetting("application/config/version", "dev").AsString()} · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
@@ -180,6 +196,9 @@ public partial class GameRoot : Node2D
 		_spiritGroup?.Refresh();   // 重开一局：清掉上一局的队友实体，本命保留
 		_monsterField?.ReleaseAll();   // MONSTER-001：每局从空场开始，池实例保留复用
 		_soulField?.ReleaseAll();      // 地上魂魄同样清空（捡了的不追回）
+		_night?.ResetToDay();          // NIGHT-001：每局从白天开始，篝火未点燃
+		_campfire?.ResetToDay();
+		SetBackdrop(false);
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
@@ -231,6 +250,76 @@ public partial class GameRoot : Node2D
 			Player.GlobalPosition.Y - 1.0f);
 		_camera.GlobalPosition = _camera.GlobalPosition.Lerp(new Vector2(cx, cy),
 			Mathf.Clamp((float)delta * GameDefs.CameraSmooth, 0.0f, 1.0f));
+		UpdateNightHud();   // NIGHT-001：昼夜状态 / 祈祷进度
+	}
+
+	// ---------------------------------------------------------------- 昼夜 HUD 与状态切换（NIGHT-001）
+	/// <summary>顶部昼夜状态 + 祈祷进度条（文本缓存去重，避免每帧字符串分配）。</summary>
+	private void BuildNightHud()
+	{
+		_phaseLabel = UiSkin.MakeLabel("白天 · 安静", 16, UiSkin.Text);
+		_phaseLabel.Size = new Vector2(1280f, 30f);
+		_phaseLabel.Position = new Vector2(0f, 46f);
+		_phaseLabel.HorizontalAlignment = HorizontalAlignment.Center;
+		GetNode<CanvasLayer>("PlayerHud").AddChild(_phaseLabel);
+		_prayerBar = UiSkin.MakeBar(new Vector2(540f, 78f), new Vector2(200f, 14f), UiSkin.Gold);
+		_prayerBar.Visible = false;
+		GetNode<CanvasLayer>("PlayerHud").AddChild(_prayerBar);
+	}
+
+	private void UpdateNightHud()
+	{
+		string text = _night.Current switch
+		{
+			NightDirector.Phase.Day => _campfire.Lit
+				? "白天 · 安静（篝火旁按 E 点燃下一夜）"
+				: "白天 · 安静（篝火旁按 E 点燃黑夜）",
+			NightDirector.Phase.NightDeep => "夜已深 · 篝火旁长按 E 祈祷天亮",
+			_ => $"黑夜 {_night.Night} · 第 {_night.Wave}/{GameDefs.NightWaveTotal} 波",
+		};
+		if (text != _lastPhaseText)
+		{
+			_phaseLabel.Text = text;
+			_lastPhaseText = text;
+		}
+		_prayerBar.Visible = _campfire.HoldActive;
+		if (_campfire.HoldActive) _prayerBar.Value = _campfire.HoldProgress * 100.0;
+	}
+
+	/// <summary>背景昼夜切换：夜 = bg_eclipse + 压暗色调（现成未用贴图），昼 = bg_dusk。</summary>
+	private void SetBackdrop(bool night)
+	{
+		if (_backdrop == null) return;
+		_backdrop.Texture = ArtBank.Tex(night ? "bg_eclipse" : GameDefs.BackdropArt);
+		_backdrop.Modulate = night ? GameDefs.NightBackdropTint : GameDefs.BackdropTint;
+		ApplyBackdropScale();
+	}
+
+	private void ApplyBackdropScale()
+	{
+		if (_backdrop.Texture == null) return;
+		_backdrop.Scale = ViewSizeWorld() / new Vector2(
+			Mathf.Max(1f, _backdrop.Texture.GetWidth()),
+			Mathf.Max(1f, _backdrop.Texture.GetHeight()));
+	}
+
+	/// <summary>点燃请求（白天 + 篝火旁 + 按 E）：Director 切黑夜 + 篝火点火 + 背景切换。</summary>
+	private void OnIgniteRequested()
+	{
+		if (_night.Current != NightDirector.Phase.Day) return;
+		_night.Ignite();
+		_campfire.SetLit(true);
+		SetBackdrop(true);
+	}
+
+	/// <summary>祈祷完成：天亮（怪消散成魂魄）+ 三选一随从弹窗（升级，自带暂停）+ 篝火熄灭。</summary>
+	private void OnDawnPrayerCompleted()
+	{
+		if (_night.Current == NightDirector.Phase.Day) return;
+		_night.Dawn();
+		_campfire.SetLit(false);
+		SetBackdrop(false);
+		_companionOffer.Open();   // 天亮升级：选新随从加入 / 同名合成资质+1
 	}
 
 	// ---------------------------------------------------------------- 生命 HUD 与死亡处理（MONSTER-001）
