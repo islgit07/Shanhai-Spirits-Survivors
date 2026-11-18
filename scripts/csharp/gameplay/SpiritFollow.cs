@@ -447,22 +447,26 @@ public partial class SpiritFollow : Node
     /// <summary>
     /// 被踩检测：在随从头顶放一个薄矩形做形状查询，只查 LayerActor（主角 / 未来敌人）。
     /// 用几何查询而不是反查主角的碰撞列表，是因为主角的物理步进晚于随从（本节点优先级 -10）。
+    /// 查询参数与形状在字段里缓存（P3：_PhysicsProcess 每帧调用，原先每次都 new 两个原生对象）；
+    /// 形状尺寸 / 碰撞层不变，只有 Transform 逐帧刷新，判定结果与逐帧新建完全一致。
     /// </summary>
+    private static readonly RectangleShape2D StoodOnShape = new() { Size = new Vector2(0.70f, 0.30f) };
+    private readonly PhysicsShapeQueryParameters2D _stoodOnQuery = new()
+    {
+        Shape = StoodOnShape,
+        CollisionMask = GameDefs.LayerActor,
+        CollideWithBodies = true,
+        CollideWithAreas = false,
+    };
+
     private bool ProbeStoodOn(Vector2 playerPos)
     {
         if (Mathf.Abs(playerPos.X - _pet.GlobalPosition.X) > 0.75f) return false;
         if (playerPos.Y > _pet.GlobalPosition.Y - 0.2f) return false;
 
-        var query = new PhysicsShapeQueryParameters2D
-        {
-            Shape = new RectangleShape2D { Size = new Vector2(0.70f, 0.30f) },
-            Transform = new Transform2D(0f,
-                _pet.GlobalPosition + new Vector2(0f, -(GameDefs.SpiritBodyHeight * 0.5f + 0.10f))),
-            CollisionMask = GameDefs.LayerActor,
-            CollideWithBodies = true,
-            CollideWithAreas = false,
-        };
-        return _pet.GetWorld2D().DirectSpaceState.IntersectShape(query, 1).Count > 0;
+        _stoodOnQuery.Transform = new Transform2D(0f,
+            _pet.GlobalPosition + new Vector2(0f, -(GameDefs.SpiritBodyHeight * 0.5f + 0.10f)));
+        return _pet.GetWorld2D().DirectSpaceState.IntersectShape(_stoodOnQuery, 1).Count > 0;
     }
 
     /// <summary>
