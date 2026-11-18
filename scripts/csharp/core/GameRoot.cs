@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -29,8 +28,7 @@ public partial class GameRoot : Node2D
 	private IMapGenerator _mapGenerator = new DefaultMapGenerator();
 	public IMapGenerator MapGenerator { get => _mapGenerator; set => _mapGenerator = value; }
 	// 默认地形配置卡片：Inspector 里改 resources/maps/default.tres 的数值即可生效；加载失败兜底代码默认。
-	private const string DefaultMapConfigPath = "res://resources/maps/default.tres";
-	private MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
+	private MapGenConfig _mapConfig = GD.Load<MapGenConfig>(MapGenConfig.DefaultConfigPath) ?? MapGenConfig.CreateDefault();
 	public MapGenConfig MapConfig { get => _mapConfig; set => _mapConfig = value; }
 	// 随从系统第 1 块：启动时加载本命随从目录（主角养的灵兽），只做「游戏知道有哪些随从」。
 	// 第 2 块：读选择页写入 SceneTree 的本命 Id，从 spirit_pet.tscn 实例化本命灵兽实体。
@@ -79,9 +77,7 @@ public partial class GameRoot : Node2D
 	{
 		Instance = this;
 
-		string[] args = OS.GetCmdlineArgs();
-		string[] userArgs = OS.GetCmdlineUserArgs();
-		SmokeMode = args.Contains("--smoke") || userArgs.Contains("--smoke");
+		SmokeMode = SmokeFlags.Has("--smoke");
 
 		// 场景结构在 Main.tscn 摆好（节点名即契约）；Backdrop / Player 的贴图与节点都在场景里摆
 		_camera = GetNode<Camera2D>("Camera2D");
@@ -139,7 +135,7 @@ public partial class GameRoot : Node2D
 		if (SmokeMode) BeginSmoke();
 
 		// 仅截图自检用：--shot 时 1.5 秒后存图并退出
-		if (args.Contains("--shot") || userArgs.Contains("--shot"))
+		if (SmokeFlags.Has("--shot"))
 			CallDeferred(new StringName(nameof(CaptureShot)));
 	}
 

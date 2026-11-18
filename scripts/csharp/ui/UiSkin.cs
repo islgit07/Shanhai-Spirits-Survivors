@@ -34,12 +34,27 @@ public static class UiSkin
         return _font;
     }
 
+    // 绕过 UiSkin 的散落硬编码颜色收口到这里（P2）：数值逐字沿用原各文件字面量，视觉零变化。
+    public static readonly Color InactiveTab = new(0.62f, 0.64f, 0.72f);   // 升级界面未选中页签
+    public static readonly Color EmptySlot = new(0.48f, 0.5f, 0.58f);      // 暂停菜单队伍空位行
+    public static readonly Color SubtleText = new(0.62f, 0.66f, 0.78f);    // 白箱面板次级说明文字
+    public static readonly Color CardBg = new(0.10f, 0.12f, 0.20f, 0.96f); // 本命选择卡背景
+
+    /// <summary>Ink 的半透明变体（白箱面板底色 / 种子徽章共用）。</summary>
+    public static Color InkAlpha(float alpha) => new(Ink.R, Ink.G, Ink.B, alpha);
+
+    /// <summary>给场景里已有的 Label 套统一字体 / 字号 / 颜色（MakeLabel 的样式部分，供多处复用）。</summary>
+    public static void StyleLabel(Label label, int size, Color color)
+    {
+        label.AddThemeFontOverride(FontKey, CjkFont());
+        label.AddThemeFontSizeOverride(FontSizeKey, size);
+        label.AddThemeColorOverride(FontColorKey, color);
+    }
+
     public static Label MakeLabel(string text, int size, Color color)
     {
         var l = new Label { Text = text };
-        l.AddThemeFontOverride(FontKey, CjkFont());
-        l.AddThemeFontSizeOverride(FontSizeKey, size);
-        l.AddThemeColorOverride(FontColorKey, color);
+        StyleLabel(l, size, color);
         return l;
     }
 
@@ -81,8 +96,7 @@ public static class UiSkin
         parent.AddChild(layer);
 
         const float W = 200f, H = 32f, M = 14f, T = 14f;
-        var bg = MakePanel(new Rect2(Vector2.Zero, new Vector2(W, H)),
-                           new Color(Ink.R, Ink.G, Ink.B, 0.82f));
+        var bg = MakePanel(new Rect2(Vector2.Zero, new Vector2(W, H)), InkAlpha(0.82f));
         bg.Name = "SeedBack";
         var label = MakeLabel(SeedText(seed), 15, Gold);
         label.Name = "SeedLabel";

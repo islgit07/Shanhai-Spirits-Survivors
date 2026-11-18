@@ -1,4 +1,3 @@
-using System;
 using Godot;
 
 namespace ShanhaiSpiritsSurvivors;
@@ -61,9 +60,7 @@ public partial class StartPage : Control
         _buttons[0].GrabFocus();
     }
 
-    private static bool IsSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--smoke") >= 0 ||
-        Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0;
+    private static bool IsSmokeRequested() => SmokeFlags.Has("--smoke");
 
     private void OnStart()
     {

@@ -17,7 +17,7 @@ DOCS = ROOT / "docs"
 VERSION = "0.0006"
 # BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
 # 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
-EXPECTED_CS = 35
+EXPECTED_CS = 36
 BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
                     "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
                     "gameplay/BlockField.Touch.cs"]
@@ -223,7 +223,7 @@ check("地形系统：保留旧 Build(seed) 入口（探针/既有调用零改�
 check("地形系统：两个调用方走 IMapGenerator.Generate 且从卡片加载配置",
       "new DefaultMapGenerator()" in root_cs
       and "new DefaultMapGenerator()" in cs("tools/WhiteboxRoot.cs")
-      and "GD.Load<MapGenConfig>(DefaultMapConfigPath)" in root_cs)
+      and "GD.Load<MapGenConfig>(MapGenConfig.DefaultConfigPath)" in root_cs)
 check("地形系统：网格维度/坐标基准不接 config（仍在字段初始化用 GameDefs）",
       "new BlockType[GameDefs.BlockRows, GameDefs.BlockCols]" in field
       and "-GameDefs.WorldHalfWidth" in field)

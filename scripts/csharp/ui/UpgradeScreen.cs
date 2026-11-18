@@ -53,22 +53,13 @@ public partial class UpgradeScreen : Control
         SelectTab(0);
     }
 
-    private static bool IsSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--smoke") >= 0 ||
-        Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0;
+    private static bool IsSmokeRequested() => SmokeFlags.Has("--smoke");
 
     private void StyleStaticText()
     {
-        Style(GetNode<Label>("Title"), 40, UiSkin.Gold);
-        Style(_soulsLabel, 26, UiSkin.Gold);
-        Style(_hint, 16, UiSkin.Blue);
-    }
-
-    private static void Style(Label label, int size, Color color)
-    {
-        label.AddThemeFontOverride("font", UiSkin.CjkFont());
-        label.AddThemeFontSizeOverride("font_size", size);
-        label.AddThemeColorOverride("font_color", color);
+        UiSkin.StyleLabel(GetNode<Label>("Title"), 40, UiSkin.Gold);
+        UiSkin.StyleLabel(_soulsLabel, 26, UiSkin.Gold);
+        UiSkin.StyleLabel(_hint, 16, UiSkin.Blue);
     }
 
     // ---------------------------------------------------------------- 页签
@@ -97,7 +88,7 @@ public partial class UpgradeScreen : Control
         if (_spirits.Count == 0) return;
         _activeTab = Mathf.Clamp(index, 0, _spirits.Count - 1);
         for (int i = 0; i < _tabButtons.Length; i++)
-            _tabButtons[i].Modulate = i == _activeTab ? Colors.White : new Color(0.62f, 0.64f, 0.72f);
+            _tabButtons[i].Modulate = i == _activeTab ? Colors.White : UiSkin.InactiveTab;
         Refresh();
         if (_tabButtons.Length > 0) _tabButtons[_activeTab].GrabFocus();
     }

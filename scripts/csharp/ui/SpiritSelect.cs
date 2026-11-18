@@ -36,9 +36,7 @@ public partial class SpiritSelect : Control
         if (_cards.Length > 0) _cards[0].GrabFocus();
     }
 
-    private static bool IsSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--smoke") >= 0 ||
-        Array.IndexOf(OS.GetCmdlineUserArgs(), "--smoke") >= 0;
+    private static bool IsSmokeRequested() => SmokeFlags.Has("--smoke");
 
     private void StyleStaticText()
     {
@@ -50,9 +48,7 @@ public partial class SpiritSelect : Control
     private static void Style(Label label, int size, Color color)
     {
         label.HorizontalAlignment = HorizontalAlignment.Center;
-        label.AddThemeFontOverride("font", UiSkin.CjkFont());
-        label.AddThemeFontSizeOverride("font_size", size);
-        label.AddThemeColorOverride("font_color", color);
+        UiSkin.StyleLabel(label, size, color);
     }
 
     /// <summary>按目录顺序生成卡片；卡上的灵兽预览来自 spirit_pet.tscn 实例，非代码拼节点。</summary>
@@ -80,7 +76,7 @@ public partial class SpiritSelect : Control
             };
             var panel = new StyleBoxFlat
             {
-                BgColor = new Color(0.10f, 0.12f, 0.20f, 0.96f),
+                BgColor = UiSkin.CardBg,
                 BorderColor = def.Tint,
                 BorderWidthLeft = 2,
                 BorderWidthRight = 2,
@@ -140,9 +136,7 @@ public partial class SpiritSelect : Control
             HorizontalAlignment = HorizontalAlignment.Center,
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        label.AddThemeFontOverride("font", UiSkin.CjkFont());
-        label.AddThemeFontSizeOverride("font_size", size);
-        label.AddThemeColorOverride("font_color", color);
+        UiSkin.StyleLabel(label, size, color);
         return label;
     }
 

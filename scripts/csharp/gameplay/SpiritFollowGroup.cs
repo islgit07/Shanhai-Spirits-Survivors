@@ -56,9 +56,7 @@ public partial class SpiritFollowGroup : Node2D
     }
 
     // ---------------------------------------------------------------- 无头冒烟
-    private static bool IsFollowSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--follow-smoke") >= 0
-        || Array.IndexOf(OS.GetCmdlineUserArgs(), "--follow-smoke") >= 0;
+    private static bool IsFollowSmokeRequested() => SmokeFlags.Has("--follow-smoke");
 
     private async void RunSmoke()
     {
@@ -323,7 +321,8 @@ public partial class SpiritFollowGroup : Node2D
         return min;
     }
 
-    private static bool Overlaps(Vector2 a, Vector2 b)
+    /// <summary>随从与某角色的 AABB 重叠判定（P2 收口：GameRoot 冒烟断言复用同一份公式）。</summary>
+    public static bool Overlaps(Vector2 a, Vector2 b)
     {
         float halfW = (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f;
         float halfH = (GameDefs.SpiritBodyHeight + GameDefs.MasterSize.Y) * 0.5f;

@@ -130,9 +130,7 @@ public partial class CompanionOffer : CanvasLayer
     }
 
     // ---------------------------------------------------------------- 无头冒烟
-    private static bool IsOfferSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--offer-smoke") >= 0 ||
-        Array.IndexOf(OS.GetCmdlineUserArgs(), "--offer-smoke") >= 0;
+    private static bool IsOfferSmokeRequested() => SmokeFlags.Has("--offer-smoke");
 
     private void RunSmoke()
     {

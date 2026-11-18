@@ -23,9 +23,8 @@ public partial class WhiteboxRoot : Node2D
 
     private readonly MoveTuning _tuning = MoveTuning.GameDefaults();
     // MAP-TYPE：白箱也走策略口，默认地形；以后可在白箱里换生成器做对照调试。
-    private const string DefaultMapConfigPath = "res://resources/maps/default.tres";
     private readonly IMapGenerator _mapGenerator = new DefaultMapGenerator();
-    private readonly MapGenConfig _mapConfig = GD.Load<MapGenConfig>(DefaultMapConfigPath) ?? MapGenConfig.CreateDefault();
+    private readonly MapGenConfig _mapConfig = GD.Load<MapGenConfig>(MapGenConfig.DefaultConfigPath) ?? MapGenConfig.CreateDefault();
     private WhiteboxPlayer _player = null!;
     private BlockField _blocks = null!;
     private Camera2D _camera = null!;
@@ -49,7 +48,7 @@ public partial class WhiteboxRoot : Node2D
         GD.Print("[WHITEBOX] 就绪：A/D 移动 · Space 跳 · R 复位 · T 换地形 · Tab 隐藏面板");
 
         // 仅截图自检用：--shot 时 1.5 秒后存图并退出
-        if (OS.GetCmdlineArgs().Length > 0 && System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--shot") >= 0)
+        if (SmokeFlags.Has("--shot"))
             CallDeferred(new StringName(nameof(CaptureShot)));
     }
 
@@ -126,7 +125,7 @@ public partial class WhiteboxRoot : Node2D
 
         var back = new ColorRect
         {
-            Color = new Color(0.07f, 0.08f, 0.13f, 0.93f),
+            Color = UiSkin.InkAlpha(0.93f),
             Position = new Vector2(852f, 16f),
             Size = new Vector2(420f, 688f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
@@ -151,7 +150,7 @@ public partial class WhiteboxRoot : Node2D
         _vbox.AddChild(UiSkin.MakeLabel("跳跃白箱 · 参数调节", 22, UiSkin.Gold));
         _vbox.AddChild(UiSkin.MakeLabel("白箱与游戏共用同一移动内核，调好即生效", 13, UiSkin.Jade));
         _vbox.AddChild(UiSkin.MakeLabel("手感目标：蔚蓝（Celeste）式响应——起停跟手、弧线干脆、零浮空",
-            12, new Color(0.62f, 0.66f, 0.78f)));
+            12, UiSkin.SubtleText));
 
         AddSlider("移动速度", 2.0f, 16.0f, 0.1f, _tuning.MoveSpeed, v => _tuning.MoveSpeed = v);
         AddSlider("跳跃初速", 6.0f, 26.0f, 0.1f, _tuning.JumpSpeed, v => _tuning.JumpSpeed = v);
@@ -215,7 +214,7 @@ public partial class WhiteboxRoot : Node2D
             "A/D 走 · Space 跳(短按矮/长按高) · R 复位 · T 换地形 · Tab 隐藏面板\n" +
             "调好后把 user://whitebox_tuning.json 发给助手，或直接念数值。", 12, UiSkin.Jade));
         _vbox.AddChild(UiSkin.MakeLabel("参数每次改动都会自动写入 " + SavePath, 12,
-            new Color(0.62f, 0.66f, 0.78f)));
+            UiSkin.SubtleText));
 
         BuildLegend();
 
@@ -229,7 +228,7 @@ public partial class WhiteboxRoot : Node2D
     {
         var panel = new ColorRect
         {
-            Color = new Color(0.07f, 0.08f, 0.13f, 0.88f),
+            Color = UiSkin.InkAlpha(0.88f),
             Position = new Vector2(16f, 16f),
             Size = new Vector2(344f, 290f),
             MouseFilter = Control.MouseFilterEnum.Ignore,

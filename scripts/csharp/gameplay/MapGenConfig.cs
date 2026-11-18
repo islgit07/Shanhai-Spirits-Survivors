@@ -57,6 +57,9 @@ public partial class MapGenConfig : Resource
     [Export] public float BlockWeightSlime { get; set; } = GameDefs.BlockWeightSlime;
     [Export] public int BlockSlimeMaxCount { get; set; } = GameDefs.BlockSlimeMaxCount;
 
+    /// <summary>默认地形配置卡片路径（GameRoot / WhiteboxRoot 共用同一份加载入口）。</summary>
+    public const string DefaultConfigPath = "res://resources/maps/default.tres";
+
     /// <summary>纯代码默认配置（字段初始化器取值，逐字等于 GameDefs）。供未加载 .tres 时兜底。</summary>
     public static MapGenConfig CreateDefault() => new();
 }

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -31,6 +30,7 @@ public partial class PauseMenu : CanvasLayer
     private Button _settingsBackButton = null!;
     private VBoxContainer _rosterRows = null!;
     private bool _settingsOpen;
+    private CompanionOffer? _offer;   // 同场景兄弟节点，_Ready 缓存：_UnhandledInput 对每个未处理输入都会走到
 
     public bool IsOpen => IsInstanceValid(_root) && _root.Visible;
     public bool SettingsOpen => _settingsOpen;
@@ -57,6 +57,7 @@ public partial class PauseMenu : CanvasLayer
         _rosterRows = columns.GetNode<PanelContainer>("Right")
                              .GetNode<VBoxContainer>("VBox")
                              .GetNode<VBoxContainer>("RosterRows");
+        _offer = GetParent().GetNodeOrNull<CompanionOffer>("CompanionOffer");
 
         _resumeButton.Pressed += Resume;
         _settingsButton.Pressed += OpenSettings;
@@ -103,7 +104,7 @@ public partial class PauseMenu : CanvasLayer
         {
             bool filled = roster != null && i < roster.Count;
             RunCompanion? c = filled ? roster!.Members[i] : null;
-            Color tint = filled ? UiSkin.Text : new Color(0.48f, 0.5f, 0.58f);
+            Color tint = filled ? UiSkin.Text : UiSkin.EmptySlot;
             string text = filled
                 ? $"{i + 1}  {c!.DisplayName}　等级 {c.Level}　资质 {c.Quality}"
                 : $"{i + 1}  空";
@@ -117,7 +118,7 @@ public partial class PauseMenu : CanvasLayer
     public override void _UnhandledInput(InputEvent @event)
     {
         // 三选一弹窗开着时吞掉 ESC，避免暂停菜单叠在弹窗上（弹窗要求选完才恢复）。
-        CompanionOffer? offer = GetParent().GetNodeOrNull<CompanionOffer>("CompanionOffer");
+        CompanionOffer? offer = _offer;
         if (offer != null && offer.IsOpen)
         {
             GetViewport().SetInputAsHandled();
@@ -192,9 +193,7 @@ public partial class PauseMenu : CanvasLayer
     private void FocusSettingsBack() => _settingsBackButton.GrabFocus();
 
     // ---------------------------------------------------------------- 无头冒烟
-    private static bool IsPauseSmokeRequested() =>
-        Array.IndexOf(OS.GetCmdlineArgs(), "--pause-smoke") >= 0 ||
-        Array.IndexOf(OS.GetCmdlineUserArgs(), "--pause-smoke") >= 0;
+    private static bool IsPauseSmokeRequested() => SmokeFlags.Has("--pause-smoke");
 
     private void RunSmoke()
     {
@@ -244,7 +243,7 @@ public partial class PauseMenu : CanvasLayer
         bool escEventClose = !IsOpen && !GetTree().Paused;
 
         // 三选一弹窗开着时 ESC 必须被吞掉，不能叠出暂停菜单。
-        CompanionOffer? offer = GetParent().GetNodeOrNull<CompanionOffer>("CompanionOffer");
+        CompanionOffer? offer = _offer;
         offer?.OpenWithIds(new[] { "A", "B", "C" });
         _UnhandledInput(escDown);
         bool escBlockedByOffer = offer != null && offer.IsOpen && !IsOpen;

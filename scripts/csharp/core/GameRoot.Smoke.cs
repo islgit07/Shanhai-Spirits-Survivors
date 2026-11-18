@@ -365,10 +365,7 @@ public partial class GameRoot
 								   && (_spiritGroup.Primary.CollisionMask & GameDefs.LayerActor) != 0u,
 			["follow_no_overlap_ok"] = _spiritGroup != null && _spiritGroup.Pets.Count > 0
 									   && _spiritGroup.Pets.All(p =>
-										   Mathf.Abs(p.GlobalPosition.X - Player!.GlobalPosition.X)
-											   >= (GameDefs.SpiritBodyWidth + GameDefs.MasterSize.X) * 0.5f
-										   || Mathf.Abs(p.GlobalPosition.Y - Player!.GlobalPosition.Y)
-											   >= (GameDefs.SpiritBodyHeight + GameDefs.MasterSize.Y) * 0.5f),
+										   !SpiritFollowGroup.Overlaps(p.GlobalPosition, Player!.GlobalPosition)),
 		};
 		bool ok = assertions.Values.All(v => v);
 		var report = new Dictionary<string, object>
