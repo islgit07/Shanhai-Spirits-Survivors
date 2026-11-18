@@ -15,7 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 VERSION = "0.0006"
-EXPECTED_CS = 30
+# BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
+# 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
+EXPECTED_CS = 35
+BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
+                    "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
+                    "gameplay/BlockField.Touch.cs"]
+GAMEROOT_PARTS = ["core/GameRoot.cs", "core/GameRoot.Smoke.cs"]
 checks = []
 
 
@@ -31,6 +37,33 @@ def cs(rel):
     return read(ROOT / "scripts" / "csharp" / rel)
 
 
+def cs_parts(parts):
+    return "".join(cs(p) for p in parts)
+
+
+def glob_names(subdir, pattern):
+    return sorted(p.name for p in (ROOT / "scripts" / "csharp" / subdir).glob(pattern))
+
+
+# 拆分一致性：磁盘上的 partial 文件集合必须与清单完全一致
+check("BlockField partial 拆分清单与磁盘一致（新增 partial 必须同步本清单）",
+      glob_names("gameplay", "BlockField*.cs") == sorted(p.split("/")[-1] for p in BLOCKFIELD_PARTS),
+      ",".join(glob_names("gameplay", "BlockField*.cs")))
+check("GameRoot partial 拆分清单与磁盘一致（冒烟在 GameRoot.Smoke.cs）",
+      glob_names("core", "GameRoot*.cs") == sorted(p.split("/")[-1] for p in GAMEROOT_PARTS),
+      ",".join(glob_names("core", "GameRoot*.cs")))
+check("冒烟注入与断言已抽到 GameRoot.Smoke.cs（GameRoot.cs 只留自举 + 相机 + 场景装配）",
+      "SMOKE_JSON_BEGIN" in cs("core/GameRoot.Smoke.cs")
+      and "SMOKE_JSON_BEGIN" not in cs("core/GameRoot.cs")
+      and "public partial class GameRoot" in cs("core/GameRoot.Smoke.cs"))
+check("BlockField 拆分后接口实现不丢（IStandableGrid / IBlockGeometry 在主文件）",
+      "interface IStandableGrid" in cs("gameplay/BlockField.cs")
+      and "public bool IsStandableCell" in cs("gameplay/BlockField.cs")
+      and "public bool WorldToCell" in cs("gameplay/BlockField.cs"))
+field = cs_parts(BLOCKFIELD_PARTS)
+root_cs = cs_parts(GAMEROOT_PARTS)
+
+
 # ---------------------------------------------------------------- 1. 工程配置
 pg = read(ROOT / "project.godot")
 check("project.godot 存在", bool(pg))
@@ -43,7 +76,6 @@ check("2D 渲染 gl_compatibility", 'renderer/rendering_method="gl_compatibility
 check(f"config/version = {VERSION}", f'config/version="{VERSION}"' in pg)
 
 # ------------------------------------------------------- 1.1 版本口径（升版须知见 docs/versioning.md）
-root_cs = read(ROOT / "scripts" / "csharp" / "core" / "GameRoot.cs")
 check("冒烟报告版本号读 ProjectSettings（硬编码会漏改，升版必有坑）",
       'application/config/version' in root_cs and '["version"] = "0.' not in root_cs)
 overview_text = read(ROOT / "docs" / "overview-v0.003.md")
@@ -164,7 +196,6 @@ check("手柄映射：事件类型为 Godot 4 joypad button / motion",
 cfg_cs = cs("gameplay/MapGenConfig.cs")
 igen_cs = cs("gameplay/IMapGenerator.cs")
 defgen_cs = cs("gameplay/DefaultMapGenerator.cs")
-field = cs("gameplay/BlockField.cs")
 check("地形系统：配置卡片类 [GlobalClass] : Resource 且 28 个行为参数可编辑",
       "[GlobalClass]" in cfg_cs and "partial class MapGenConfig : Resource" in cfg_cs
       and cfg_cs.count("[Export] public") >= 28)
@@ -190,9 +221,9 @@ check("地形系统：BlockField 读 config 而非写死 GameDefs 行为参数",
 check("地形系统：保留旧 Build(seed) 入口（探针/既有调用零改动）",
       "Build(int seedValue) => Build(seedValue" in field or "void Build(int seedValue)" in field)
 check("地形系统：两个调用方走 IMapGenerator.Generate 且从卡片加载配置",
-      "new DefaultMapGenerator()" in cs("core/GameRoot.cs")
+      "new DefaultMapGenerator()" in root_cs
       and "new DefaultMapGenerator()" in cs("tools/WhiteboxRoot.cs")
-      and "GD.Load<MapGenConfig>(DefaultMapConfigPath)" in cs("core/GameRoot.cs"))
+      and "GD.Load<MapGenConfig>(DefaultMapConfigPath)" in root_cs)
 check("地形系统：网格维度/坐标基准不接 config（仍在字段初始化用 GameDefs）",
       "new BlockType[GameDefs.BlockRows, GameDefs.BlockCols]" in field
       and "-GameDefs.WorldHalfWidth" in field)
@@ -200,7 +231,6 @@ check("主角只有移动跳跃（Master 无 TakeDamage）",
       "TakeDamage" not in cs("gameplay/Master.cs"))
 
 # ---------------------------------------------------------------- 5. 保留项：地图生成
-field = cs("gameplay/BlockField.cs")
 check("GND-001 地面层全覆盖硬约束", "BlockType.Normal, false" in field
       and "IsGroundContinuous" in field)
 check("种子化地形（Rng.DeriveSeed64）", "DeriveSeed64" in field)
@@ -220,27 +250,26 @@ check("MAP-005 生成期拒绝贴太近的装饰块（骨架豁免）",
       and "BlockVerticalClearBreakChance" in field and "!purePlatform" in field)
 check("MAP-005 末尾统计合规率 + 冒烟断言 >= 80%",
       "MeasureVerticalClearance" in field
-      and "vertical_clear_80pct" in cs("core/GameRoot.cs"))
+      and "vertical_clear_80pct" in root_cs)
 check("MAP-005 骨架层间距 3 行（中间空 2 格）", "LayerStepRows = 3" in defs)
 check("MAP-005 不达标时修剪装饰块（骨架 / 地面受保护）",
       "EnforceVerticalClearance" in field and "_backboneCell" in field)
 check("MAP-006 尽量少出现单个方块（BlockRunMin=2 + PruneIsolatedSingles + 断言）",
       "BlockRunMin = 2" in defs and "PruneIsolatedSingles" in field
-      and "few_single_blocks" in cs("core/GameRoot.cs"))
+      and "few_single_blocks" in root_cs)
 check("MAP-007 地面到顶层完整路径验证与兜底（EnsureFullPathToTop + ComputeTrueReachability）",
       "EnsureFullPathToTop" in field and "ComputeTrueReachability" in field
-      and "path_to_top_ok" in cs("core/GameRoot.cs"))
+      and "path_to_top_ok" in root_cs)
 check("MAP-008 生成 2~3 条独立骨架路径（列带隔离 + 多路径断言）",
       "BackbonePathMin = 2" in defs and "BackbonePathMax = 3" in defs
       and "_paths" in field and "bandLeft" in field
-      and "multi_path_ok" in cs("core/GameRoot.cs"))
+      and "multi_path_ok" in root_cs)
 check("开发用地图种子徽章（UiSkin + 游戏 / 白箱挂载 + 换种子刷新）",
       "MakeSeedBadge" in cs("ui/UiSkin.cs")
-      and "MakeSeedBadge" in cs("core/GameRoot.cs")
+      and "MakeSeedBadge" in root_cs
       and "RefreshSeed" in cs("tools/WhiteboxRoot.cs")
-      and "seed_ui_ok" in cs("core/GameRoot.cs"))
+      and "seed_ui_ok" in root_cs)
 # ---------------------------------------------------------------- 5b. MAP-009 粘液块
-root_cs = cs("core/GameRoot.cs")
 probe_cs = read(ROOT / "tools" / "MapSeedProbe.cs")
 slime_tscn = read(ROOT / "scenes" / "blocks" / "block_slime.tscn")
 check("MAP-009 粘液块常量（1% / 组名 / 上限 3 / 减速 / 黏跳 / 黏回）",
@@ -328,8 +357,8 @@ check("BUGFIX-FRAGILE 感应区只保留预制体单份实现（动态 AddTouchA
 
 # ---------------------------------------------------------------- 5d. FRAGILE-BLINK 闪时可站 / 闪完才碎
 _gamedefs = cs("core/GameDefs.cs")
-_blink_body = read(ROOT / "scripts" / "csharp" / "gameplay" / "BlockField.cs")
-_blink_root = cs("core/GameRoot.cs")
+_blink_body = field
+_blink_root = root_cs
 check("FRAGILE-BLINK 时长 1.5 秒 + 3 次白闪（GameDefs 常量）",
       "FragileBlinkDuration = 1.5f" in _gamedefs
       and "FragileBlinkCycles = 3" in _gamedefs)
@@ -417,7 +446,7 @@ check("BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 
               for p in (cs("gameplay/Master.cs"), cs("tools/WhiteboxPlayer.cs"))))
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
-check("世界根保留相机跟随", "Lerp" in cs("core/GameRoot.cs"))
+check("世界根保留相机跟随", "Lerp" in root_cs)
 check("白箱保留（与游戏共用移动内核）",
       (ROOT / "scenes" / "Whitebox.tscn").exists()
       and "PlatformMover" in cs("tools/WhiteboxRoot.cs"))
@@ -452,7 +481,7 @@ for gone in ["SpeciesDef", "OfferKind", "LegionUnit", "WildSpawner", "EssencePic
 # 用户术语：随从 = 主角养的灵兽。本块只做「游戏知道有哪些随从」，技能/选择/界面/跟随均未实现。
 spirit_def = cs("gameplay/SpiritDef.cs")
 spirit_cat = cs("gameplay/SpiritCatalog.cs")
-spirit_root = cs("core/GameRoot.cs")
+spirit_root = root_cs
 check("随从系统：SpiritDef 是 [GlobalClass] : Resource 数据卡",
       "[GlobalClass]" in spirit_def and "partial class SpiritDef : Resource" in spirit_def)
 check("随从系统：SpiritDef 只有身份字段（Id / DisplayName / Lore），零技能/升级字段",
@@ -540,7 +569,7 @@ follow_master = cs("gameplay/Master.cs")
 follow_offer = cs("ui/CompanionOffer.cs")
 follow_main = read(ROOT / "scenes" / "Main.tscn")
 path_cs = cs("gameplay/SpiritPathfinder.cs")
-block_cs = cs("gameplay/BlockField.cs")
+block_cs = field
 
 check("随从跟随：BFS 防卡死寻路（可站立网格 + 能力档案参数化，不写死跳跃跨度）",
       "class SpiritPathfinder" in path_cs and "FindPath" in path_cs

@@ -4,6 +4,26 @@
   "result": "PASS",
   "checks": [
     {
+      "name": "BlockField partial 拆分清单与磁盘一致（新增 partial 必须同步本清单）",
+      "ok": true,
+      "detail": "BlockField.Generation.cs,BlockField.Query.cs,BlockField.Reachability.cs,BlockField.Touch.cs,BlockField.cs"
+    },
+    {
+      "name": "GameRoot partial 拆分清单与磁盘一致（冒烟在 GameRoot.Smoke.cs）",
+      "ok": true,
+      "detail": "GameRoot.Smoke.cs,GameRoot.cs"
+    },
+    {
+      "name": "冒烟注入与断言已抽到 GameRoot.Smoke.cs（GameRoot.cs 只留自举 + 相机 + 场景装配）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "BlockField 拆分后接口实现不丢（IStandableGrid / IBlockGeometry 在主文件）",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "project.godot 存在",
       "ok": true,
       "detail": ""
@@ -109,9 +129,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 30",
+      "name": "C# 脚本数量 = 35",
       "ok": true,
-      "detail": "30 个"
+      "detail": "35 个"
     },
     {
       "name": "零 GDScript",
