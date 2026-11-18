@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://ba5pdnagvi2ii"]
+[gd_scene load_steps=10 format=3 uid="uid://ba5pdnagvi2ii"]
 
 [ext_resource type="Script" uid="uid://c6s8nd67dec2r" path="res://scripts/csharp/core/GameRoot.cs" id="1_root"]
 [ext_resource type="Script" path="res://scripts/csharp/gameplay/BlockField.cs" id="2_blocks"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/CompanionHud.tscn" id="6_roster_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CompanionOffer.tscn" id="7_roster_offer"]
 [ext_resource type="Script" path="res://scripts/csharp/gameplay/SpiritFollowGroup.cs" id="8_follow_group"]
+[ext_resource type="Script" path="res://scripts/csharp/gameplay/MonsterField.cs" id="9_monster_field"]
 
 [node name="WorldRoot" type="Node2D" unique_id=2033327425]
 script = ExtResource("1_root")
@@ -27,6 +28,9 @@ position = Vector2(0, -3.2)
 
 [node name="SpiritFollowGroup" type="Node2D" parent="."]
 script = ExtResource("8_follow_group")
+
+[node name="MonsterField" type="Node2D" parent="."]
+script = ExtResource("9_monster_field")
 
 [node name="PauseMenu" parent="." instance=ExtResource("5_pause")]
 

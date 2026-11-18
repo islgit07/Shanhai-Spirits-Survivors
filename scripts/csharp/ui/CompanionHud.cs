@@ -12,6 +12,13 @@ public partial class CompanionHud : CanvasLayer
     public override void _Ready()
     {
         GetNode<Button>("HudRoot/OfferButton").Pressed += OnOfferPressed;
+        GetNode<Button>("HudRoot/MonsterButton").Pressed += OnSpawnMonsterPressed;
+    }
+
+    private void OnSpawnMonsterPressed()
+    {
+        GameRoot.Instance?.MonsterField.SpawnNearPlayer();   // MONSTER-001 调试刷怪（波次系统 v0.0008 接管节奏）
+        GD.Print("[HUD] 调试刷怪 → MonsterField");
     }
 
     private void OnOfferPressed()

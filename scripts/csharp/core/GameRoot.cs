@@ -7,12 +7,13 @@ namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
 /// v0.0001 自举：注册输入 → 拉起最小世界（相机 + 地形生成 + 主角 + 相机跟随）。
-/// 场景结构在 Main.tscn 里摆（节点名即契约：根 WorldRoot/{Camera2D, BlockField, Player}），
+/// 场景结构在 Main.tscn 里摆（节点名即契约：根 WorldRoot/{Camera2D, BlockField, Player, ...}），
 /// 主角是独立场景 Player.tscn（Node2D → CharacterBody2D[Master] → CollisionShape2D）。
-/// 无战斗、无循环阶段——按 F5 进入开始页，点「开始」进入可跑跳的空世界。
 ///
-/// @trace JUMP-001 / MAP-001 / GND-001 本版唯一职责：把「移动手感」和「平台地图生成」
-/// 原样保住，作为后续所有设计的公共底座。--smoke 无头验证五件事：建图 / 落地 / 会走 / 会跳 / 会下穿。
+/// @trace JUMP-001 / MAP-001 / GND-001 「移动手感」和「平台地图生成」是后续所有设计的公共底座。
+/// @trace MONSTER-001 v0.0007：接入怪物对象池（MonsterField）、玩家血量 HUD 与死亡处理
+/// （血量归零 → 定格 DeathRestartDelay 秒 → 回开始页）；刷怪节奏留给 v0.0008 波次系统。
+/// --smoke 无头验证：建图 / 落地 / 会走 / 会跳 / 会下穿；怪物链路走 --monster-smoke。
 /// </summary>
 public partial class GameRoot : Node2D
 {
@@ -52,6 +53,14 @@ public partial class GameRoot : Node2D
 	// 调试 HUD / 三选一弹窗 / ESC 双栏面板都读这同一份状态。
 	public RunRoster Companions { get; } = new();
 
+	// MONSTER-001：怪物对象池与刷怪口（预实例化，游玩中零 Instantiate）；波次系统 v0.0008 接此池。
+	private MonsterField _monsterField = null!;
+	public MonsterField MonsterField => _monsterField;
+	// 死亡处理：血量归零 → Master 发 Died → 这里定格 DeathRestartDelay 秒后回开始页（冒烟断言锚点）。
+	public bool PlayerDiedSeen { get; private set; }
+	private const string StartScenePath = "res://scenes/StartPage.tscn";
+	private Label _hpLabel = null!;
+
 	public Master? Player;
 	public int PlatformCount;
 	public bool GroundContinuous;
@@ -84,6 +93,11 @@ public partial class GameRoot : Node2D
 		_blocks = GetNode<BlockField>("BlockField");
 		Player = GetNode<Master>("Player/CharacterBody2D");
 		_spiritGroup = GetNode<SpiritFollowGroup>("SpiritFollowGroup");
+		_monsterField = GetNode<MonsterField>("MonsterField");
+
+		// MONSTER-001：生命 HUD + 死亡处理（信号向上：Master 只发事件，处理权在根）
+		Player.Died += OnPlayerDied;
+		Player.HealthChanged += OnHealthChanged;
 
 		// Backdrop 在 Main.tscn 里摆（Sprite2D ← 贴图 / 色调在编辑器里调）；缺失时代码兜底生成
 		_backdrop = _camera.GetNodeOrNull<Sprite2D>("Backdrop");
@@ -105,6 +119,7 @@ public partial class GameRoot : Node2D
 
 		BeginRun(SmokeMode ? SmokeFixedSeed : TimeSeed());
 		_seedLabel = UiSkin.MakeSeedBadge(this, _currentSeed);   // 开发用：常驻显示当前地图种子，便于复现
+		BuildHpHud();   // MONSTER-001：左上角生命显示（HealthChanged 时重绘）
 		GD.Print($"[BOOT] seed_ui=on seed={_currentSeed}");
 
 		GD.Print($"[BOOT] 山海幻灵 v{ProjectSettings.GetSetting("application/config/version", "dev").AsString()} · 开始页 + 最小骨架（移动手感 + 平台地图生成）");
@@ -126,6 +141,8 @@ public partial class GameRoot : Node2D
 		// SPIRIT-FOLLOW：实体生成与跟随交给 SpiritFollowGroup（本命 = 槽位 0，队友按领取顺序排在后面）。
 		_spiritGroup.Bind(Player!, _blocks);   // 地形网格供随从 BFS 防卡死寻路
 		_spiritGroup.Refresh();
+		// MONSTER-001：怪物池绑定追击目标与方块几何（怪自动吃粘液 / 弹跳块）。
+		_monsterField.Bind(Player!, _blocks);
 		_companion = _spiritGroup.Primary;
 		if (_chosenSpirit != null && _companion != null)
 			GD.Print($"[FATE] companion spawned id={_chosenSpirit.Id} tint={_chosenSpirit.Tint} scene={SpiritPetScenePath} followers={_spiritGroup.Followers}");
@@ -157,6 +174,7 @@ public partial class GameRoot : Node2D
 		_currentSeed = seed;
 		Companions.Clear();   // 当局临时：每次开局从空队伍开始，不碰局外存档
 		_spiritGroup?.Refresh();   // 重开一局：清掉上一局的队友实体，本命保留
+		_monsterField?.ReleaseAll();   // MONSTER-001：每局从空场开始，池实例保留复用
 		float z = ZoomValue();
 		_camera.Zoom = new Vector2(z, z);
 		_camera.Enabled = true;
@@ -208,6 +226,43 @@ public partial class GameRoot : Node2D
 			Player.GlobalPosition.Y - 1.0f);
 		_camera.GlobalPosition = _camera.GlobalPosition.Lerp(new Vector2(cx, cy),
 			Mathf.Clamp((float)delta * GameDefs.CameraSmooth, 0.0f, 1.0f));
+	}
+
+	// ---------------------------------------------------------------- 生命 HUD 与死亡处理（MONSTER-001）
+	/// <summary>左上角生命显示：♥ = 当前血 / ♡ = 已损失血（HealthChanged 时重绘）。</summary>
+	private void BuildHpHud()
+	{
+		var layer = new CanvasLayer { Name = "PlayerHud", Layer = 1 };
+		AddChild(layer);
+		var back = UiSkin.MakePanel(new Rect2(new Vector2(14f, 14f), new Vector2(150f, 34f)));
+		back.Name = "HpBack";
+		layer.AddChild(back);
+		_hpLabel = UiSkin.MakeLabel(HpHudText(Player!.Hp), 16, UiSkin.Text);
+		_hpLabel.Position = new Vector2(24f, 20f);
+		layer.AddChild(_hpLabel);
+	}
+
+	private static string HpHudText(int hp)
+	{
+		hp = Mathf.Clamp(hp, 0, GameDefs.MasterMaxHp);
+		return "生命 " + new string('♥', hp) + new string('♡', GameDefs.MasterMaxHp - hp);
+	}
+
+	private void OnHealthChanged(int newHp) => _hpLabel.Text = HpHudText(newHp);
+
+	/// <summary>
+	/// 玩家死亡：先置 PlayerDiedSeen（冒烟断言锚点），定格 DeathRestartDelay 秒让玩家看清自己倒了，
+	/// 再切回开始页。定时器回调加存活防护——避免极端时序下打到已释放节点（同 SpawnDust 教训）。
+	/// </summary>
+	private void OnPlayerDied()
+	{
+		PlayerDiedSeen = true;
+		GD.Print("[GAME] 玩家倒下 → 即将回开始页");
+		var tree = GetTree();
+		tree.CreateTimer(GameDefs.DeathRestartDelay).Timeout += () =>
+		{
+			if (IsInstanceValid(this)) tree.ChangeSceneToFile(StartScenePath);
+		};
 	}
 
 }

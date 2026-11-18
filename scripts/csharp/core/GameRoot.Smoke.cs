@@ -288,6 +288,7 @@ public partial class GameRoot
 		{
 			["platforms_built"] = PlatformCount > 0,
 			["ground_continuous"] = GroundContinuous,
+			["monster_field_ready"] = _monsterField.PoolSize == GameDefs.MonsterPoolSize && _monsterField.Active.Count == 0,
 			["player_grounded"] = PlayerGrounded,
 			["player_moved"] = Mathf.Abs(_smokeMovedPos.X - _smokeStartPos.X) > 2.0f,
 			["player_jumped"] = _smokeMinY < _smokeStartPos.Y - 0.5f,
@@ -375,6 +376,7 @@ public partial class GameRoot
 			["mode"] = "headless-smoke",
 			["result"] = ok ? "PASS" : "FAIL",
 			["platforms"] = PlatformCount,
+		["monsters_active"] = _monsterField.Active.Count,
 			["ground_continuous"] = GroundContinuous,
 			["vertical_clear"] = $"{VerticalClearCount}/{VerticalClearTotal}",
 			["vertical_clear_ratio"] = Math.Round(VerticalClearRatio, 4),

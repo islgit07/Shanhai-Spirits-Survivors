@@ -27,3 +27,11 @@ offset_right = 196.0
 offset_bottom = 100.0
 focus_mode = 2
 text = "调试：模拟升级"
+[node name="MonsterButton" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 108.0
+offset_right = 196.0
+offset_bottom = 152.0
+focus_mode = 2
+text = "调试：刷一只怪"

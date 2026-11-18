@@ -235,6 +235,25 @@ public static class GameDefs
     //       运行时因物理帧 delta 抖动实测约 0.37~0.38 格，故上限留到 0.45（仍 < 1 格 = 连一格都上不去）。
     public const float SlimeHopApexMax = 0.45f;          // 粘液上允许的最大离地高度（冒烟 / 探针断言上限）
 
+    // ---------------------------------------------------------------- 怪物系统（MONSTER-001 v0.0007）
+    // 幸存者玩法第一个敌人：地面追击怪（enemy_shambler.png）。纯躲避——怪没有血量，
+    // 碰到玩家就造成接触伤害（无敌帧由 Master 消化），玩家靠跑跳甩开；波次节奏留给 v0.0008。
+    // 怪物复用 PlatformMover 内核：加入 EnemyGroup 后自动吃粘液减速与弹跳块弹射（设计预留）。
+    public static readonly Vector2 MonsterSize = new(0.6f, 0.9f);  // 碰撞胶囊 0.3 半径 × 0.9 高
+    public const int MasterMaxHp = 5;              // 玩家血量（接触一次扣 1，归零死亡回开始页）
+    public const float MasterInvulnTime = 1.0f;    // 受击无敌窗口（秒）：窗口内不再扣血
+    public const int MonsterContactDamage = 1;     // 接触伤害（每次有效接触扣的血量）
+    public const float MonsterMoveSpeed = 3.0f;    // 追击顶速（玩家 8.0：追不上但持续施压）
+    public const float MonsterJumpSpeed = 14.0f;   // 追层跳初速（约 2 行高：玩家满跳 3.4，可垂直甩开）
+    public const float MonsterStuckTime = 0.3f;    // 想走却走不动多久后自救跳
+    public const float MonsterStuckJumpCooldown = 0.8f;  // 自救跳 / 追层跳共用的最小间隔
+    public const float MonsterChaseUpThreshold = 1.0f;   // 玩家高于自身超过此值（格）且水平近 → 起跳追层
+    public const float MonsterSpawnMinDist = 4.0f; // 调试刷怪：与玩家的最小水平距离（格）
+    public const float MonsterSpawnMaxDist = 8.0f; // 调试刷怪：与玩家的最大水平距离（格）
+    public const int MonsterPoolSize = 12;         // 对象池预实例化数量（启动期生成，游玩中零 Instantiate）
+    public const int MonsterMaxActive = 8;         // 场上激活上限（达到后拒绝生成，波次系统沿用）
+    public const float DeathRestartDelay = 0.8f;   // 玩家死亡定格时长（秒），之后切回开始页
+
     // ---------------------------------------------------------------- 相机 / 背景
     public const float CameraViewHalfHeight = 6.5f;
     public const float CameraSmooth = 6.0f;

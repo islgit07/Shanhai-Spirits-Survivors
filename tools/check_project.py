@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""山海幻灵 v0.0006 工程静态自检（离线，不启动 Godot）
+"""山海幻灵 v0.0007 工程静态自检（离线，不启动 Godot）
 
 检查：工程配置 / 零 autoload / C# 工具链 / 脚本与 UID 配对 /
 保留项完整（移动手感常量、GND-001 地板硬约束、白箱、冒烟）/
@@ -14,10 +14,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-VERSION = "0.0006"
+VERSION = "0.0007"
 # BlockField / GameRoot 已按职责拆成 partial 文件（P1 重构）。断言按「清单内全部文件拼接」检查，
 # 且校验清单与磁盘一致——新增 partial 必须同步清单，否则自检直接红（防止拆分文件绕过回归网）。
-EXPECTED_CS = 39
+EXPECTED_CS = 41
 BLOCKFIELD_PARTS = ["gameplay/BlockField.cs", "gameplay/BlockField.Generation.cs",
                     "gameplay/BlockField.Query.cs", "gameplay/BlockField.Reachability.cs",
                     "gameplay/BlockField.Touch.cs"]
@@ -236,8 +236,9 @@ check("地形系统：两个调用方走 IMapGenerator.Generate 且从卡片加�
 check("地形系统：网格维度/坐标基准不接 config（仍在字段初始化用 GameDefs）",
       "new BlockType[GameDefs.BlockRows, GameDefs.BlockCols]" in field
       and "-GameDefs.WorldHalfWidth" in field)
-check("主角只有移动跳跃（Master 无 TakeDamage）",
-      "TakeDamage" not in cs("gameplay/Master.cs"))
+check("主角生命与接触伤害已接入（MONSTER-001：血量/无敌/死亡信号，旧「无 TakeDamage」约束随玩法解除）",
+      "TakeDamage" in cs("gameplay/Master.cs")
+      and "MasterMaxHp" in defs and "MasterInvulnTime" in defs)
 
 # ---------------------------------------------------------------- 5. 保留项：地图生成
 check("GND-001 地面层全覆盖硬约束", "BlockType.Normal, false" in field
@@ -453,6 +454,55 @@ check("BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 
       and "Grounded = body.IsOnFloor() && !launched" in _mover_cs
       and all("MoverDriver.StepBody(this, _mover, delta, BounceRequested)" in p
               for p in (cs("gameplay/Master.cs"), cs("tools/WhiteboxPlayer.cs"))))
+
+# ---------------------------------------------------------------- 10. MONSTER-001 怪物系统（v0.0007）
+monster_cs = cs("gameplay/Monster.cs")
+mfield_cs = cs("gameplay/MonsterField.cs")
+monster_tscn = read(ROOT / "scenes" / "monsters" / "monster_shambler.tscn")
+check("怪物系统：GameDefs 常量段齐全（血量/无敌/追速/跳速/接触伤害/池容量/上限/死亡定格）",
+      all(k in defs for k in ("MasterMaxHp", "MasterInvulnTime", "MonsterContactDamage",
+                              "MonsterMoveSpeed", "MonsterJumpSpeed", "MonsterStuckTime",
+                              "MonsterStuckJumpCooldown", "MonsterChaseUpThreshold",
+                              "MonsterSpawnMinDist", "MonsterSpawnMaxDist", "MonsterPoolSize",
+                              "MonsterMaxActive", "MonsterSize", "DeathRestartDelay"))
+      and "MasterMaxHp = 5" in defs and "MonsterPoolSize = 12" in defs)
+check("怪物系统：地面追击怪场景（CharacterBody2D + 胶囊 + shambler 贴图 + Touch 感应区 mask=LayerActor）",
+      (ROOT / "scenes" / "monsters" / "monster_shambler.tscn").exists()
+      and "Monster.cs" in monster_tscn and "enemy_shambler.png" in monster_tscn
+      and 'name="Touch" type="Area2D"' in monster_tscn and "collision_mask = 4" in monster_tscn
+      and "CapsuleShape2D" in monster_tscn)
+check("怪物系统：感应圈半径大于双方胶囊半径和（0.4+0.3=0.7，否则物理阻挡先于感应永不触发）",
+      "radius = 0.8" in monster_tscn)
+check("怪物系统：怪物实现 IBounceable + 加入 EnemyGroup + 复用移动内核（粘液/弹跳/转角自动生效）",
+      "IBounceable" in monster_cs and "AddToGroup(GameDefs.EnemyGroup)" in monster_cs
+      and "PlatformMover" in monster_cs and "ApplyExternalLaunch" in monster_cs)
+check("怪物系统：接触伤害走 Area2D 信号维护布尔（逐帧零重叠查询）",
+      "BodyEntered" in monster_cs and "BodyExited" in monster_cs
+      and "_touchingPlayer" in monster_cs and "GetOverlappingBodies" not in monster_cs)
+check("怪物系统：MonsterField 对象池（预实例化 + 上限拒绝 + 回收屏外 + 开局清空）",
+      "MonsterPoolSize" in mfield_cs and "MonsterMaxActive" in mfield_cs
+      and "-10000" in mfield_cs and "ReleaseAll" in mfield_cs and "PushWarning" in mfield_cs)
+check("怪物系统：Main.tscn 挂 MonsterField + HUD 调试刷怪按钮",
+      "MonsterField.cs" in read(ROOT / "scenes" / "Main.tscn")
+      and 'name="MonsterField"' in read(ROOT / "scenes" / "Main.tscn")
+      and "调试：刷一只怪" in read(ROOT / "scenes" / "ui" / "CompanionHud.tscn")
+      and "SpawnNearPlayer" in cs("ui/CompanionHud.cs"))
+check("怪物系统：死亡回开始页（Died 信号 + 定格延迟 + 存活防护 + 冒烟锚点）",
+      "Died" in root_cs and "PlayerDiedSeen" in root_cs
+      and "StartPage.tscn" in root_cs and "DeathRestartDelay" in root_cs
+      and "IsInstanceValid" in root_cs)
+check("怪物系统：HP HUD（♥/♡ 文本 + HealthChanged 重绘）",
+      "BuildHpHud" in root_cs and "HealthChanged" in root_cs and "生命" in root_cs)
+check("怪物系统：--monster-smoke 独立冒烟（池/生成/落地/追踪/复用/接触/无敌/上限/回收/死亡/接口）",
+      "MONSTER_SMOKE_JSON_BEGIN" in mfield_cs
+      and all(k in mfield_cs for k in ("monster_pool_ok", "monster_spawn_ok", "monster_landed_ok",
+                                       "monster_chase_ok", "monster_pool_reuse_ok",
+                                       "monster_contact_damage_ok", "monster_invuln_ok",
+                                       "monster_cap_ok", "monster_fall_recycle_ok",
+                                       "monster_death_ok", "monster_bounce_capable_ok")))
+check("怪物系统：等帧协程收口 SmokeFlags.WaitPhysicsFrames（follow / monster 冒烟共用）",
+      "WaitPhysicsFrames" in cs("core/SmokeFlags.cs") and "WaitPhysicsFrames" in mfield_cs)
+check("怪物系统：主冒烟新增怪物池就绪断言", "monster_field_ready" in root_cs)
 
 check("Build 可重复调用时清空净空标记 _reserved", "Array.Clear(_reserved)" in field)
 check("世界根保留相机跟随", "Lerp" in root_cs)

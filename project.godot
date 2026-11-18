@@ -12,7 +12,7 @@ config_version=5
 
 config/name="山海幻灵"
 config/description="山海谷的幻灵师"
-config/version="0.0006"
+config/version="0.0007"
 run/main_scene="res://scenes/StartPage.tscn"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 

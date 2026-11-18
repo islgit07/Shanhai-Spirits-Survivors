@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Godot;
 
 namespace ShanhaiSpiritsSurvivors;
@@ -27,4 +28,11 @@ public static class SmokeFlags
     public static bool Has(string flag) =>
         Array.IndexOf(OS.GetCmdlineArgs(), flag) >= 0
         || Array.IndexOf(OS.GetCmdlineUserArgs(), flag) >= 0;
+
+    /// <summary>无头冒烟等 N 个物理帧（跟随 / 怪物冒烟共用；原 SpiritFollowGroup 私有实现收口）。</summary>
+    public static async Task WaitPhysicsFrames(Node caller, int count)
+    {
+        for (int i = 0; i < count; i++)
+            await caller.ToSignal(caller.GetTree(), SceneTree.SignalName.PhysicsFrame);
+    }
 }

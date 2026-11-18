@@ -291,11 +291,7 @@ public partial class SpiritFollowGroup : Node2D
         GetTree().Quit(ok ? 0 : 1);
     }
 
-    private async System.Threading.Tasks.Task Frames(int count)
-    {
-        for (int i = 0; i < count; i++)
-            await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
-    }
+    private System.Threading.Tasks.Task Frames(int count) => SmokeFlags.WaitPhysicsFrames(this, count);
 
     /// <summary>
     /// 随从两两之间是否互相重叠。按胶囊真实形状算中心距（不是 AABB）：

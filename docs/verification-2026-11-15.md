@@ -1409,3 +1409,37 @@ release 导出要跑 `dotnet publish` 自包含发布（约数分钟），别用
 ### 30.5 发布
 
 提交后打附注 tag `v0.0006`（说明「优化代码，改写为 net9」），代码与 tag 一并推送远程。
+
+## 31. 版本升 `0.0007` + 怪物系统 MONSTER-001（2026-11-19）
+
+### 31.1 内容
+
+- **怪物对象池**：`MonsterField` 预实例化 12 只地面追击怪（enemy_shambler.png），激活全量重置、
+  回收隐藏屏外，游玩中零 Instantiate / QueueFree；场上上限 8，达到即 PushWarning 拒绝。
+- **追击 AI**：复用 `PlatformMover`（粘液减速 / 弹跳块弹射 / 转角修正与主角同口径，EnemyGroup 设计预留）；
+  卡住自救跳 + 玩家高于 1 格时追层跳（跳高约 2 行，玩家满跳 3.4 行可垂直甩开）。
+- **接触伤害**：`Touch` 感应区（Area2D mask=LayerActor）entered/exited 维护布尔，逐帧零重叠查询；
+  感应圈半径 0.8 必须大于双方胶囊半径和 0.7（物理阻挡先于感应）——开发中实测踩过这个坑。
+- **玩家生命**：Master.Hp=5 + TakeDamage 唯一入口 + 无敌窗口 1.0s + 受击半透明反馈；
+  归零发 Died → GameRoot 定格 0.8 秒回开始页（定时器回调带 IsInstanceValid 防护）。
+- **HP HUD**：左上角 ♥/♡ 文本，HealthChanged 信号重绘；HUD 调试按钮「刷一只怪」接入 MonsterField。
+
+### 31.2 自检新增（180 → 197 条）
+
+怪物系统 12 条：GameDefs 常量段 / 怪物场景（贴图+碰撞+感应区）/ 感应圈半径口径 /
+IBounceable+EnemyGroup+内核复用 / Area2D 信号零查询 / 对象池三要素 / Main 挂载+调试按钮 /
+死亡回开始页接线 / HP HUD / --monster-smoke 十一条断言锚点 / WaitPhysicsFrames 收口 / 主冒烟池就绪；
+另「Master 无 TakeDamage」旧约束反转为正向断言（玩法按用户指示接入接触伤害）。
+
+### 31.3 验证
+
+编译 **0 警告 0 错误**；编辑器导入 **0 ERROR**；自检 **197/197 PASS**；
+**`--monster-smoke` 11/11 断言 PASS**（池/生成/落地/追踪/池复用/接触扣血/无敌帧/上限/坠落回收/死亡回开始页/接口口径）；
+既有 5 条冒烟（--smoke / --follow-smoke / --pause-smoke / --offer-smoke / 整链 --smoke）全部 **PASS**，
+断言集与 0.0006 基线逐条 diff 一致；同种子建图输出逐字一致；
+主冒烟输出 `"version": "0.0007"`、新增 `monster_field_ready` 断言。
+
+### 31.4 发布
+
+提交后打附注 tag `v0.0007`（说明「加入怪物系统：地面追击怪 + 玩家血量」）；
+代码与 tag 按惯例等用户确认后推送远程。

@@ -4,9 +4,11 @@ using Godot;
 namespace ShanhaiSpiritsSurvivors;
 
 /// <summary>
-/// @trace JUMP-001 山海谷幻灵师（v0.0001：只有移动与跳跃，无战斗、无受伤）。
+/// @trace JUMP-001 山海谷幻灵师（v0.0001：只有移动与跳跃）。
 /// A/D + Space 真实重力 + S/↓ 下穿单向平台；第一层全覆盖硬约束保持不变。
 /// 移动内核与白箱共用 PlatformMover：白箱里调出的手感 = 游戏里的手感。
+/// @trace MONSTER-001 v0.0007 接入生命与接触伤害：怪物碰到扣血（无敌窗口内忽略），
+/// 血量归零即死亡定格，由 GameRoot 延迟切回开始页；伤害数值统一在 GameDefs。
 /// </summary>
 public partial class Master : CharacterBody2D, IBounceable
 {
@@ -55,11 +57,60 @@ public partial class Master : CharacterBody2D, IBounceable
 
 	public void Bounce() => BounceRequested = true;
 
+	// ---------------------------------------------------------------- 生命与接触伤害（MONSTER-001）
+	/// <summary>当前血量（怪物接触扣减，归零即死亡；HUD 经 HealthChanged 重绘）。</summary>
+	public int Hp { get; private set; } = GameDefs.MasterMaxHp;
+
+	/// <summary>是否已死亡（死亡定格，停止输入与移动；GameRoot 延迟切回开始页）。</summary>
+	public bool Dead { get; private set; }
+
+	private float _invulnTimer;   // 受击无敌窗口倒计时：期间接触不再扣血
+
+	/// <summary>血量归零（HUD / GameRoot 监听：死亡定格 + 切场景）。</summary>
+	[Signal] public delegate void DiedEventHandler();
+
+	/// <summary>血量变化（HUD 监听重绘；参数 = 新血量）。</summary>
+	[Signal] public delegate void HealthChangedEventHandler(int newHp);
+
+	/// <summary>
+	/// 接触伤害唯一入口（MonsterField 场上的怪物每物理帧调用一次）。
+	/// 无敌窗口 / 已死亡 / 非正数伤害直接忽略——扣血节奏完全由 Master 自己掌握，怪物侧无计时器。
+	/// </summary>
+	public void TakeDamage(int amount)
+	{
+		if (Dead || _invulnTimer > 0f || amount <= 0) return;
+		Hp -= amount;
+		if (Hp <= 0)
+		{
+			Hp = 0;
+			Dead = true;
+			EmitSignal(SignalName.HealthChanged, Hp);
+			EmitSignal(SignalName.Died);
+			return;
+		}
+		_invulnTimer = GameDefs.MasterInvulnTime;
+		EmitSignal(SignalName.HealthChanged, Hp);
+	}
+
+	/// <summary>冒烟专用：直接设定血量（不触发死亡判定），核对 HUD 与伤害节奏用。</summary>
+	public void SetHpForSmoke(int hp)
+	{
+		Hp = Mathf.Max(1, hp);
+		EmitSignal(SignalName.HealthChanged, Hp);
+	}
+
 	public override void _PhysicsProcess(double delta)
 	{
+		if (Dead) return;   // 死亡定格：停止输入与移动，GameRoot 延迟切回开始页
+
 		// 输入读取 / 内核推进 / 弹跳后发制人与白箱共用 MoverDriver（白箱手感 == 游戏手感）
 		MoverDriver.StepBody(this, _mover, delta, BounceRequested);
 		BounceRequested = false;   // 弹跳请求已由驱动层消费（Step 之后应用，避免被贴地清零）
+
+		// 受击无敌帧倒计时 + 半透明闪烁反馈（纯视觉，结束恢复原样）
+		_invulnTimer = Mathf.Max(0f, _invulnTimer - (float)delta);
+		if (_sprite != null)
+			_sprite.Modulate = new Color(1f, 1f, 1f, _invulnTimer > 0f ? 0.45f : 1f);
 
 		// 表现层反馈：落地挤压 / 起跳拉伸 + 脚下灰尘（纯视觉，不碰物理）
 		bool groundedNow = IsOnFloor();

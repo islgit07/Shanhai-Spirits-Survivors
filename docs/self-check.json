@@ -1,6 +1,6 @@
 {
   "project": "山海幻灵",
-  "version": "0.0006",
+  "version": "0.0007",
   "result": "PASS",
   "checks": [
     {
@@ -64,7 +64,7 @@
       "detail": ""
     },
     {
-      "name": "config/version = 0.0006",
+      "name": "config/version = 0.0007",
       "ok": true,
       "detail": ""
     },
@@ -74,7 +74,7 @@
       "detail": ""
     },
     {
-      "name": "overview 现行版本与脚本一致（现行 0.0006）",
+      "name": "overview 现行版本与脚本一致（现行 0.0007）",
       "ok": true,
       "detail": ""
     },
@@ -134,9 +134,9 @@
       "detail": ""
     },
     {
-      "name": "C# 脚本数量 = 39",
+      "name": "C# 脚本数量 = 41",
       "ok": true,
-      "detail": "39 个"
+      "detail": "41 个"
     },
     {
       "name": "零 GDScript",
@@ -304,7 +304,7 @@
       "detail": ""
     },
     {
-      "name": "主角只有移动跳跃（Master 无 TakeDamage）",
+      "name": "主角生命与接触伤害已接入（MONSTER-001：血量/无敌/死亡信号，旧「无 TakeDamage」约束随玩法解除）",
       "ok": true,
       "detail": ""
     },
@@ -530,6 +530,66 @@
     },
     {
       "name": "BOUNCE-JELLY 弹射不再被贴地清零：内核一次性空中标记 + 两个玩家统一走内核",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：GameDefs 常量段齐全（血量/无敌/追速/跳速/接触伤害/池容量/上限/死亡定格）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：地面追击怪场景（CharacterBody2D + 胶囊 + shambler 贴图 + Touch 感应区 mask=LayerActor）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：感应圈半径大于双方胶囊半径和（0.4+0.3=0.7，否则物理阻挡先于感应永不触发）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：怪物实现 IBounceable + 加入 EnemyGroup + 复用移动内核（粘液/弹跳/转角自动生效）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：接触伤害走 Area2D 信号维护布尔（逐帧零重叠查询）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：MonsterField 对象池（预实例化 + 上限拒绝 + 回收屏外 + 开局清空）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：Main.tscn 挂 MonsterField + HUD 调试刷怪按钮",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：死亡回开始页（Died 信号 + 定格延迟 + 存活防护 + 冒烟锚点）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：HP HUD（♥/♡ 文本 + HealthChanged 重绘）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：--monster-smoke 独立冒烟（池/生成/落地/追踪/复用/接触/无敌/上限/回收/死亡/接口）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：等帧协程收口 SmokeFlags.WaitPhysicsFrames（follow / monster 冒烟共用）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "怪物系统：主冒烟新增怪物池就绪断言",
       "ok": true,
       "detail": ""
     },
