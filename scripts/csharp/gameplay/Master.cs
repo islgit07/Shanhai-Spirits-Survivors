@@ -112,11 +112,19 @@ public partial class Master : CharacterBody2D, IBounceable
 				p.Color = new Color(p.Color.R, p.Color.G, p.Color.B, p.Color.A * strength);
 				p.Amount = Mathf.Max(1, (int)(p.Amount * strength));
 				p.Emitting = true;
-				GetTree().CreateTimer(p.Lifetime + 0.1).Timeout += p.QueueFree;
+				// 闹钟归 SceneTree 所有：若延迟期间切了场景，dust 已随场景树释放，
+				// 直接调 QueueFree 会打到已释放节点（刷怪时代高频特效会放大成高频报错）。
+				GetTree().CreateTimer(p.Lifetime + 0.1).Timeout += () =>
+				{
+					if (IsInstanceValid(p)) p.QueueFree();
+				};
 			}
 			else
 			{
-				GetTree().CreateTimer(0.3).Timeout += dust.QueueFree;
+				GetTree().CreateTimer(0.3).Timeout += () =>
+				{
+					if (IsInstanceValid(dust)) dust.QueueFree();
+				};
 			}
 			return;
 		}
