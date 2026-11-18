@@ -187,7 +187,7 @@ public partial class BlockField
         {
             int sr = r - dr;
             if (sr < 0) break;
-            int reach = dr switch { 1 => 4, 2 => 3, _ => 2 };
+            int reach = JumpReach(dr);
             for (int dc = -reach; dc <= reach; dc++)
             {
                 int sc = c + dc;

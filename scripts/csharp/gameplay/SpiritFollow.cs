@@ -425,7 +425,7 @@ public partial class SpiritFollow : Node
         SeparateFromPets();
 
         // ---- 世界边界（与主角同口径）
-        float edge = GameDefs.WorldHalfWidth - GameDefs.SpiritBodyWidth * 0.5f;
+        float edge = GameDefs.WorldEdge(GameDefs.SpiritBodyWidth);
         _pet.GlobalPosition = new Vector2(
             Mathf.Clamp(_pet.GlobalPosition.X, -edge, edge), _pet.GlobalPosition.Y);
 

@@ -133,6 +133,9 @@ public partial class BlockField
         ComputeTrueReachability();
     }
 
+    /// <summary>跳跃包络的水平半径：dr 1~3 行高差对应水平 4/3/2 列（生成可达与 BFS 共用同一份口径）。</summary>
+    private static int JumpReach(int dr) => dr switch { 1 => 4, 2 => 3, _ => 2 };
+
     private bool CanStandOn(int r, int c)
     {
         if (r < 0 || r >= GameDefs.BlockRows || c < 0 || c >= GameDefs.BlockCols) return false;
@@ -164,7 +167,7 @@ public partial class BlockField
             {
                 int nr = r + dr;
                 if (nr >= GameDefs.BlockRows) break;
-                int reach = dr switch { 1 => 4, 2 => 3, _ => 2 };
+                int reach = JumpReach(dr);
                 for (int dc = -reach; dc <= reach; dc++)
                 {
                     int nc = c + dc;

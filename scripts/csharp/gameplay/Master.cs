@@ -80,7 +80,7 @@ public partial class Master : CharacterBody2D, IBounceable
 		_wasGrounded = groundedNow;
 
 		// @trace GND-001 水平活动域锁在第一层全覆盖地板之内
-		float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
+		float edge = GameDefs.WorldEdge(GameDefs.MasterSize.X);
 		GlobalPosition = new Vector2(Mathf.Clamp(GlobalPosition.X, -edge, edge), GlobalPosition.Y);
 		// @trace AXIS-001 y-down：坠落是 y 增大
 		if (GlobalPosition.Y > GameDefs.FallKillY)

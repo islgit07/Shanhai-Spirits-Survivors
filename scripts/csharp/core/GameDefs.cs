@@ -20,6 +20,9 @@ public static class GameDefs
     public const float SpawnAboveGround = 1.0f;
     public const float FallKillY = 8.0f;
 
+    /// <summary>角色水平活动域的边界半宽（GND-001：锁在第一层全覆盖地板内）。主角与随从共用。</summary>
+    public static float WorldEdge(float bodyWidth) => WorldHalfWidth - bodyWidth * 0.5f;
+
     public static float LayerY(int layer) =>
         GroundY - Mathf.Clamp(layer, 0, LayerCount - 1) * LayerSpacing;
 

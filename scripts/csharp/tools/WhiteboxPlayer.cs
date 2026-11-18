@@ -111,7 +111,7 @@ public partial class WhiteboxPlayer : CharacterBody2D, IBounceable
     public override void _Process(double delta)
     {
         // @trace GND-001 世界边界：与游戏主角一致，锁在方块地图之内
-        float edge = GameDefs.WorldHalfWidth - GameDefs.MasterSize.X * 0.5f;
+        float edge = GameDefs.WorldEdge(GameDefs.MasterSize.X);
         GlobalPosition = new Vector2(Mathf.Clamp(GlobalPosition.X, -edge, edge), GlobalPosition.Y);
     }
 }
